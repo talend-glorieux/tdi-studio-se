@@ -289,6 +289,7 @@ public class ComponentsUtils {
         case STRING:
             if (!(element instanceof FakeElement || ContextParameterUtils.isContainContextParam((String) paramValue))) {
                 paramValue = TalendQuoteUtils.addQuotesIfNotExist((String) paramValue);
+                property.setValue(paramValue);
             }
             break;
         case ENUM:
