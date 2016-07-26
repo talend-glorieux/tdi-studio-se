@@ -71,7 +71,7 @@ if(advProps.size() > 0){
 	<%
 	if(enableSubscription){
 	%>
-	((javax.jms.TopicConnection)connection_<%=cid%>).setClientID(<%=clientID%>);
+	connection_<%=cid%>.setClientID(<%=clientID%>);
 	<%
 	}
 	%>
@@ -82,7 +82,7 @@ if(advProps.size() > 0){
 	<%
 	if(enableSubscription){
 	%>
-	javax.jms.MessageConsumer consumer_<%=cid%> = ((javax.jms.TopicSession) session_<%=cid%>).createDurableSubscriber((javax.jms.Topic)dest_<%=cid%>,<%=subscriberName%>,<%=messageSelector%>,false);
+	javax.jms.MessageConsumer consumer_<%=cid%> = session_<%=cid%>.createDurableSubscriber((javax.jms.Topic)dest_<%=cid%>,<%=subscriberName%>,<%=messageSelector%>,false);
 	<%
 	} else {
 	%>
