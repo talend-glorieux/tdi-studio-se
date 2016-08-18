@@ -82,9 +82,8 @@ public class MavenJavaProcessor extends JavaProcessor {
             if (property != null) {
                 Set<JobInfo> infos = ProcessorUtilities.getChildrenJobInfo((ProcessItem) property.getItem());
                 for (JobInfo jobInfo : infos) {
-                    if (jobInfo.isTestContainer()
-                            && !ProcessUtils.isOptionChecked(getArguments(), TalendProcessArgumentConstant.ARG_GENERATE_OPTION,
-                                    TalendProcessOptionConstants.GENERATE_TESTS)) {
+                    if (jobInfo.isTestContainer() && !ProcessUtils.isOptionChecked(getArguments(),
+                            TalendProcessArgumentConstant.ARG_GENERATE_OPTION, TalendProcessOptionConstants.GENERATE_TESTS)) {
                         continue;
                     }
                     buildChildrenJobs.add(jobInfo);
@@ -302,7 +301,9 @@ public class MavenJavaProcessor extends JavaProcessor {
     public void build(IProgressMonitor monitor) throws Exception {
         final ITalendProcessJavaProject talendJavaProject = getTalendJavaProject();
         // compile with JDT first in order to make the maven packaging work with a JRE.
-        talendJavaProject.buildModules(monitor, null, null);
+        if (TalendMavenConstants.GOAL_PACKAGE.equals(getGoals())) {
+            talendJavaProject.buildModules(monitor, null, null);
+        }
 
         final Map<String, Object> argumentsMap = new HashMap<>();
         argumentsMap.put(TalendProcessArgumentConstant.ARG_GOAL, getGoals());
