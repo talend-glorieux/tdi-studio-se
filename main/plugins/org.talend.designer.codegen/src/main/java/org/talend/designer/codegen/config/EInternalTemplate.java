@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -36,6 +36,8 @@ public enum EInternalTemplate {
     ITERATE_SUBPROCESS_HEADER("iterate_subprocess_header", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
     ITERATE_SUBPROCESS_FOOTER("iterate_subprocess_footer", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
     DEFAULT_TEMPLATE("default_template", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
+    HANDLE_REJECTS_START("handle_rejects_start", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
+    HANDLE_REJECTS_END("handle_rejects_end", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
 
     MR_HEADER("mr_header", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
     MR_FOOTER("mr_footer", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
@@ -60,6 +62,7 @@ public enum EInternalTemplate {
     HEADER_ROUTE("header_route", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
     CAMEL_RUNIF("camel_run_if", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
     CAMEL_SPECIALLINKS("camel_speciallinks", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
+    MICROSERVICE_APP("microservice_app", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
 
     HEADER_ADDITIONAL("header_additional", "0.0.1"), //$NON-NLS-1$ //$NON-NLS-2$
 

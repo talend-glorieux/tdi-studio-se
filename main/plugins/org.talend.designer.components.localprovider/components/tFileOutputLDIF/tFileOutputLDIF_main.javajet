@@ -33,9 +33,29 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 
         List<Map<String, String>> multiValueColumns = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__MULTIVALUECOLUMNS__");
         List<Map<String, String>> modifyColumns = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node, "__MODIFYCONFIG__");
+        
+        class LDIFUtil{
+        	public String getAttributeType(IMetadataTable metadata, String columnName,boolean isBinary){
+            	List<IMetadataColumn> columns_sub = metadata.getListColumns();
+                for (int j = 0; j < columns_sub.size(); j++) {
+                    IMetadataColumn column_sub = columns_sub.get(j);
+                    JavaType javaType_sub = JavaTypesManager.getJavaTypeFromId(column_sub.getTalendType());
+                    if(column_sub.getLabel().equals(columnName)){
+                    	if(javaType_sub == JavaTypesManager.BYTE_ARRAY && isBinary){
+                    		return columnName+";binary";
+                    	}else{
+                    		return columnName;
+                    	}
+                    }
+                }
+                throw new IllegalArgumentException("Specified column name \""+columnName+"\" not exist in metadata!");
+        	}
+        }
+        LDIFUtil ldifUtil = new LDIFUtil();
 %>
 		//////////////////////////
 		boolean encodingBase64_<%=cid%> = false;
+		boolean encodedBase64_<%=cid%> = false;
 <%
     	List<? extends IConnection> conns = node.getIncomingConnections();
     	for (IConnection conn : conns) {
@@ -56,6 +76,7 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 					boolean isPrimitive = JavaTypesManager.isJavaPrimitiveType( javaType, column.isNullable());
 %>
             		encodingBase64_<%=cid%> = false;
+            		encodedBase64_<%=cid%> = false;
             		String value_<%=column.getLabel() %>_<%=cid %> = "";
             		<%//For bug TDI-26863
             		String modify_operation = null;
@@ -98,6 +119,7 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 					} else if(javaType == JavaTypesManager.BYTE_ARRAY) {
 %>
 		org.apache.commons.codec.binary.Base64.encodeBase64String(<%=conn.getName() %>.<%=column.getLabel() %>);
+		encodedBase64_<%=cid%> = true;
 <%
 					} else {
 %>
@@ -179,7 +201,7 @@ Please check "isBase64" for column <%=columnName%> when "isBianry" is checked.
 %>
 
 <%if(!"none".equals(operation)){%>
-	util_<%=cid %>.breakString(sb_<%=cid %>, "<%=operation %>: " + "<%=column.getLabel() %>", wrap_<%=cid %>);
+	util_<%=cid %>.breakString(sb_<%=cid %>, "<%=operation %>: " + "<%=ldifUtil.getAttributeType(metadata,column.getLabel(),isBinary).replaceAll(":","") %>", wrap_<%=cid %>);
 	<%if(isMultiValue){%>
 		String[] values_<%=column.getLabel() %>_<%=cid %> = value_<%=column.getLabel() %>_<%=cid %>.split(<%=separator %>);
 		for(String item_<%=cid %> : values_<%=column.getLabel() %>_<%=cid %>){
@@ -207,23 +229,8 @@ Please check "isBase64" for column <%=columnName%> when "isBianry" is checked.
 				<%
 			}
 			%>
-				item_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,item_<%=cid %>,<%=encoding%>);
-<%
-			List<IMetadataColumn> columns_sub = metadata.getListColumns();
-            for (int j = 0; j < columns_sub.size(); j++) {
-                IMetadataColumn column_sub = columns_sub.get(j);
-                JavaType javaType_sub = JavaTypesManager.getJavaTypeFromId(column_sub.getTalendType());
-                if(javaType_sub == JavaTypesManager.BYTE_ARRAY && column_sub.getLabel().equals(column.getLabel())){
-%>
-				       util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %><%if(isBinary){%>;binary:<%}%>" + item_<%=cid %>, wrap_<%=cid %>);
-<%
-                }else if(column_sub.getLabel().equals(column.getLabel())){
-                    %>
-                       util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %>" + item_<%=cid %>, wrap_<%=cid %>);
-                    <%
-                }
-            }
-%>
+				item_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,encodedBase64_<%=cid%>,item_<%=cid %>,<%=encoding%>);
+				util_<%=cid %>.breakString(sb_<%=cid %>, "<%=ldifUtil.getAttributeType(metadata,column.getLabel(),isBinary) %>" + item_<%=cid %>, wrap_<%=cid %>);
 		}
 <%
 	}else{
@@ -249,22 +256,9 @@ Please check "isBase64" for column <%=columnName%> when "isBianry" is checked.
 			<%
 		}
 		%>
-			value_<%=column.getLabel() %>_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,value_<%=column.getLabel() %>_<%=cid %>,<%=encoding%>);
+			value_<%=column.getLabel() %>_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,encodedBase64_<%=cid%>,value_<%=column.getLabel() %>_<%=cid %>,<%=encoding%>);
+			util_<%=cid %>.breakString(sb_<%=cid %>, "<%=ldifUtil.getAttributeType(metadata,column.getLabel(),isBinary) %>" + value_<%=column.getLabel() %>_<%=cid %>, wrap_<%=cid %>);
 <%
-			List<IMetadataColumn> columns_sub = metadata.getListColumns();
-            for (int j = 0; j < columns_sub.size(); j++) {
-                IMetadataColumn column_sub = columns_sub.get(j);
-                JavaType javaType_sub = JavaTypesManager.getJavaTypeFromId(column_sub.getTalendType());
-                if(javaType_sub == JavaTypesManager.BYTE_ARRAY && column_sub.getLabel().equals(column.getLabel())){
-%>
-                    util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %><%if(isBinary){%>;binary:<%}%>" + value_<%=column.getLabel() %>_<%=cid %>, wrap_<%=cid %>);
-<%
-                }else if(column_sub.getLabel().equals(column.getLabel())){
-%>
-                    util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %>" + value_<%=column.getLabel() %>_<%=cid %>, wrap_<%=cid %>);
-<%
-                }
-            }
 	}
 %>
 	needSeparator_<%=cid %> = true;
@@ -293,7 +287,7 @@ sb_<%=cid %>.append("-\n");
                     if(isBinary && !isBase64){
 %>
 //////////////////////////////////////////////////
-Please check "isBase64" for column <%=columnName%> when "isBianry" is checked.
+Please check "isBase64" for column <%=columnName%> when "isBinary" is checked.
 //////////////////////////////////////////////////
 <%
                     }
@@ -334,23 +328,8 @@ Please check "isBase64" for column <%=columnName%> when "isBianry" is checked.
 					<%
 				}
 				%>
-	                item_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,item_<%=cid %>,<%=encoding%>);
-<%
-    			List<IMetadataColumn> columns_sub = metadata.getListColumns();
-                for (int j = 0; j < columns_sub.size(); j++) {
-                    IMetadataColumn column_sub = columns_sub.get(j);
-                    JavaType javaType_sub = JavaTypesManager.getJavaTypeFromId(column_sub.getTalendType());
-                    if(javaType_sub == JavaTypesManager.BYTE_ARRAY && column_sub.getLabel().equals(column.getLabel())){
-%>
-						util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %><%if(isBinary){%>;binary:<%}%>" + item_<%=cid %>, wrap_<%=cid %>);
-<%
-                    }else if(column_sub.getLabel().equals(column.getLabel())){
-%>
-                        util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %>" + item_<%=cid %>, wrap_<%=cid %>);
-<%
-                    }
-			     }
-%>
+	                item_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,encodedBase64_<%=cid%>,item_<%=cid %>,<%=encoding%>);
+	                util_<%=cid %>.breakString(sb_<%=cid %>, "<%=ldifUtil.getAttributeType(metadata,column.getLabel(),isBinary) %>" + item_<%=cid %>, wrap_<%=cid %>);
 		}
 <%
 	}else{
@@ -376,22 +355,9 @@ Please check "isBase64" for column <%=columnName%> when "isBianry" is checked.
 				<%
 				}
 			%>
-				value_<%=column.getLabel() %>_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,value_<%=column.getLabel() %>_<%=cid %>,<%=encoding%>);
+				value_<%=column.getLabel() %>_<%=cid %> = util_<%=cid %>.getBase64StringOrNot(encodingBase64_<%=cid%>,encodedBase64_<%=cid%>,value_<%=column.getLabel() %>_<%=cid %>,<%=encoding%>);
+				util_<%=cid %>.breakString(sb_<%=cid %>, "<%=ldifUtil.getAttributeType(metadata,column.getLabel(),isBinary) %>" + value_<%=column.getLabel() %>_<%=cid %>, wrap_<%=cid %>);
 <%
-			List<IMetadataColumn> columns_sub = metadata.getListColumns();
-            for (int j = 0; j < columns_sub.size(); j++) {
-                IMetadataColumn column_sub = columns_sub.get(j);
-                JavaType javaType_sub = JavaTypesManager.getJavaTypeFromId(column_sub.getTalendType());
-                if(javaType_sub == JavaTypesManager.BYTE_ARRAY && column_sub.getLabel().equals(column.getLabel())){
-%>
-                    util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %><%if(isBinary){%>;binary:<%}%>" + value_<%=column.getLabel() %>_<%=cid %>, wrap_<%=cid %>);
-<%
-                }else if(column_sub.getLabel().equals(column.getLabel())){
-%>
-                    util_<%=cid %>.breakString(sb_<%=cid %>, "<%=column.getLabel() %>" + value_<%=column.getLabel() %>_<%=cid %>, wrap_<%=cid %>);
-<%
-                }
-            }
 	}
 %>
 		canOutput_<%=cid %> = true;

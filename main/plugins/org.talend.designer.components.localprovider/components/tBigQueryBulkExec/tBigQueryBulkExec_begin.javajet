@@ -196,7 +196,7 @@
 
 		org.jets3t.service.security.GSCredentials gsCredentials_<%=cid%> = new org.jets3t.service.security.GSCredentials(<%=accessKey%>, decryptedPwd_<%=cid%>);
 		
-		org.jets3t.service.impl.rest.httpclient.GoogleStorageService gsService_<%=cid%> = new org.jets3t.service.impl.rest.httpclient.GoogleStorageService(gsCredentials_<%=cid%>);
+		org.jets3t.service.impl.rest.httpclient.GoogleStorageService gsService_<%=cid%> = new org.jets3t.service.impl.rest.httpclient.GoogleStorageService(gsCredentials_<%=cid%>," (GPN:Talend)",null);
 
 		java.io.File fileData_<%=cid%> = new java.io.File(<%=localFilename%>);
 		org.jets3t.service.model.GSObject fileObject_<%=cid%> = new org.jets3t.service.model.GSObject(fileData_<%=cid%>);
@@ -366,6 +366,12 @@
 		}
 
 		com.google.api.services.bigquery.model.Job doneJob_<%=cid%> = pollJob_<%=cid%>;
+
+		if ((doneJob_<%=cid%>.getStatus() != null) && (doneJob_<%=cid%>.getStatus().getErrors() != null)) {
+			status = "failure";
+			throw new Exception(doneJob_<%=cid%>.getStatus().getErrors().toString());
+		}
+
 		System.out.println("Done: " + doneJob_<%=cid%>.toString());
 		com.google.api.services.bigquery.model.JobStatistics jobStatistics_<%=cid%>= doneJob_<%=cid%>.getStatistics();
 		if(jobStatistics_<%=cid%>!=null && jobStatistics_<%=cid%>.getLoad() != null){

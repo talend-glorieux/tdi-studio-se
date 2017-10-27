@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -203,8 +203,11 @@ public class ComponentListController extends AbstractElementPropertySectionContr
         for (Node curNode : nodesToUpdate) {
             for (IElementParameter curParam : curNode.getElementParameters()) {
                 if (curParam.getFieldType().equals(EParameterFieldType.COMPONENT_LIST)) {
+                    String value = (String)curParam.getValue();
                     if (oldConnectionName.equals(curParam.getValue())) {
                         curParam.setValue(newConnectionName);
+                    } else if (value != null && value.startsWith(oldConnectionName + "_")) {
+                        curParam.setValue(value.replaceFirst(oldConnectionName + "_", newConnectionName + "_"));
                     }
                 } else if (curParam.getFieldType().equals(EParameterFieldType.TABLE)) {
                     final Object[] itemsValue = curParam.getListItemsValue();
@@ -220,6 +223,8 @@ public class ComponentListController extends AbstractElementPropertySectionContr
                                         if (connectionName.equals(oldConnectionName)) {
                                             // note: change from "Integer" value stored to "String" value
                                             curLine.put(param.getName(), newConnectionName);
+                                        }else if (connectionName != null && connectionName.startsWith(oldConnectionName + "_")) {
+                                            curParam.setValue(connectionName.replaceFirst(oldConnectionName + "_", newConnectionName + "_"));
                                         }
                                     } else if (value instanceof String) {
                                         curLine.put(param.getName(), newConnectionName);

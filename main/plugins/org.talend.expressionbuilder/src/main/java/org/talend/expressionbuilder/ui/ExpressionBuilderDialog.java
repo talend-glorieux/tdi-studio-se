@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -521,5 +521,9 @@ public class ExpressionBuilderDialog extends TrayDialog implements IExpressionBu
     @Override
     public String getExpressionForTable() {
         return this.expressionForTable;
+    }
+
+    public CategoryManager getManager() {
+        return this.manager;
     }
 }

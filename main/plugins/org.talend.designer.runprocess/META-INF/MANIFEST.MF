@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Designer RunProcess Plug-in
 Bundle-SymbolicName: org.talend.designer.runprocess;singleton:=true
-Bundle-Version: 6.3.0.qualifier
+Bundle-Version: 7.0.1.qualifier
 Bundle-Activator: org.talend.designer.runprocess.RunProcessPlugin
 Bundle-Vendor: .Talend SA.
 Bundle-Localization: plugin
@@ -49,6 +49,7 @@ Export-Package: org.talend.designer.runprocess,
  org.talend.designer.runprocess.shadow,
  org.talend.designer.runprocess.spark,
  org.talend.designer.runprocess.storm,
+ org.talend.designer.runprocess.trace,
  org.talend.designer.runprocess.ui,
  org.talend.designer.runprocess.ui.actions,
  org.talend.designer.runprocess.ui.views

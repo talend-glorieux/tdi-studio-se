@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -36,15 +36,19 @@ import org.talend.commons.ui.runtime.swt.tableviewer.TableViewerCreatorNotModifi
 import org.talend.commons.ui.runtime.swt.tableviewer.behavior.DefaultTableLabelProvider;
 import org.talend.commons.ui.runtime.swt.tableviewer.behavior.ITableCellValueModifiedListener;
 import org.talend.commons.ui.runtime.swt.tableviewer.behavior.TableCellValueModifiedEvent;
+import org.talend.commons.ui.runtime.swt.tableviewer.celleditor.ExtendedSimpleTextCellEditor;
 import org.talend.commons.ui.runtime.swt.tableviewer.celleditor.ExtendedTextCellEditor;
+import org.talend.commons.ui.runtime.swt.tableviewer.data.ModifiedObjectInfo;
 import org.talend.commons.ui.runtime.swt.tableviewer.tableeditor.ButtonPushImageTableEditorContent;
 import org.talend.commons.ui.runtime.ws.WindowSystem;
 import org.talend.commons.ui.swt.advanced.dataeditor.commands.ExtendedTableRemoveCommand;
 import org.talend.commons.ui.swt.extended.table.AbstractExtendedTableViewer;
 import org.talend.commons.ui.swt.extended.table.ExtendedTableModel;
 import org.talend.commons.ui.swt.tableviewer.TableViewerCreator;
+import org.talend.commons.ui.swt.tableviewer.TableViewerCreator.CELL_EDITOR_STATE;
 import org.talend.commons.ui.swt.tableviewer.TableViewerCreatorColumn;
 import org.talend.commons.ui.swt.tableviewer.behavior.DefaultCellModifier;
+import org.talend.commons.ui.swt.tableviewer.celleditor.DialogErrorForCellEditorListener;
 import org.talend.commons.utils.data.bean.IBeanPropertyAccessors;
 import org.talend.core.PluginChecker;
 import org.talend.core.model.metadata.IMetadataColumn;
@@ -57,6 +61,7 @@ import org.talend.designer.mapper.managers.MapperManager;
 import org.talend.designer.mapper.managers.UIManager;
 import org.talend.designer.mapper.model.table.AbstractInOutTable;
 import org.talend.designer.mapper.model.table.OutputTable;
+import org.talend.designer.mapper.model.table.VarsTable;
 import org.talend.designer.mapper.model.tableentry.FilterTableEntry;
 import org.talend.designer.mapper.model.tableentry.GlobalMapEntry;
 import org.talend.designer.mapper.model.tableentry.OutputColumnTableEntry;
@@ -70,6 +75,7 @@ import org.talend.designer.mapper.ui.visualmap.zone.Zone;
  * $Id$
  * 
  */
+
 public class OutputDataMapTableView extends DataMapTableView {
 
     private OutputTableCellModifier cellModifier;
@@ -90,6 +96,7 @@ public class OutputDataMapTableView extends DataMapTableView {
         createTableForColumns();
     }
 
+    @Override
     protected void createMapSettingTable() {
 
         ExtendedTableModel<GlobalMapEntry> tableMapSettingEntriesModel = ((OutputTable) abstractDataMapTable)
@@ -123,7 +130,7 @@ public class OutputDataMapTableView extends DataMapTableView {
 
         mapSettingViewerCreator = extendedTableViewerForMapSetting.getTableViewerCreator();
         mapSettingTable = extendedTableViewerForMapSetting.getTable();
-        tableForMapSettingGridData = new GridData(SWT.FILL, SWT.FILL, true, true, 2, 1);
+        tableForMapSettingGridData = new GridData(SWT.FILL, SWT.FILL, true, true, 3, 1);
         mapSettingTable.setLayoutData(tableForMapSettingGridData);
         mapSettingTable.setHeaderVisible(true);
         mapSettingTable.setLinesVisible(true);
@@ -155,6 +162,7 @@ public class OutputDataMapTableView extends DataMapTableView {
         });
     }
 
+    @Override
     protected IBeanPropertyAccessors<GlobalMapEntry, Object> getMapSettingValueAccess(final CellEditor cellEditor) {
         return new IBeanPropertyAccessors<GlobalMapEntry, Object>() {
 
@@ -199,66 +207,71 @@ public class OutputDataMapTableView extends DataMapTableView {
                 }
                 IDataMapTable parent = bean.getParent();
                 OutputTable outputTable = (OutputTable) parent;
-                Object previous = null;
                 if (OUTPUT_REJECT.equals(bean.getName())) {
-                    previous = outputTable.isReject();
                     outputTable.setReject(Boolean.valueOf(value.toString()));
                 } else if (LOOK_UP_INNER_JOIN_REJECT.equals(bean.getName())) {
-                    previous = outputTable.isRejectInnerJoin();
                     outputTable.setRejectInnerJoin(Boolean.valueOf(value.toString()));
                 } else if (SCHEMA_TYPE.equals(bean.getName())) {
-                    previous = outputTable.isRepository();
                     outputTable.setRepository(REPOSITORY.equals(value));
                     showSchemaIDSetting(REPOSITORY.equals(value));
                     enableDiaplayViewer(REPOSITORY.equals(value));
                 } else if (SCHEMA_ID.equals(bean.getName())) {
-                    previous = outputTable.getId();
                     outputTable.setId(String.valueOf(value));
                 }
 
-                refreshCondensedImage(outputTable, bean.getName(), previous);
+                refreshCondensedImage(outputTable, bean.getName());
             }
         };
     }
 
-    protected void refreshCondensedImage(AbstractInOutTable absTable, String option, Object previousValue) {
+    @Override
+    protected void refreshCondensedImage(AbstractInOutTable absTable, String option) {
         OutputTable table = (OutputTable) absTable;
         if (OUTPUT_REJECT.equals(option)) {
             if (mapperManager.getDefaultSetting().get(OUTPUT_REJECT).equals(table.isReject())) {
-                if (changedOptions > 0)
+                if (changedOptions > 0) {
                     changedOptions--;
-            } else if (mapperManager.getDefaultSetting().get(OUTPUT_REJECT).equals(previousValue)) {
-                if (changedOptions < 6)
+                }
+            } else {
+                if (changedOptions < 6) {
                     changedOptions++;
+                }
             }
         } else if (LOOK_UP_INNER_JOIN_REJECT.equals(option)) {
             if (mapperManager.getDefaultSetting().get(LOOK_UP_INNER_JOIN_REJECT).equals(table.isRejectInnerJoin())) {
-                if (changedOptions > 0)
+                if (changedOptions > 0) {
                     changedOptions--;
-            } else if (mapperManager.getDefaultSetting().get(LOOK_UP_INNER_JOIN_REJECT).equals(previousValue)) {
-                if (changedOptions < 6)
+                }
+            } else {
+                if (changedOptions < 6) {
                     changedOptions++;
+                }
             }
         } else if (SCHEMA_TYPE.equals(option)) {
             if (mapperManager.getDefaultSetting().get(SCHEMA_TYPE).equals(table.isRepository())) {
-                if (changedOptions > 0)
+                if (changedOptions > 0) {
                     changedOptions--;
-            } else if (mapperManager.getDefaultSetting().get(SCHEMA_TYPE).equals(previousValue)) {
-                if (changedOptions < 6)
+                }
+            } else {
+                if (changedOptions < 6) {
                     changedOptions++;
+                }
             }
         } else if (SCHEMA_ID.equals(option)) {
             if (mapperManager.getDefaultSetting().get(SCHEMA_ID) == table.getId()) {
-                if (changedOptions > 0)
+                if (changedOptions > 0) {
                     changedOptions--;
-            } else if (mapperManager.getDefaultSetting().get(SCHEMA_ID) == previousValue) {
-                if (changedOptions < 6)
+                }
+            } else {
+                if (changedOptions < 6) {
                     changedOptions++;
+                }
             }
         }
         condensedItem.setImage(ImageProviderMapper.getImage(getCondencedItemImage(changedOptions)));
     }
 
+    @Override
     protected boolean needColumnBgColor(GlobalMapEntry bean) {
         OutputTable outputTable = (OutputTable) bean.getParent();
 
@@ -282,22 +295,27 @@ public class OutputDataMapTableView extends DataMapTableView {
         return false;
     }
 
+    @Override
     protected void initCondensedItemImage() {
         if (!mapperManager.getDefaultSetting().get(OUTPUT_REJECT).equals(getOutputTable().isReject())) {
-            if (changedOptions < 4)
+            if (changedOptions < 4) {
                 changedOptions++;
+            }
         }
         if (!mapperManager.getDefaultSetting().get(LOOK_UP_INNER_JOIN_REJECT).equals(getOutputTable().isRejectInnerJoin())) {
-            if (changedOptions < 4)
+            if (changedOptions < 4) {
                 changedOptions++;
+            }
         }
         if (!mapperManager.getDefaultSetting().get(SCHEMA_TYPE).equals(getOutputTable().isRepository())) {
-            if (changedOptions < 4)
+            if (changedOptions < 4) {
                 changedOptions++;
+            }
         }
         if (mapperManager.getDefaultSetting().get(SCHEMA_ID) != getOutputTable().getId()) {
-            if (changedOptions < 4)
+            if (changedOptions < 4) {
                 changedOptions++;
+            }
         }
 
         condensedItem.setImage(ImageProviderMapper.getImage(getCondencedItemImage(changedOptions)));
@@ -311,9 +329,9 @@ public class OutputDataMapTableView extends DataMapTableView {
      */
     @Override
     public void notifyFocusLost() {
-        if (expressionCellEditor != null) {
+         //if (expressionCellEditor != null) {
             expressionCellEditor.focusLost();
-        }
+         //}
     }
 
     @Override
@@ -693,4 +711,8 @@ public class OutputDataMapTableView extends DataMapTableView {
 
     }
 
+    @Override
+    public String findUniqueName(String baseName) {
+        return "\"\""; //$NON-NLS-1$
+    }
 }

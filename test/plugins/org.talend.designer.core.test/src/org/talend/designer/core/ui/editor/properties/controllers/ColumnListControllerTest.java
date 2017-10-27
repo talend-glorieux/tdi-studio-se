@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -12,32 +12,71 @@
 // ============================================================================
 package org.talend.designer.core.ui.editor.properties.controllers;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.reflect.Whitebox;
+import org.talend.commons.exception.ExceptionHandler;
+import org.talend.core.model.components.IComponent;
+import org.talend.core.model.metadata.IMetadataColumn;
+import org.talend.core.model.metadata.IMetadataTable;
+import org.talend.core.model.metadata.MetadataColumn;
+import org.talend.core.model.metadata.types.JavaTypesManager;
 import org.talend.core.model.process.IElementParameter;
+import org.talend.core.model.properties.PropertiesFactory;
+import org.talend.core.model.properties.Property;
+import org.talend.core.ui.component.ComponentsFactoryProvider;
+import org.talend.designer.core.ui.editor.nodes.Node;
+import org.talend.designer.core.ui.editor.process.Process;
+import org.talend.utils.json.JSONArray;
+import org.talend.utils.json.JSONException;
+import org.talend.utils.json.JSONObject;
 
 /**
  * created by ycbai on 2014-1-10 Detailled comment
  * 
  */
-@RunWith(PowerMockRunner.class)
+
 public class ColumnListControllerTest {
 
     private static ColumnListController instance;
 
-    @BeforeClass
-    public static void setUp() throws Exception {
+    protected Node node;
+
+    private IMetadataTable table;
+
+    private IMetadataColumn column;
+
+    public static final String NAME = "NAME"; //$NON-NLS-1$
+
+    public static final String PARAMETERS = "PARAMETERS"; //$NON-NLS-1$
+
+    public static final String PARAMETER_CLASS_NAME = "PARAMETER_CLASS_NAME"; //$NON-NLS-1$
+
+    public static final String PARAMETER_NAME = "PARAMETER_NAME"; //$NON-NLS-1$
+
+    public static final String PARAMETER_VALUE = "PARAMETER_VALUE"; //$NON-NLS-1$
+
+    public static final String FUNCTION_CHECK_METHOD = "reUsedColumnFunctionArrayCheck"; //$NON-NLS-1$
+
+    @Before
+    public void before() {
         instance = mock(ColumnListController.class);
+        IComponent component = ComponentsFactoryProvider.getInstance().get("tRowGenerator", "DI");
+        Property property = PropertiesFactory.eINSTANCE.createProperty();
+        Process process = new Process(property);
+        node = new Node(component, process);
+        table = node.getMetadataList().get(0);
+        column = new MetadataColumn();
     }
 
     @Test
@@ -173,6 +212,72 @@ public class ColumnListControllerTest {
         args[3] = customColMap;
 
         return args;
+    }
+
+    @Test
+    public void testreUsedColumnFunctionArrayCheck1() throws Exception {
+        column.setLabel("A"); //$NON-NLS-1$
+        column.setTalendType(JavaTypesManager.STRING.getId());
+
+        JSONObject functionInfoObj = new JSONObject();
+        JSONArray parametersArr = new JSONArray();
+        try {
+            functionInfoObj.put(PARAMETER_CLASS_NAME, "StringHandling");
+            functionInfoObj.put(NAME, "CHANGE");
+            JSONObject parameterObj1 = new JSONObject();
+            parameterObj1.put(PARAMETER_NAME, "oldStr");
+            parameterObj1.put(PARAMETER_VALUE, "\"hello world!\" ");
+            parametersArr.put(parameterObj1);
+            JSONObject parameterObj2 = new JSONObject();
+            parameterObj2.put(PARAMETER_NAME, "regex");
+            parameterObj2.put(PARAMETER_VALUE, "\"world\" ");
+            parametersArr.put(parameterObj2);
+            JSONObject parameterObj3 = new JSONObject();
+            parameterObj3.put(PARAMETER_NAME, "replacement");
+            parameterObj3.put(PARAMETER_VALUE, "\"guy\" ");
+            parametersArr.put(parameterObj3);
+            functionInfoObj.put(PARAMETERS, parametersArr);
+        } catch (JSONException e) {
+            ExceptionHandler.process(e);
+        }
+        column.getAdditionalField().put("FUNCTION_INFO", functionInfoObj.toString());
+        table.getListColumns().add(column);
+        String functioExpression = "StringHandling.CHANGE(\"hello world!\",\"world\",\"guy\")";
+        testNewLineArrayFunction(functioExpression, column.getLabel());
+    }
+
+    @Test
+    public void testreUsedColumnFunctionArrayCheck2() throws Exception {
+
+        column.setLabel("B"); //$NON-NLS-1$
+        column.setTalendType(JavaTypesManager.STRING.getId());
+
+        JSONObject functionInfoObj = new JSONObject();
+        JSONArray parametersArr = new JSONArray();
+        try {
+            functionInfoObj.put(PARAMETER_CLASS_NAME, "");
+            functionInfoObj.put(NAME, "...");
+            JSONObject parameterObj = new JSONObject();
+            parameterObj.put(PARAMETER_NAME, "customize parameter");
+            parameterObj.put(PARAMETER_VALUE, "");
+            parametersArr.put(parameterObj);
+            functionInfoObj.put(PARAMETERS, parametersArr);
+        } catch (JSONException e) {
+            ExceptionHandler.process(e);
+        }
+        column.getAdditionalField().put("FUNCTION_INFO", functionInfoObj.toString());
+        table.getListColumns().add(column);
+        String functioExpression = "";
+        testNewLineArrayFunction(functioExpression, column.getLabel());
+    }
+
+    private void testNewLineArrayFunction(String functioExpression, String label) throws Exception {
+        Map<String, Object> newLine = new HashMap<>();
+        newLine.put("SCHEMA_COLUMN", label);
+        newLine.put("ARRAY", "");
+        String[] codes = { "SCHEMA_COLUMN", "ARRAY" };
+        Whitebox.invokeMethod(instance, FUNCTION_CHECK_METHOD, new Object[] { newLine, node, codes });
+        assertEquals(functioExpression, newLine.get("ARRAY"));
     }
 
 }

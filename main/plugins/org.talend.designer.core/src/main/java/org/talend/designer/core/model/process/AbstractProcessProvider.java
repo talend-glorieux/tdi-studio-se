@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -30,6 +30,7 @@ import org.talend.core.model.process.IProcess2;
 import org.talend.core.model.process.IReplaceNodeInProcess;
 import org.talend.core.model.properties.Item;
 import org.talend.core.model.properties.JobletProcessItem;
+import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.model.update.UpdateResult;
 import org.talend.designer.core.ui.editor.process.Process;
 
@@ -90,6 +91,14 @@ public abstract class AbstractProcessProvider implements IReplaceNodeInProcess {
         return false;
     }
 
+    public static boolean isExtensionProcess(IProcess process, String pid) {
+        AbstractProcessProvider findProcessProvider = findProcessProviderFromPID(pid);
+        if (findProcessProvider != null) {
+            return findProcessProvider.isExtensionProcess(process);
+        }
+        return false;
+    }
+
     /**
      * DOC qzhang Comment method "openNewProcessEditor".
      */
@@ -98,6 +107,10 @@ public abstract class AbstractProcessProvider implements IReplaceNodeInProcess {
     }
 
     public void loadComponentsFromExtensionPoint() {
+        // do nothing.
+    }
+
+    public void loadComponentsFromExtensionPoint(ERepositoryObjectType type) {
         // do nothing.
     }
 
@@ -113,6 +126,21 @@ public abstract class AbstractProcessProvider implements IReplaceNodeInProcess {
     public static void loadComponentsFromProviders() {
         for (AbstractProcessProvider processProvider : findAllProcessProviders()) {
             processProvider.loadComponentsFromExtensionPoint();
+        }
+    }
+
+    /**
+     * DOC hwang Comment method "loadComponentsFromProviders".
+     * 
+     * @return
+     */
+    public static void loadComponentsFromProviders(ERepositoryObjectType type) {
+        for (AbstractProcessProvider processProvider : findAllProcessProviders()) {
+            if (type == null) {
+                processProvider.loadComponentsFromExtensionPoint();
+            } else {
+                processProvider.loadComponentsFromExtensionPoint(type);
+            }
         }
     }
 
@@ -224,6 +252,10 @@ public abstract class AbstractProcessProvider implements IReplaceNodeInProcess {
 
     public static void setComponentProcess(Process componentProcess) {
         AbstractProcessProvider.componentProcess = componentProcess;
+    }
+
+    public boolean canHandleNode(INode node) {
+        return false;
     }
 
 }

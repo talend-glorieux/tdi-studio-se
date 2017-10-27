@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -57,8 +57,6 @@ public class TextController extends AbstractElementPropertySectionController {
 
     protected static int rowSize = 0;
 
-    protected Text labelText;
-
     public static boolean dragAndDropAction = false;
 
     /**
@@ -96,7 +94,7 @@ public class TextController extends AbstractElementPropertySectionController {
             dField.addFieldDecoration(decoration, SWT.RIGHT | SWT.BOTTOM, false);
         }
         Control cLayout = dField.getLayoutControl();
-        labelText = (Text) dField.getControl();
+        Text labelText = (Text) dField.getControl();
 
         labelText.setData(PARAMETER_NAME, param.getName());
         editionControlHelper.register(param.getName(), labelText);
@@ -136,9 +134,6 @@ public class TextController extends AbstractElementPropertySectionController {
         }
         data.top = new FormAttachment(0, top);
         labelLabel.setLayoutData(data);
-        if (isInWizard()) {
-            labelLabel.setAlignment(SWT.RIGHT);
-        }
         // *********************
         data = new FormData();
         int currentLabelWidth = STANDARD_LABEL_WIDTH;
@@ -169,19 +164,24 @@ public class TextController extends AbstractElementPropertySectionController {
         Point initialSize = cLayout.computeSize(SWT.DEFAULT, SWT.DEFAULT);
         // curRowSize = initialSize.y + ITabbedPropertyConstants.VSPACE;
         dynamicProperty.setCurRowSize(initialSize.y + ITabbedPropertyConstants.VSPACE);
-        if (isInWizard()) {
-            data.left = new FormAttachment(lastControl, currentLabelWidth + (ITabbedPropertyConstants.HSPACE * 2));
-            data = (FormData) labelLabel.getLayoutData();
-            if (lastControl == null) {
-                data.right = new FormAttachment(cLayout, -ITabbedPropertyConstants.HSPACE);
-            } else {
-                data.left = new FormAttachment(lastControl, ITabbedPropertyConstants.HSPACE, SWT.RIGHT);
-                data.right = new FormAttachment(lastControl, currentLabelWidth + (ITabbedPropertyConstants.HSPACE * 2), SWT.RIGHT);
-            }
 
-            // data.left = new FormAttachment(cLayout, -(currentLabelWidth + 5), SWT.LEFT);
-            // data.top = new FormAttachment(cLayout, -2, SWT.TOP);
+        if (isInWizard()) {
+            labelLabel.setAlignment(SWT.RIGHT);
+            if (lastControl != null) {
+                data.right = new FormAttachment(lastControl, 0);
+            } else {
+                data.right = new FormAttachment(100, -ITabbedPropertyConstants.HSPACE);
+            }
+            data.left = new FormAttachment((((nbInRow - numInRow) * MAX_PERCENT) / nbInRow), currentLabelWidth
+                    + ITabbedPropertyConstants.HSPACE);
+
+            data = (FormData) labelLabel.getLayoutData();
+            data.right = new FormAttachment(cLayout, 0);
+            data.left = new FormAttachment((((nbInRow - numInRow) * MAX_PERCENT) / nbInRow), 0);
+
+            return labelLabel;
         }
+
         return cLayout;
     }
 

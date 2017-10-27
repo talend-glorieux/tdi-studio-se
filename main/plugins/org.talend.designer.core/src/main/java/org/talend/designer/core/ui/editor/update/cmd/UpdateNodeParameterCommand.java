@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -28,6 +28,7 @@ import org.talend.commons.ui.runtime.exception.ExceptionHandler;
 import org.talend.core.CorePlugin;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.IESBService;
+import org.talend.core.ITDQPatternService;
 import org.talend.core.PluginChecker;
 import org.talend.core.model.metadata.IEbcdicConstant;
 import org.talend.core.model.metadata.IMetadataColumn;
@@ -304,7 +305,8 @@ public class UpdateNodeParameterCommand extends Command {
                         }
                         if ((repositoryValue != null)
                                 && (param.isShow(node.getElementParameters())
-                                        || node.getComponentProperties() != null || (node instanceof INode && ((INode) node).getComponent().getName()
+                                        || node.getComponentProperties() != null
+                                        || (node instanceof INode && ((INode) node).getComponent().getName()
                                                 .equals("tAdvancedFileOutputXML")) || (node instanceof INode && ((INode) node)
                                         .getComponent().getName().equals("tESBProviderRequest")))) { //$NON-NLS-1$
                             if (param.getName().equals(EParameterName.PROPERTY_TYPE.getName())
@@ -496,6 +498,43 @@ public class UpdateNodeParameterCommand extends Command {
                                 param.setReadOnly(true);
                                 update = true;
                             }
+                        }
+                    }
+                } else {
+                    // Added TDQ-11688 20170309 yyin
+                    ITDQPatternService service = null;
+                    if (GlobalServiceRegister.getDefault().isServiceRegistered(ITDQPatternService.class)) {
+                        service = (ITDQPatternService) GlobalServiceRegister.getDefault().getService(ITDQPatternService.class);
+                    }
+                    if (service != null && (service.isSinglePatternNode(node) || service.isMultiPatternNode(node))
+                            && parameter != null && parameter instanceof IElementParameter) {
+                        IElementParameter elementParameter = node.getElementParameter(((IElementParameter) parameter).getName());
+                        // for single pattern
+                        if (elementParameter != null
+                                && !elementParameter.getValue().equals(((IElementParameter) parameter).getValue())) {
+                            elementParameter.setValue(((IElementParameter) parameter).getValue());
+                        } else if ("SCHEMA_PATTERN_CHECK".equals(((IElementParameter) parameter).getName())) {// for
+                                                                                                              // multipattern
+                            if (elementParameter != null) {
+                                elementParameter.setValue(((IElementParameter) parameter).getValue());
+                            }
+                        }
+                        update = true;
+                        Object regexValue = null;
+                        Object parameterValue = ((IElementParameter) parameter).getValue();
+                        if ("PATTERN_REGEX".equals(((IElementParameter) parameter).getName())) {
+                            regexValue = parameterValue;
+                        } else if ("SCHEMA_PATTERN_CHECK".equals(((IElementParameter) parameter).getName())) {
+                            List<Map<String, String>> multiPatternList = ((List<Map<String, String>>) parameterValue);
+                            for (Map<String, String> patternMap : multiPatternList) {
+                                regexValue = patternMap.get("PATTERN_REGEX");
+                                if (regexValue == null) {
+                                    patternMap.put("PATTERN_PROPERTY", EmfComponent.BUILTIN);
+                                }
+                            }
+                        }
+                        if (regexValue == null || regexValue.toString().isEmpty()) {
+                            update = false;
                         }
                     }
                 }
@@ -983,7 +1022,7 @@ public class UpdateNodeParameterCommand extends Command {
             if (conn.getLineStyle() == EConnectionType.FLOW_MAIN) {
                 IMetadataTable metadataTable = null;
                 for (IMetadataTable table : node.getMetadataList()) {
-                    if (table.getTableName() != null && table.getTableName().equals(conn.getMetadataTable().getTableName())) {
+                    if (table.getTableName() != null && conn.getMetadataTable() != null && table.getTableName().equals(conn.getMetadataTable().getTableName())) {
                         metadataTable = table;
                     }
                 }

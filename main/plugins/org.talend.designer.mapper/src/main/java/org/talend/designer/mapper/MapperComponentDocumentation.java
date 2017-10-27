@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -297,6 +297,8 @@ public class MapperComponentDocumentation implements IComponentDocumentation {
         tableElement.addAttribute("expressionFilter", String.valueOf(table.getExpressionFilter())); //$NON-NLS-1$
         tableElement.addAttribute("activateExpressionFilter", String.valueOf(table.isActivateExpressionFilter())); //$NON-NLS-1$
         tableElement.addAttribute("activateCondensedTool", String.valueOf(table.isActivateCondensedTool()));
+        tableElement.addAttribute("activateColumnNameFilter", String.valueOf(table.isActivateColumnNameFilter())); //$NON-NLS-1$
+        tableElement.addAttribute("columnNameFilter", String.valueOf(table.getColumnNameFilter())); //$NON-NLS-1$
     }
 
     /**

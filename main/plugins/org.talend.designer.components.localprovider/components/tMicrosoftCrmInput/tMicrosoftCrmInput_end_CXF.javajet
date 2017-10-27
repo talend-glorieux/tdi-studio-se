@@ -10,5 +10,12 @@ imports="
 		java.util.List
 		"
 %>
-// Entity For Loop end but moved to the end part
+                    }
+                    // Entity For Loop end but moved to the end part
+                    if (fetchMore_<%=cid%>) {
+                        pageNumber_<%=cid%>++;
+                        pagingInfo_<%=cid%>.setPageNumber(pageNumber_<%=cid%>);
+                        pagingInfo_<%=cid%>.setPagingCookie(pagingCookie_<%=cid%>);
+                        queryExp_<%=cid%>.setPageInfo(pagingInfo_<%=cid%>);
+                    }
 }

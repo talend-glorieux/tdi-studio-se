@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -62,9 +62,11 @@ import org.talend.commons.ui.runtime.image.ECoreImage;
 import org.talend.commons.ui.runtime.image.ImageProvider;
 import org.talend.core.model.components.ComponentCategory;
 import org.talend.core.model.components.ComponentUtilities;
+import org.talend.core.model.components.EComponentType;
 import org.talend.core.model.components.IComponent;
 import org.talend.core.model.components.IComponentsFactory;
 import org.talend.core.model.components.IComponentsHandler;
+import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.ui.component.ComponentsFactoryProvider;
 import org.talend.core.ui.component.TalendPaletteGroup;
 import org.talend.core.ui.component.settings.ComponentsSettingsHelper;
@@ -190,14 +192,13 @@ public final class TalendEditorPaletteFactory {
             // if (xmlComponent.isTechnical() || !xmlComponent.isVisible()) {
             // continue;
             // }
-
+            oraFamily = xmlComponent.getOriginalFamilyName();
+            family = xmlComponent.getTranslatedFamilyName();
             if (xmlComponent.isLoaded()) {
-                family = xmlComponent.getTranslatedFamilyName();
-                oraFamily = xmlComponent.getOriginalFamilyName();
                 String[] strings = family.split(ComponentsFactoryProvider.FAMILY_SEPARATOR_REGEX);
                 String[] oraStrings = oraFamily.split(ComponentsFactoryProvider.FAMILY_SEPARATOR_REGEX);
                 for (int j = 0; j < strings.length; j++) {
-                    if (displayedFamilies.contains(oraStrings[j])) {
+                    if (displayedFamilies.contains(oraStrings[j]) || xmlComponent.getComponentType() == EComponentType.JOBLET) {
                         families.add(strings[j]);
                         familyMap.put(strings[j], oraStrings[j]);
                     }
@@ -296,8 +297,8 @@ public final class TalendEditorPaletteFactory {
                 if (favoriteComponentNames != null && favoriteComponentNames.contains(xmlComponent.getName())) {
                     componentsDrawer = ht.get(FAVORITES);
                     if (componentsDrawer != null) {
-                        component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, new PaletteComponentFactory(
-                                xmlComponent), imageSmall, imageLarge);
+                        component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, xmlComponent, imageSmall,
+                                imageLarge);
 
                         component.setDescription(longName);
                         component.setParent(componentsDrawer);
@@ -316,8 +317,8 @@ public final class TalendEditorPaletteFactory {
                         continue;
                     }
 
-                    component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, new PaletteComponentFactory(
-                            xmlComponent), imageSmall, imageLarge);
+                    component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, xmlComponent, imageSmall,
+                            imageLarge);
 
                     component.setDescription(longName);
 
@@ -374,7 +375,7 @@ public final class TalendEditorPaletteFactory {
 
     protected static List<IComponent> getRelatedComponents(final IComponentsFactory compFac, String keyword,
             boolean needCheckVisible) {
-        Set<IComponent> componentSet = null;
+        Collection<IComponent> componentSet = null;
         IComponentsHandler componentsHandler = compFac.getComponentsHandler();
         String lowerCasedKeyword = null;
         if (keyword != null) {
@@ -423,8 +424,8 @@ public final class TalendEditorPaletteFactory {
                 // 2.1 search from local palette
                 addComponentsByNameFilter(compFac, componentSet, lowerCasedKeyword);
                 if (!componentSet.isEmpty()) {
-                    componentSet = new LinkedHashSet<IComponent>(
-                            sortResultsBasedOnRecentlyUsed(new ArrayList<IComponent>(componentSet)));
+                    componentSet = new LinkedHashSet<IComponent>(sortResultsBasedOnRecentlyUsed(new ArrayList<IComponent>(
+                            componentSet)));
                     needSort = false;
                 }
 
@@ -472,7 +473,7 @@ public final class TalendEditorPaletteFactory {
                 }
             }
         } else if (compFac != null) {
-            componentSet = compFac.getComponents();
+            componentSet = compFac.readComponents();
         }
 
         List<IComponent> relatedComponents = null;
@@ -573,14 +574,14 @@ public final class TalendEditorPaletteFactory {
         return canUse;
     }
 
-    protected static void addComponentsByNameFilter(final IComponentsFactory compFac, Set<IComponent> componentSet,
+    protected static void addComponentsByNameFilter(final IComponentsFactory compFac, Collection<IComponent> componentSet,
             String nameFilter) {
         if (compFac == null || componentSet == null) {
             return;
         }
 
         if (nameFilter != null && !nameFilter.trim().isEmpty()) {
-            Set<IComponent> components = compFac.getComponents();
+            Collection<IComponent> components = compFac.readComponents();
             Iterator<IComponent> iter = components.iterator();
             String regex = getFilterRegex(nameFilter);
             Pattern pattern = Pattern.compile(regex);
@@ -614,7 +615,7 @@ public final class TalendEditorPaletteFactory {
         }
     }
 
-    private static void addComponents(Set<IComponent> componentSet, ComponentHit[] hitArray) {
+    private static void addComponents(Collection<IComponent> componentSet, ComponentHit[] hitArray) {
         for (ComponentHit ch : hitArray) {
             componentSet.add(ch.getComponent());
         }
@@ -663,8 +664,8 @@ public final class TalendEditorPaletteFactory {
                 } else {
                     imageLarge = recentlyUsedComponent.getIcon32();
                 }
-                component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, new PaletteComponentFactory(
-                        recentlyUsedComponent), imageSmall, imageLarge);
+                component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, recentlyUsedComponent, imageSmall,
+                        imageLarge);
 
                 component.setDescription(longName);
                 component.setParent(componentsDrawer);
@@ -678,8 +679,8 @@ public final class TalendEditorPaletteFactory {
         String name = entry.getLabel();
         IComponent component = ((PaletteComponentFactory) entry.getToolProperty(CreationTool.PROPERTY_CREATION_FACTORY))
                 .getComponent();
-        TalendCombinedTemplateCreationEntry newEntry = new TalendCombinedTemplateCreationEntry(name, name, Node.class,
-                new PaletteComponentFactory(component), entry.getSmallIcon(), entry.getLargeIcon());
+        TalendCombinedTemplateCreationEntry newEntry = new TalendCombinedTemplateCreationEntry(name, name, Node.class, component,
+                entry.getSmallIcon(), entry.getLargeIcon());
 
         newEntry.setDescription(entry.getDescription());
         return newEntry;
@@ -699,8 +700,8 @@ public final class TalendEditorPaletteFactory {
         } else {
             imageLarge = component.getIcon32();
         }
-        TalendCombinedTemplateCreationEntry newEntry = new TalendCombinedTemplateCreationEntry(name, name, Node.class,
-                new PaletteComponentFactory(component), imageSmall, imageLarge);
+        TalendCombinedTemplateCreationEntry newEntry = new TalendCombinedTemplateCreationEntry(name, name, Node.class, component,
+                imageSmall, imageLarge);
 
         newEntry.setDescription(component.getLongName());
         return newEntry;
@@ -768,11 +769,9 @@ public final class TalendEditorPaletteFactory {
             if (xmlComponent.isTechnical()) {
                 continue;
             }
-
+            oraFamily = xmlComponent.getOriginalFamilyName();
+            family = xmlComponent.getTranslatedFamilyName();
             if (xmlComponent.isLoaded()) {
-                family = xmlComponent.getTranslatedFamilyName();
-                oraFamily = xmlComponent.getOriginalFamilyName();
-
                 String[] strings = family.split(ComponentsFactoryProvider.FAMILY_SEPARATOR_REGEX);
                 String[] oraStrings = oraFamily.split(ComponentsFactoryProvider.FAMILY_SEPARATOR_REGEX);
                 for (int j = 0; j < strings.length; j++) {
@@ -904,8 +903,8 @@ public final class TalendEditorPaletteFactory {
                 if (favoriteComponentNames != null && favoriteComponentNames.contains(xmlComponent.getName())) {
                     componentsDrawer = ht.get(FAVORITES);
                     if (componentsDrawer != null) {
-                        component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, new PaletteComponentFactory(
-                                xmlComponent), imageSmall, imageLarge);
+                        component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, xmlComponent, imageSmall,
+                                imageLarge);
 
                         component.setDescription(longName);
                         component.setParent(componentsDrawer);
@@ -930,8 +929,8 @@ public final class TalendEditorPaletteFactory {
                     // String key = null;
                     // key = xmlComponent.getName() + "#" + oraStrings[j];//$NON-NLS-1$
 
-                    component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, new PaletteComponentFactory(
-                            xmlComponent), imageSmall, imageLarge);
+                    component = new TalendCombinedTemplateCreationEntry(name, name, Node.class, xmlComponent, imageSmall,
+                            imageLarge);
 
                     component.setDescription(longName);
                     if (a == 0) {
@@ -1220,7 +1219,7 @@ public final class TalendEditorPaletteFactory {
     public static PaletteRoot createPalette(final IComponentsFactory compFac, PaletteRoot root) {// ing
         int histate = DesignerPlugin.getDefault().getPreferenceStore().getInt("HiddenState"); //$NON-NLS-1$
         palette = root;
-        AbstractProcessProvider.loadComponentsFromProviders();
+        AbstractProcessProvider.loadComponentsFromProviders(getJobletObjectType(compFac.getComponentsHandler()));
         GenericProcessProvider.getInstance().loadComponentsFromProviders();
         createComponentsDrawer(compFac, false, histate);
         return palette;
@@ -1235,7 +1234,7 @@ public final class TalendEditorPaletteFactory {
     public static PaletteRoot createPalette(final IComponentsFactory compFac, PaletteRoot root, boolean isFavorite) {// after
         int histate = DesignerPlugin.getDefault().getPreferenceStore().getInt("HiddenState"); //$NON-NLS-1$
         palette = root;
-        AbstractProcessProvider.loadComponentsFromProviders();
+        AbstractProcessProvider.loadComponentsFromProviders(getJobletObjectType(compFac.getComponentsHandler()));
         GenericProcessProvider.getInstance().loadComponentsFromProviders();
         createComponentsDrawer(compFac, false, isFavorite, histate);
         return palette;
@@ -1243,7 +1242,7 @@ public final class TalendEditorPaletteFactory {
 
     public static PaletteRoot getAllNodeStructure(final IComponentsFactory compFac) {
         palette = new PaletteRoot();
-        AbstractProcessProvider.loadComponentsFromProviders();
+        AbstractProcessProvider.loadComponentsFromProviders(getJobletObjectType(compFac.getComponentsHandler()));
         GenericProcessProvider.getInstance().loadComponentsFromProviders();
         createComponentsDrawer(compFac, true, 0);
         return palette;
@@ -1252,7 +1251,7 @@ public final class TalendEditorPaletteFactory {
     public static PaletteRoot createPalletteForMapReduce(IComponentsFactory compFac, PaletteRoot root) {
         palette = root;
         int histate = DesignerPlugin.getDefault().getPreferenceStore().getInt("HiddenState"); //$NON-NLS-1$
-        AbstractProcessProvider.loadComponentsFromProviders();
+        AbstractProcessProvider.loadComponentsFromProviders(getJobletObjectType(compFac.getComponentsHandler()));
         GenericProcessProvider.getInstance().loadComponentsFromProviders();
         createComponentsDrawer(compFac, false, histate);
         return palette;
@@ -1333,6 +1332,28 @@ public final class TalendEditorPaletteFactory {
         toolGroup.add(new PaletteSeparator());
 
         return toolGroup;
+    }
+
+    private static ERepositoryObjectType getJobletObjectType(IComponentsHandler handler) {
+        if (handler == null) {
+            return null;
+        }
+        ComponentCategory category = handler.extractComponentsCategory();
+        ERepositoryObjectType type = ERepositoryObjectType.JOBLET;
+        if (category == null) {
+            return type;
+        }
+        switch (category) {
+        case CATEGORY_4_SPARK:
+            type = ERepositoryObjectType.SPARK_JOBLET;
+            break;
+        case CATEGORY_4_SPARKSTREAMING:
+            type = ERepositoryObjectType.SPARK_STREAMING_JOBLET;
+            break;
+        default:
+            break;
+        }
+        return type;
     }
 
     /** Utility class. */

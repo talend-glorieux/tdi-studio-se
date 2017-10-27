@@ -9,6 +9,19 @@
 	String useExistingConn = ElementParameterParser.getValue(node,"__USE_EXISTING_CONNECTION__");
 	List<Map<String,String>> clientConfiguration = (List<Map<String,String>>)ElementParameterParser.getObjectValue(node,"__CLIENT_CONFIGURATION__");
 	String region = ElementParameterParser.getValue(node,"__REGION__");
+	
+	boolean assumeRole = "true".equals(ElementParameterParser.getValue(node, "__ASSUME_ROLE__"));
+	String arn = ElementParameterParser.getValue(node,"__ARN__");
+	String roleSessionName = ElementParameterParser.getValue(node,"__ROLE_SESSION_NAME__");
+	
+	boolean setStsEndpoint = "true".equals(ElementParameterParser.getValue(node,"__SET_STS_ENDPOINT__"));
+	String stsEndpoint = ElementParameterParser.getValue(node,"__STS_ENDPOINT__");
+	
+	String sessionDuration = ElementParameterParser.getValue(node,"__SESSION_DURATION__");
+	if(sessionDuration == null || sessionDuration.isEmpty()) {
+		sessionDuration = "15";
+	}
+	
 	if(("true").equals(useExistingConn)) {
 		String connection = ElementParameterParser.getValue(node,"__CONNECTION__");
 		String conn = "conn_" + connection;;
@@ -36,16 +49,18 @@
     	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/password.javajet"%>
 
 		com.amazonaws.auth.AWSCredentials credentials_<%=cid%> = new com.amazonaws.auth.BasicAWSCredentials(<%=accessKey%>,decryptedPassword_<%=cid%>);
+		com.amazonaws.auth.AWSCredentialsProvider credentialsProvider_<%=cid%> = new com.amazonaws.internal.StaticCredentialsProvider(credentials_<%=cid%>);
 		<%
 		} else {
 		%>
 		com.amazonaws.auth.AWSCredentialsProvider credentialsProvider_<%=cid%> = new com.amazonaws.auth.InstanceProfileCredentialsProvider();
 		<%
 		}
-		if(configClient && clientConfiguration.size()>0){
 		%>
-			com.amazonaws.ClientConfiguration cc_<%=cid%> = new com.amazonaws.ClientConfiguration();
-			<%
+		com.amazonaws.ClientConfiguration cc_<%=cid%> = new com.amazonaws.ClientConfiguration();
+		cc_<%=cid%>.setUserAgent(routines.system.Constant.TALEND_USER_AGENT);
+		<%
+		if(configClient && clientConfiguration.size()>0){
 			boolean setBuffer = false;
 			for(Map<String,String> map :clientConfiguration){
 				String client_parameter = map.get("CLIENT_PARAMETER");
@@ -80,18 +95,32 @@
 				cc_<%=cid%>.setSocketBufferSizeHints(scketSendBufferSizeHints_<%=cid%>,socketReceiveBufferSizeHints_<%=cid%>);
 			<%
 			}
-			%>
-				com.amazonaws.services.sqs.AmazonSQS conn_<%=cid%> = new com.amazonaws.services.sqs.AmazonSQSClient(
-					<%if(!inherit_credentials) {%>credentials_<%=cid%><%} else {%>credentialsProvider_<%=cid%><%}%>,
-					cc_<%=cid%>);
-		<%
-		}else{
+		}
+		if(assumeRole) {
 		%>
-			com.amazonaws.services.sqs.AmazonSQS conn_<%=cid%> = new com.amazonaws.services.sqs.AmazonSQSClient(
-				<%if(!inherit_credentials) {%>credentials_<%=cid%><%} else {%>credentialsProvider_<%=cid%><%}%>
-			);
+			int sessionDurationSeconds_<%=cid%> = <%=sessionDuration%> * 60;
+			com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider.Builder stsBuilder_<%=cid%> = 
+					new com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider.Builder(<%=arn%>, <%=roleSessionName%>).withLongLivedCredentialsProvider(credentialsProvider_<%=cid%>)
+					.withRoleSessionDurationSeconds(sessionDurationSeconds_<%=cid%>);
+					
+			<%
+			if(setStsEndpoint) {
+			%>
+				stsBuilder_<%=cid%>.withServiceEndpoint(<%=stsEndpoint%>);
+			<%
+			}
+			%>
+			stsBuilder_<%=cid%>.withClientConfiguration(cc_<%=cid%>);
+			
+			credentialsProvider_<%=cid%> = stsBuilder_<%=cid%>.build();
+			
 		<%
 		}
+		%>
+		com.amazonaws.services.sqs.AmazonSQS conn_<%=cid%> = new com.amazonaws.services.sqs.AmazonSQSClient(
+					credentialsProvider_<%=cid%>,
+					cc_<%=cid%>);
+		<%
 		if(region!=null && !region.isEmpty() && !"DEFAULT".equalsIgnoreCase(region)){
 		%>
 			conn_<%=cid%>.setRegion(com.amazonaws.regions.RegionUtils.getRegion(<%=region%>));

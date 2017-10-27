@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -76,13 +76,15 @@ public class CorrectBatchSizeForDBComponentsMore extends AbstractJobMigrationTas
                 }
 
                 if (elementParaType != null && elementParaType.getValue().equalsIgnoreCase("true")) {
-                	String batchSizeInStr = ComponentUtilities.getNodeProperty(node, "BATCH_SIZE").getValue();
-                	if(batchSizeInStr != null && !"".equals(batchSizeInStr)){
-                		int batchSize = Integer.valueOf(batchSizeInStr);
-                		if(batchSize <= 0){
-                			 ComponentUtilities.getNodeProperty(node, "BATCH_SIZE").setValue("1");
-                		}
-                	}                       
+                    String batchSizeInStr = ComponentUtilities.getNodeProperty(node, "BATCH_SIZE").getValue();
+                    if (batchSizeInStr != null && !"".equals(batchSizeInStr)) {
+                        if (batchSizeInStr.matches("\\d+")) { //$NON-NLS-1$
+                            int batchSize = Integer.valueOf(batchSizeInStr);
+                            if (batchSize <= 0) {
+                                ComponentUtilities.getNodeProperty(node, "BATCH_SIZE").setValue("1");
+                            }
+                        }
+                    }
                 }
             
             }

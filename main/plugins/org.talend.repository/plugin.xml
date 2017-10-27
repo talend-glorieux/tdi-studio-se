@@ -255,6 +255,10 @@
             class="org.talend.repository.MigrationDIMetadataItemService"
             serviceId="IMigrateDIMetadataItemService">
       </Service>
+      <Service
+            class="org.talend.repository.AutoConvertTypesService"
+            serviceId="IAutoConvertTypesService">
+      </Service>
    </extension>
 
    <!--extension
@@ -1593,6 +1597,14 @@
        </projecttask>
         <projecttask
               beforeLogon="false"
+              breaks="6.2.0"
+              class="org.talend.repository.model.migration.ChangeMSSQLDBVersionMigrationTask"
+              id="org.talend.repository.model.migration.ChangeMSSQLDBVersionMigrationTask"
+              name="Change MSSQL DBVersion"
+              version="6.3.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
               breaks="5.1.1"
               class="org.talend.repository.model.migration.ChangeAS400DBVersionMigrationTask"
               id="org.talend.repository.model.migration.ChangeAS400DBVersionMigrationTask"
@@ -2455,15 +2467,6 @@
         <projecttask
               beforeLogon="false"
               breaks="6.0.0"
-              class="org.talend.repository.model.migration.SetUrltStewardshipXXXTDI32354"
-              description="concat host and port to a url"
-              id="org.talend.repository.model.migration.SetUrltStewardshipXXXTDI32354"
-              name="SetUrltStewardshipXXXTDI32354"
-              version="6.0.0">
-        </projecttask>
-        <projecttask
-              beforeLogon="false"
-              breaks="6.0.0"
               class="org.talend.repository.model.migration.ChangeMongoDBMinimalVersion"
               id="org.talend.repository.model.migration.ChangeMongoDBMinimalVersion"
               description="Change mongoDB version to 3.0.X"
@@ -2804,6 +2807,137 @@
               name="UpdateELTComponentMigrationTask"
               version="6.1.2">
         </projecttask>
+        <projecttask
+              beforeLogon="true"
+              breaks="6.2.1"
+              class="org.talend.repository.model.migration.ChangeMappingFileMigrationTask"
+              description="Change mapping file"
+              id="org.talend.repository.model.migration.ChangeMappingFileMigrationTask"
+              name="ChangeMappingFileMigrationTask"
+              version="6.2.2">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.3.0"
+              class="org.talend.repository.model.migration.ChangeTypeMappingForRedshift"
+              id="org.talend.repository.model.migration.ChangeTypeMappingForRedshift"
+              name="ChangeTypeMappingForRedshift"
+              version="6.3.1">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.3.2"
+              class="org.talend.repository.model.migration.ResetVMArgumentMigrationTask"
+              description="ResetVMArgumentMigrationTask"
+              id="org.talend.repository.model.migration.ResetVMArgumentMigrationTask"
+              name="ResetVMArgumentMigrationTask"
+              version="6.4.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.1.0"
+              class="org.talend.repository.model.migration.FixUnevenItemContextParametersMigrationTask"
+              id="org.talend.repository.model.migration.FixUnevenItemContextParametersMigrationTask"
+              name="FixUnevenItemContextParametersMigrationTask"
+              version="6.4.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.3.1"
+              class="org.talend.repository.model.migration.UncheckExceptionOnFileExistMigrationTask"
+              id="org.talend.repository.model.migration.UncheckExceptionOnFileExistMigrationTask"
+              name="UncheckExceptionOnFileExistMigrationTask"
+              version="6.4.0">
+        </projecttask>
+        <projecttask
+        	  beforeLogon="false"
+              breaks="6.2.1"
+              class="org.talend.repository.model.migration.AddNewIgnoreNullSettingForTMicrosoftCrmOutputTask"
+              id="org.talend.repository.model.migration.AddNewIgnoreNullSettingForTMicrosoftCrmOutputTask"
+              name="AddNewIgnoreNullSettingForTMicrosoftCrmOutputTask"
+              version="6.2.2">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="4.2.4"
+              class="org.talend.repository.model.migration.ResetItemLabelMigrationTask"
+              description="Reset the item label"
+              id="org.talend.repository.model.migration.ResetItemLabelMigrationTask"
+              name="ResetItemLabelMigrationTask"
+              version="5.2.2">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.3.1"
+              class="org.talend.repository.model.migration.ChangeDBversionForSybaseIQMigrationTask"
+              id="org.talend.repository.model.migration.ChangeDBversionForSybaseIQMigrationTask"
+              name="ChangeDBversionForSybaseIQMigrationTask"
+              version="6.4.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.1.0"
+              class="org.talend.repository.model.migration.AddApiModeToMarketoComponentsMigrationTask"
+              id="org.talend.repository.model.migration.AddApiModeToMarketoComponentsMigrationTask"
+              name="AddApiModeToMarketoComponentsMigrationTask"
+              description="Add USE_SOAP_API and USE_REST_API properties to Marketo jobs created before 6.1"
+              version="6.3.2">
+        </projecttask>
+                <projecttask
+              beforeLogon="true"
+              breaks="6.3.1"
+              class="org.talend.repository.model.migration.AddJavaVersionMigrationTask"
+              id="org.talend.repository.model.migration.AddJavaVersionMigrationTask"
+              name="AddJavaVersionMigrationTask"
+              version="6.4.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.3.1"
+              class="org.talend.repository.model.migration.AddFailOnErrorOnTFileCopyTDI38441"
+              id="org.talend.repository.model.migration.AddFailOnErrorOnTFileCopyTDI38441"
+              name="Set FailOn property to true if copy directory else set to false"
+              version="6.4.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.1.0"
+              class="org.talend.repository.model.migration.spark.SetSparkDataframeAlphabeticalSortOrder"
+              id="org.talend.repository.model.migration.SetSparkDataframeAlphabeticalSortOrder"
+              name="Set the Spark Dataframe Alphabatical sort order in tHiveOutput and tFileOutputParquet"
+              version="6.1.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.5.0"
+              class="org.talend.repository.model.migration.UnselectChangeEqualsAndHashcodeForBigDecimalInTMap"
+              id="org.talend.repository.model.migration.UnselectChangeEqualsAndHashcodeForBigDecimalInTMap"
+              name="Set the 'skip tailing zeros for BigDecimal' setting to false if it was null"
+              version="6.5.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.5.0"
+              class="org.talend.repository.model.migration.ChangeColumnDelimiter4tExaBulkExec"
+              id="org.talend.repository.model.migration.ChangeColumnDelimiter4tExaBulkExec"
+              name="reset the 'COLUMN_DELIMITER' parameter"
+              version="6.5.0">
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.5.0"
+              class="org.talend.repository.model.migration.AddIncludTrashFilesOnGoogleDriveListTask"
+              id="org.talend.repository.model.migration.AddIncludTrashFilesOnGoogleDriveListTask"
+              name="Configure the new INCLUDTRASHFILES property to 'true' in order to keep the same behavior as before"
+              version="6.5.1">
+        </projecttask>
+        <projecttask
+              beforeLogon="true"
+              class="org.talend.repository.model.migration.UpdateToJava8VersionMigrationTask"
+              id="org.talend.repository.model.migration.UpdateToJava8VersionMigrationTask"
+              name="UpdateToJava8VersionMigrationTask"
+              version="6.5.1">
+        </projecttask>
    </extension>
 
    <extension
@@ -2887,6 +3021,12 @@
       <initializer
             class="org.talend.repository.preference.RepositoryPreferenceInitializer">
       </initializer>
+      <initializer
+            class="org.talend.repository.preference.initializer.JavaVersionProjectSettingPageInitializer">
+      </initializer>
+      <initializer
+            class="org.talend.repository.preference.initializer.MavenVersionManagementProjectSettingPageInitializer">
+      </initializer>
    </extension>
    <extension
          point="org.talend.repository.projectsetting_page">
@@ -2953,6 +3093,27 @@
             class="org.talend.repository.preference.MetadataTalendTypePreferencePage"
             id="org.talend.repository.preference.MetadataTalendTypePreferencePage"
             title="%projectSetting.talendType">
+      </page>
+      <page
+            category="general"
+            class="org.talend.repository.preference.AutoConversionTypesPreferencePage"
+            id="org.talend.repository.preference.AutoConversionTypesPreferencePage"
+            title="%projectSetting.auto-ConversionTypes">
+      </page>
+      <page
+            category="projectsetting.Maven"
+            class="org.talend.repository.preference.MavenVersionManagementProjectSettingPage"
+            id="org.talend.repository.preference.MavenVersionManagementProjectSettingPage"
+            title="%projectSetting.versioning">
+         <tester
+               class="org.talend.repository.preference.MavenVersionManagementProjectSettingPageTester">
+         </tester>
+      </page>
+      <page
+            category="projectsetting.Build"
+            class="org.talend.repository.preference.JavaVersionProjectSettingPage"
+            id="projectsetting.JavaVersion"
+            title="%ProjectSetting_JavaVersion">
       </page>
    </extension>
    <extension

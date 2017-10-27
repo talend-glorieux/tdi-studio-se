@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -15,14 +15,12 @@ package org.talend.repository.generic.internal.service;
 import java.lang.reflect.Constructor;
 import java.util.List;
 
-import org.osgi.framework.BundleContext;
-import org.osgi.framework.FrameworkUtil;
-import org.osgi.framework.ServiceReference;
 import org.talend.commons.exception.ExceptionHandler;
 import org.talend.components.api.properties.ComponentProperties;
 import org.talend.components.api.service.ComponentService;
 import org.talend.components.api.wizard.ComponentWizard;
 import org.talend.core.model.repository.ERepositoryObjectType;
+import org.talend.designer.core.generic.utils.ComponentsUtils;
 import org.talend.repository.generic.internal.IGenericWizardInternalService;
 import org.talend.repository.model.IRepositoryNode.ENodeType;
 import org.talend.repository.model.IRepositoryNode.EProperties;
@@ -36,13 +34,7 @@ public class GenericWizardInternalService implements IGenericWizardInternalServi
 
     @Override
     public ComponentService getComponentService() {
-        ComponentService compService = null;
-        BundleContext bundleContext = FrameworkUtil.getBundle(this.getClass()).getBundleContext();
-        ServiceReference<ComponentService> compServiceRef = bundleContext.getServiceReference(ComponentService.class);
-        if (compServiceRef != null) {
-            compService = bundleContext.getService(compServiceRef);
-        }
-        return compService;
+        return ComponentsUtils.getComponentService();
     }
 
     @Override
@@ -79,13 +71,12 @@ public class GenericWizardInternalService implements IGenericWizardInternalServi
     @Override
     public ERepositoryObjectType createRepositoryType(String type, String label, String alias, String folder, int ordinal) {
         Constructor<ERepositoryObjectType> dynamicConstructor = getConstructor(ERepositoryObjectType.class, new Class[] {
-                String.class, String.class, String.class, String.class, int.class, boolean.class, String.class, String[].class,
-                boolean.class, String[].class, boolean[].class });
+                String.class, String.class, String.class, String.class, int.class, String[].class });
         ERepositoryObjectType typeObject = null;
         try {
             dynamicConstructor.setAccessible(true);
-            typeObject = dynamicConstructor.newInstance(type, label, folder, type, ordinal, false, alias,
-                    new String[] { ERepositoryObjectType.PROD_DI }, false, new String[0], new boolean[] { true });
+            typeObject = dynamicConstructor.newInstance(type, label, alias, folder, ordinal,
+                    new String[] { ERepositoryObjectType.PROD_DI });
             typeObject.setAParent(ERepositoryObjectType.METADATA);
         } catch (Exception e) {
             ExceptionHandler.process(e);

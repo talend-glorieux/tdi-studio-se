@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -31,6 +31,7 @@ import org.talend.core.model.process.EConnectionType;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.process.INodeConnector;
+import org.talend.core.model.utils.NodeUtil;
 import org.talend.core.model.utils.TalendTextUtils;
 import org.talend.core.ui.IJobletProviderService;
 import org.talend.core.utils.KeywordsValidator;
@@ -246,8 +247,9 @@ public class ConnectionCreateCommand extends Command {
     public boolean canExecute() {
 
         if (target != null) {
-            if (!ConnectionManager.canConnectToTarget(source, null, target, source.getConnectorFromName(connectorName)
-                    .getDefaultConnectionType(), connectorName, connectionName)) {
+            if (source.getConnectorFromName(connectorName) != null
+                    && !ConnectionManager.canConnectToTarget(source, null, target, source.getConnectorFromName(connectorName)
+                            .getDefaultConnectionType(), connectorName, connectionName)) {
                 creatingConnection = false;
                 return false;
             }
@@ -263,8 +265,9 @@ public class ConnectionCreateCommand extends Command {
     public boolean canExecute(boolean refactorJoblet) {
 
         if (target != null) {
-            if (!ConnectionManager.canConnectToTarget(source, null, target, source.getConnectorFromName(connectorName)
-                    .getDefaultConnectionType(), connectorName, connectionName, refactorJoblet)) {
+            if (source.getConnectorFromName(connectorName) != null
+                    && !ConnectionManager.canConnectToTarget(source, null, target, source.getConnectorFromName(connectorName)
+                            .getDefaultConnectionType(), connectorName, connectionName, refactorJoblet)) {
                 creatingConnection = false;
                 return false;
             }
@@ -306,7 +309,7 @@ public class ConnectionCreateCommand extends Command {
             } else {
                 connecType = EConnectionType.FLOW_MAIN;
             }
-            mainConnector = source.getConnectorFromType(connecType);
+            mainConnector = NodeUtil.getValidConnector(source);
 
             if (source.getConnectorFromName(connectorName).isMultiSchema()) {
                 boolean connectionOk = false;
@@ -394,6 +397,15 @@ public class ConnectionCreateCommand extends Command {
         }
         if (connection == null) {
             if (newMetadata != null) {
+                // add for eltmap
+                if (source instanceof Node && source.isELTMapComponent()) {
+                    for (IMetadataTable metaTable : source.getMetadataList()) {
+                        String tableName = metaTable.getTableName();
+                        if (tableName != null && source.getProcess().checkValidConnectionName(tableName)) {
+                            source.getProcess().addUniqueConnectionName(tableName);
+                        }
+                    }
+                }
                 source.getMetadataList().add(newMetadata);
                 this.connection = new Connection(source, target, newLineStyle, connectorName, metaName, connectionName,
                         monitorConnection);

@@ -1172,7 +1172,11 @@ skeleton="../templates/db_output_bulk.skeleton"
 						int countSum_<%=cid%> = 0;
 						<%dbLog.batch().executeTry(dbLog.str(dataAction));%>
 						for(int countEach_<%=cid%>: pstmt_<%=cid %>.executeBatch()) {
-							countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+							if(countEach_<%=cid%> == java.sql.Statement.SUCCESS_NO_INFO ){
+        						countSum_<%=cid%> += 1;
+        					}else{
+        						countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+        					}
 						}
 						<%dbLog.batch().executeDone(dbLog.str(dataAction));%>
             	    	<%if (("INSERT").equals(dataAction)) {
@@ -1189,36 +1193,53 @@ skeleton="../templates/db_output_bulk.skeleton"
             	    	<%
             	    	}%>
             	    	batchSizeCounter_<%=cid%> = 0;
-                }catch (java.sql.BatchUpdateException e){
-                	<%if(("true").equals(dieOnError)) {
-                	%>
-                		throw(e);
-                	<%
-                	}else {
-                	%>
-                	int countSum_<%=cid%> = 0;
-					for(int countEach_<%=cid%>: e.getUpdateCounts()) {
+                }catch (java.sql.BatchUpdateException e_<%=cid%>){
+    			java.sql.SQLException ne_<%=cid%> = e_<%=cid%>.getNextException(),sqle_<%=cid%>=null;
+    			String errormessage_<%=cid%>;
+				if (ne_<%=cid%> != null) {
+					// build new exception to provide the original cause
+					sqle_<%=cid%> = new java.sql.SQLException(e_<%=cid%>.getMessage() + "\ncaused by: " + ne_<%=cid%>.getMessage(), ne_<%=cid%>.getSQLState(), ne_<%=cid%>.getErrorCode(), ne_<%=cid%>);
+					errormessage_<%=cid%> = sqle_<%=cid%>.getMessage();
+				}else{
+					errormessage_<%=cid%> = e_<%=cid%>.getMessage();
+				}
+				
+				
+				<%if(("true").equals(dieOnError)) {
+				%>
+					if (ne_<%=cid%> != null) {
+						throw(sqle_<%=cid%>);
+					}else{
+						throw(e_<%=cid%>);
+					}
+				<%
+				}else {
+				%>
+				System.err.println(errormessage_<%=cid%>);
+				int countSum_<%=cid%> = 0;
+				for(int countEach_<%=cid%>: e_<%=cid%>.getUpdateCounts()) {
+					if(countEach_<%=cid%> == java.sql.Statement.SUCCESS_NO_INFO ){
+						countSum_<%=cid%> += 1;
+					}else{
 						countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
 					}
-					<%if (("INSERT").equals(dataAction)) {
-			    	%>
-			    		insertedCount_<%=cid%> += countSum_<%=cid%>;
-			    	<%
-			    	}else if (("UPDATE").equals(dataAction)) {
-			    	%>
-			    		updatedCount_<%=cid%> += countSum_<%=cid%>;
-			    	<%
-			    	}else if (("DELETE").equals(dataAction)) {
-			    	%>
-			    	    deletedCount_<%=cid%> += countSum_<%=cid%>;
-			    	<%
-			    	}
-			    	dbLog.logPrintedException("e.getMessage()");
-			    	%>
-                	System.err.println(e.getMessage());
-                	<%
-                	}%>
-                }
+				}
+				<%if (("INSERT").equals(dataAction)) {
+				%>
+					insertedCount_<%=cid%> += countSum_<%=cid%>;
+				<%
+				}else if (("UPDATE").equals(dataAction)) {
+				%>
+					updatedCount_<%=cid%> += countSum_<%=cid%>;
+				<%
+				}else if (("DELETE").equals(dataAction)) {
+				%>
+					deletedCount_<%=cid%> += countSum_<%=cid%>;
+				<%
+				}
+				dbLog.logPrintedException("errormessage_"+cid);
+				}%>
+				}
     			}
     		<%
     	}
@@ -1238,7 +1259,11 @@ skeleton="../templates/db_output_bulk.skeleton"
                 		int countSum_<%=cid%> = 0;
                 		<%dbLog.batch().executeTry(dbLog.str(dataAction));%>
 						for(int countEach_<%=cid%>: pstmt_<%=cid %>.executeBatch()) {
-							countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+							if(countEach_<%=cid%> == java.sql.Statement.SUCCESS_NO_INFO ){
+        						countSum_<%=cid%> += 1;
+        					}else{
+        						countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+        					}
 						}
 						<%dbLog.batch().executeDone(dbLog.str(dataAction));%>
             	    	<%if (("INSERT").equals(dataAction)) {
@@ -1254,36 +1279,53 @@ skeleton="../templates/db_output_bulk.skeleton"
             	    	    deletedCount_<%=cid%> += countSum_<%=cid%>;
             	    	<%
             	    	}%>
-                }catch (java.sql.BatchUpdateException e){
-                	<%if(("true").equals(dieOnError)) {
-                	%>
-						throw(e);
-                	<%
-                	}else {
-                	%>
-                		int countSum_<%=cid%> = 0;
-						for(int countEach_<%=cid%>: e.getUpdateCounts()) {
-							countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
-						}
-						<%if (("INSERT").equals(dataAction)) {
-            	    	%>
-            	    		insertedCount_<%=cid%> += countSum_<%=cid%>;
-            	    	<%
-            	    	}else if (("UPDATE").equals(dataAction)) {
-            	    	%>
-            	    		updatedCount_<%=cid%> += countSum_<%=cid%>;
-            	    	<%
-            	    	}else if (("DELETE").equals(dataAction)) {
-            	    	%>
-            	    	    deletedCount_<%=cid%> += countSum_<%=cid%>;
-            	    	<%
-            	    	}
-            	    	dbLog.logPrintedException("e.getMessage()");
-            	    	%>
-                        System.err.println(e.getMessage());
-                	<%
-                	}%>
-                }
+                }catch (java.sql.BatchUpdateException e_<%=cid%>){
+    			java.sql.SQLException ne_<%=cid%> = e_<%=cid%>.getNextException(),sqle_<%=cid%>=null;
+    			String errormessage_<%=cid%>;
+				if (ne_<%=cid%> != null) {
+					// build new exception to provide the original cause
+					sqle_<%=cid%> = new java.sql.SQLException(e_<%=cid%>.getMessage() + "\ncaused by: " + ne_<%=cid%>.getMessage(), ne_<%=cid%>.getSQLState(), ne_<%=cid%>.getErrorCode(), ne_<%=cid%>);
+					errormessage_<%=cid%> = sqle_<%=cid%>.getMessage();
+				}else{
+					errormessage_<%=cid%> = e_<%=cid%>.getMessage();
+				}
+				
+				
+				<%if(("true").equals(dieOnError)) {
+				%>
+					if (ne_<%=cid%> != null) {
+						throw(sqle_<%=cid%>);
+					}else{
+						throw(e_<%=cid%>);
+					}
+				<%
+				}else {
+				%>
+				System.err.println(errormessage_<%=cid%>);
+				int countSum_<%=cid%> = 0;
+				for(int countEach_<%=cid%>: e_<%=cid%>.getUpdateCounts()) {
+					if(countEach_<%=cid%> == java.sql.Statement.SUCCESS_NO_INFO ){
+						countSum_<%=cid%> += 1;
+					}else{
+						countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+					}
+				}
+				<%if (("INSERT").equals(dataAction)) {
+				%>
+					insertedCount_<%=cid%> += countSum_<%=cid%>;
+				<%
+				}else if (("UPDATE").equals(dataAction)) {
+				%>
+					updatedCount_<%=cid%> += countSum_<%=cid%>;
+				<%
+				}else if (("DELETE").equals(dataAction)) {
+				%>
+					deletedCount_<%=cid%> += countSum_<%=cid%>;
+				<%
+				}
+				dbLog.logPrintedException("errormessage_"+cid);
+				}%>
+				}
                 }
                 <%
                 }

@@ -355,8 +355,26 @@ public class MapperPackageImpl extends EPackageImpl implements MapperPackage {
      * <!-- end-user-doc -->
      * @generated
      */
-    public EAttribute getAbstractInOutTable_Id() {
+    public EAttribute getAbstractInOutTable_ActivateColumnNameFilter() {
         return (EAttribute)abstractInOutTableEClass.getEStructuralFeatures().get(3);
+    }
+
+    /**
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated
+     */
+    public EAttribute getAbstractInOutTable_ColumnNameFilter() {
+        return (EAttribute)abstractInOutTableEClass.getEStructuralFeatures().get(4);
+    }
+
+    /**
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated
+     */
+    public EAttribute getAbstractInOutTable_Id() {
+        return (EAttribute)abstractInOutTableEClass.getEStructuralFeatures().get(5);
     }
 
     /**
@@ -554,6 +572,8 @@ public class MapperPackageImpl extends EPackageImpl implements MapperPackage {
         createEAttribute(abstractInOutTableEClass, ABSTRACT_IN_OUT_TABLE__EXPRESSION_FILTER);
         createEAttribute(abstractInOutTableEClass, ABSTRACT_IN_OUT_TABLE__ACTIVATE_EXPRESSION_FILTER);
         createEAttribute(abstractInOutTableEClass, ABSTRACT_IN_OUT_TABLE__ACTIVATE_CONDENSED_TOOL);
+        createEAttribute(abstractInOutTableEClass, ABSTRACT_IN_OUT_TABLE__ACTIVATE_COLUMN_NAME_FILTER);
+        createEAttribute(abstractInOutTableEClass, ABSTRACT_IN_OUT_TABLE__COLUMN_NAME_FILTER);
         createEAttribute(abstractInOutTableEClass, ABSTRACT_IN_OUT_TABLE__ID);
 
         uiPropertiesEClass = createEClass(UI_PROPERTIES);
@@ -640,6 +660,8 @@ public class MapperPackageImpl extends EPackageImpl implements MapperPackage {
         initEAttribute(getAbstractInOutTable_ExpressionFilter(), ecorePackage.getEString(), "expressionFilter", null, 0, 1, AbstractInOutTable.class, !IS_TRANSIENT, !IS_VOLATILE, IS_CHANGEABLE, !IS_UNSETTABLE, !IS_ID, IS_UNIQUE, !IS_DERIVED, IS_ORDERED);
         initEAttribute(getAbstractInOutTable_ActivateExpressionFilter(), ecorePackage.getEBoolean(), "activateExpressionFilter", null, 0, 1, AbstractInOutTable.class, !IS_TRANSIENT, !IS_VOLATILE, IS_CHANGEABLE, !IS_UNSETTABLE, !IS_ID, IS_UNIQUE, !IS_DERIVED, IS_ORDERED);
         initEAttribute(getAbstractInOutTable_ActivateCondensedTool(), ecorePackage.getEBoolean(), "activateCondensedTool", null, 0, 1, AbstractInOutTable.class, !IS_TRANSIENT, !IS_VOLATILE, IS_CHANGEABLE, !IS_UNSETTABLE, !IS_ID, IS_UNIQUE, !IS_DERIVED, IS_ORDERED);
+        initEAttribute(getAbstractInOutTable_ActivateColumnNameFilter(), ecorePackage.getEBoolean(), "activateColumnNameFilter", null, 0, 1, AbstractInOutTable.class, !IS_TRANSIENT, !IS_VOLATILE, IS_CHANGEABLE, !IS_UNSETTABLE, !IS_ID, IS_UNIQUE, !IS_DERIVED, IS_ORDERED);
+        initEAttribute(getAbstractInOutTable_ColumnNameFilter(), ecorePackage.getEString(), "columnNameFilter", null, 0, 1, AbstractInOutTable.class, !IS_TRANSIENT, !IS_VOLATILE, IS_CHANGEABLE, !IS_UNSETTABLE, !IS_ID, IS_UNIQUE, !IS_DERIVED, IS_ORDERED);
         initEAttribute(getAbstractInOutTable_Id(), ecorePackage.getEString(), "id", null, 0, 1, AbstractInOutTable.class, !IS_TRANSIENT, !IS_VOLATILE, IS_CHANGEABLE, !IS_UNSETTABLE, !IS_ID, IS_UNIQUE, !IS_DERIVED, IS_ORDERED);
 
         initEClass(uiPropertiesEClass, UiProperties.class, "UiProperties", !IS_ABSTRACT, !IS_INTERFACE, IS_GENERATED_INSTANCE_CLASS);

@@ -145,10 +145,13 @@ public class GenericRepositoryContentHandler extends AbstractRepositoryContentHa
     @Override
     public void addNode(ERepositoryObjectType type, RepositoryNode recBinNode, IRepositoryViewObject repositoryObject,
             RepositoryNode node) {
-        if (isRepObjType(type)) {
-            GenericConnection connection = (GenericConnection) ((GenericConnectionItem) repositoryObject.getProperty().getItem())
-                    .getConnection();
-            createSubNodes(node, repositoryObject, connection);
+        if (isRepObjType(type) || isRepObjType(repositoryObject.getRepositoryObjectType())) {
+            Item item = repositoryObject.getProperty().getItem();
+            if (item instanceof GenericConnectionItem) {
+                GenericConnectionItem connItem = (GenericConnectionItem) item;
+                GenericConnection connection = (GenericConnection) connItem.getConnection();
+                createSubNodes(node, repositoryObject, connection);
+            }
         }
     }
 

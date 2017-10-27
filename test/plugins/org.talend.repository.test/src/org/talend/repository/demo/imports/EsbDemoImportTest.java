@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -16,6 +16,7 @@ import java.io.File;
 import java.util.Iterator;
 import java.util.List;
 
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.junit.Assert;
@@ -64,13 +65,19 @@ public class EsbDemoImportTest extends DemosImportTest {
     public void testEsbDemoComplete() throws Exception {
         // test the job items under ESB_Demo.zip
         Assert.assertTrue(esbResManager instanceof FileResourcesUnityManager);
-        Iterator path = esbResManager.getPaths().iterator();
-        String firstFilePath = ((Path) path.next()).toPortableString();
-        String tempFolderPath = firstFilePath.substring(0,
-                firstFilePath.indexOf(TEMP_FOLDER_SUFFIEX) + TEMP_FOLDER_SUFFIEX.length());
-        Assert.assertTrue(new File(tempFolderPath).exists());
-        String rootPath = tempFolderPath + File.separator + demoName;
-        Assert.assertTrue(new File(rootPath).exists());
+        Iterator pathes = esbResManager.getPaths().iterator();
+        IPath projectPath = null;
+        while (pathes.hasNext()) {
+            IPath p = ((Path) pathes.next());
+            if (p.lastSegment().equals(FileConstants.LOCAL_PROJECT_FILENAME)) {
+                projectPath = p;
+                break;
+            }
+        }
+        Assert.assertNotNull("Can't find the talend.project, so it's invalid demo", projectPath);
+        final File talendProjectFile = projectPath.toFile();
+        Assert.assertTrue(talendProjectFile.exists());
+        String rootPath = talendProjectFile.getParentFile().toString();
         File tempJobsFolder = new File(rootPath + File.separator + processItemPath);
 
         List<File> demoJobItemFiles = DemoImportTestUtil.collectProjectFilesFromDirectory(tempJobsFolder,
@@ -90,8 +97,7 @@ public class EsbDemoImportTest extends DemosImportTest {
         Assert.assertEquals(demoConItemsFiles.size(), currentConnectionItemsSize);
 
         // test the routes under ESB_Demo.zip
-        int currentRoutesSize = ProxyRepositoryFactory.getInstance()
-                .getAll(ERepositoryObjectType.PROCESS_ROUTE).size();
+        int currentRoutesSize = ProxyRepositoryFactory.getInstance().getAll(ERepositoryObjectType.PROCESS_ROUTE).size();
         Assert.assertTrue(currentRoutesSize > 0);
         File tempRoutesFolder = new File(rootPath + File.separator + routesItemPath);
         List<File> demoRoutesFiles = DemoImportTestUtil.collectProjectFilesFromDirectory(tempRoutesFolder,

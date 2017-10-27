@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -132,7 +132,7 @@ public class PigCategoryComposite extends CategoryComposite {
                     if (function.isUserDefined()) {
                         event.data = (JavaUtils.JAVA_PIGUDF_DIRECTORY + "." + function.getName() + "()");
                     } else {
-                        event.data = (FunctionManagerExt.getOneColData(column, false));
+                        event.data = (FunctionManagerExt.getOneColData(column, false, false));
                     }
                 }
             }

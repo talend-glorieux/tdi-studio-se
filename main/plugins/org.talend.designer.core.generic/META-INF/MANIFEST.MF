@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Generic Core
 Bundle-SymbolicName: org.talend.designer.core.generic;singleton:=true
-Bundle-Version: 6.3.0.qualifier
+Bundle-Version: 7.0.1.qualifier
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
  org.eclipse.emf.common,
@@ -20,7 +20,9 @@ Require-Bundle: org.eclipse.ui,
  org.talend.repository,
  jackson-core-asl,
  org.apache.servicemix.bundles.avro,
- org.talend.metadata.managment.ui
+ org.talend.metadata.managment.ui,
+ org.slf4j.api,
+ org.eclipse.swt
 Bundle-ActivationPolicy: lazy
 Bundle-Vendor: .Talend SA.
 Export-Package: org.talend.designer.core.generic.constants,
@@ -28,7 +30,10 @@ Export-Package: org.talend.designer.core.generic.constants,
  org.talend.designer.core.generic.model,
  org.talend.designer.core.generic.utils
 Import-Package: org.talend.components.api.component,
+ org.talend.components.api.component.runtime,
  org.talend.components.api.properties,
  org.talend.components.api.service,
  org.talend.components.api.wizard,
+ org.talend.daikon.runtime,
  org.talend.daikon.properties.property
+

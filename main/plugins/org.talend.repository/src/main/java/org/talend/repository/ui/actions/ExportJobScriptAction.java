@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -38,6 +38,7 @@ import org.talend.repository.model.IRepositoryNode.EProperties;
 import org.talend.repository.model.RepositoryNode;
 import org.talend.repository.preference.ExportJobTokenCollector;
 import org.talend.repository.ui.wizards.exportjob.JobScriptsExportWizard;
+import org.talend.repository.ui.wizards.exportjob.util.ExportJobUtil;
 
 /**
  * Action used to export job scripts. <br/>
@@ -75,6 +76,10 @@ public class ExportJobScriptAction extends AContextualAction {
 
             if (canWork && node.getObject() != null
                     && ProxyRepositoryFactory.getInstance().getStatus(node.getObject()) == ERepositoryStatus.DELETED) {
+                canWork = false;
+                break;
+            }
+            if (ExportJobUtil.getProcessItem(nodes) == null) {
                 canWork = false;
                 break;
             }

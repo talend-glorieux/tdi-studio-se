@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -47,7 +47,7 @@ public class TalendGridLayer extends GridLayer {
         FreeformFigure ff = (FreeformFigure) this.getParent();
         Rectangle clientArea = getClientArea();
         Rectangle bounds = ff.getFreeformExtent().getCopy();
-        bounds.union(clientArea.x, clientArea.y, clientArea.width * AnimatableZoomManager.currentZoom, clientArea.height
+        bounds.union(0, 0, clientArea.width * AnimatableZoomManager.currentZoom, clientArea.height
                 * AnimatableZoomManager.currentZoom);
         ff.setFreeformBounds(bounds);
 

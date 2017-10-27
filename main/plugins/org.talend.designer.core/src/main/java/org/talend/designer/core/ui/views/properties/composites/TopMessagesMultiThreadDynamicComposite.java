@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,6 +13,7 @@
 package org.talend.designer.core.ui.views.properties.composites;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.layout.FormAttachment;
 import org.eclipse.swt.layout.FormData;
@@ -35,6 +36,11 @@ public class TopMessagesMultiThreadDynamicComposite extends MultipleThreadDynami
     public TopMessagesMultiThreadDynamicComposite(Composite parentComposite, int styles, EComponentCategory section,
             Element element, boolean isCompactView) {
         super(parentComposite, styles, section, element, isCompactView);
+    }
+
+    public TopMessagesMultiThreadDynamicComposite(Composite parentComposite, int styles, final EComponentCategory section,
+            Element element, boolean isCompactView, Color backgroundColor) {
+        super(parentComposite, styles, section, element, isCompactView, backgroundColor);
     }
 
     /*

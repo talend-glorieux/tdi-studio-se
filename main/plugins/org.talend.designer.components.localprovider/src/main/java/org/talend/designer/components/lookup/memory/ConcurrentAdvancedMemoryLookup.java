@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -33,11 +33,14 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class ConcurrentAdvancedMemoryLookup<V> extends AdvancedMemoryLookup<V> implements IMemoryLookup<V, V>, Cloneable {
 
-    public class ConcurrentMultiLazyValuesMap extends java.util.HashMap {
+    /**
+     * Concurrent multi lazy values map
+     */
+    private class CMLVM extends java.util.HashMap {
 
         private ConcurrentHashMap map;
 
-        public ConcurrentMultiLazyValuesMap(ConcurrentHashMap map) {
+        public CMLVM(ConcurrentHashMap map) {
             super();
             this.map = map;
         }
@@ -146,7 +149,7 @@ public class ConcurrentAdvancedMemoryLookup<V> extends AdvancedMemoryLookup<V> i
         }
     }
 
-    private ConcurrentMultiLazyValuesMap mapOfCol;
+    private CMLVM mapOfCol;
 
     private Map<V, V> uniqueHash;
 
@@ -194,7 +197,7 @@ public class ConcurrentAdvancedMemoryLookup<V> extends AdvancedMemoryLookup<V> i
             if (this.countValuesForEachKey) {
                 counterHash = new ConcurrentHashMap<V, Integer>(1000, .75f, 1);
             }
-            mapOfCol = new ConcurrentMultiLazyValuesMap(new ConcurrentHashMap(1000, .75f, 1));
+            mapOfCol = new CMLVM(new ConcurrentHashMap(1000, .75f, 1));
         }
     }
 
@@ -212,7 +215,7 @@ public class ConcurrentAdvancedMemoryLookup<V> extends AdvancedMemoryLookup<V> i
                 counterHash = new ConcurrentHashMap<V, Integer>(1000, .9f, 1);
                 counterHash.putAll(other.counterHash);
             }
-            mapOfCol = new ConcurrentMultiLazyValuesMap(new ConcurrentHashMap(1000, .9f, 1));
+            mapOfCol = new CMLVM(new ConcurrentHashMap(1000, .9f, 1));
             mapOfCol.putAll(other.mapOfCol);
         }
     }
@@ -409,7 +412,7 @@ public class ConcurrentAdvancedMemoryLookup<V> extends AdvancedMemoryLookup<V> i
      * @param value
      * @param previousValue
      */
-    private void incrementCountValues(V value, V previousValue) {
+    protected void incrementCountValues(V value, V previousValue) {
         if (countValuesForEachKey) {
             Integer count;
             if (previousValue == null) {

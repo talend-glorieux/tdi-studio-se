@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -71,6 +71,7 @@ import org.talend.commons.ui.runtime.exception.MessageBoxExceptionHandler;
 import org.talend.commons.utils.time.TimeMeasure;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.hadoop.IHadoopClusterService;
+import org.talend.core.hadoop.repository.HadoopRepositoryUtil;
 import org.talend.core.model.process.ProcessUtils;
 import org.talend.core.model.properties.Item;
 import org.talend.core.model.properties.Project;
@@ -308,6 +309,13 @@ public class ExportItemWizardPage extends WizardPage {
                         || objectType == ERepositoryObjectType.METADATA_CON_QUERY) {
                     if (node.getObject() != null) {
                         property = node.getObject().getProperty();
+                    }
+                } else if (objectType == ERepositoryObjectType.METADATA_CON_COLUMN) {
+                    if (node.getObject() != null && (node.getObject() instanceof MetadataColumnRepositoryObject)) {
+                        IRepositoryViewObject viewObj = ((MetadataColumnRepositoryObject) node.getObject()).getViewObject();
+                        if (viewObj != null) {
+                            property = viewObj.getProperty();
+                        }
                     }
                 }
 
@@ -1234,11 +1242,7 @@ public class ExportItemWizardPage extends WizardPage {
     }
 
     private boolean isHadoopClusterNode(IRepositoryNode repositoryNode) {
-        IHadoopClusterService hadoopClusterService = null;
-        if (GlobalServiceRegister.getDefault().isServiceRegistered(IHadoopClusterService.class)) {
-            hadoopClusterService = (IHadoopClusterService) GlobalServiceRegister.getDefault().getService(
-                    IHadoopClusterService.class);
-        }
+        IHadoopClusterService hadoopClusterService = HadoopRepositoryUtil.getHadoopClusterService();
         if (hadoopClusterService != null) {
             return hadoopClusterService.isHadoopClusterNode(repositoryNode);
         }

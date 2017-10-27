@@ -402,6 +402,12 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 			
 			String[] temp_row_<%= cid %> = new String[tempRowLength_<%=cid%>];
 			int actual_end_column_<%= cid %> = end_column_<%= cid %> >	row_<%= cid %>.length ? row_<%= cid %>.length : end_column_<%= cid %>;
+
+				java.util.TimeZone zone_<%= cid %> = java.util.TimeZone.getTimeZone("GMT");
+                java.text.SimpleDateFormat sdf_<%= cid %> = new java.text.SimpleDateFormat(<%=datePattern%>);
+                sdf_<%= cid %>.setTimeZone(zone_<%= cid %>);
+                
+
 			for(int i=0;i<tempRowLength_<%=cid%>;i++){
 
 				if(i + start_column_<%= cid %> < actual_end_column_<%= cid %>){
@@ -410,12 +416,18 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 <%
                     if(bReadRealValue){
 %>
-                        if (jxl.CellType.NUMBER == cell_<%=cid%>.getType()){
+                        if (jxl.CellType.NUMBER == cell_<%=cid%>.getType()||jxl.CellType.NUMBER_FORMULA == cell_<%=cid%>.getType()){
                             double doubleCell_<%=cid%> = ((jxl.NumberCell)cell_<%=cid%>).getValue();
                             temp_row_<%=cid%>[i] = String.valueOf(doubleCell_<%=cid%>);
                             if(temp_row_<%=cid%>[i]!=null) {
                                 temp_row_<%=cid%>[i] = df_<%=cid %>.format(doubleCell_<%=cid%>);
                             }
+                    	} else if(jxl.CellType.DATE== cell_<%=cid%>.getType()||jxl.CellType.DATE_FORMULA== cell_<%=cid%>.getType()){
+
+	                            		  	jxl.DateCell dc_<%= cid %> = (jxl.DateCell)cell_<%=cid%>;
+                            				java.util.Date date_<%= cid %> = dc_<%= cid %>.getDate();
+                        					temp_row_<%= cid %>[i] = sdf_<%= cid %>.format(date_<%= cid %>);
+                        					
                         } else{
                             temp_row_<%= cid %>[i] = cell_<%=cid%>.getContents();
                         }
@@ -500,10 +512,10 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 				dynamic_index = i;
 			%>
 				dynamic_<%=cid %>.clearColumnValues();
-				int fieldCount = row_<%= cid %>.length;
+				int fieldCount_<%=cid %> = row_<%= cid %>.length;
 				dynamic_column_count_<%=cid%> = dynamic_<%=cid %>.getColumnCount();
 				for (int i = 0; i < dynamic_column_count_<%=cid%> ; i++) {
-					if ((<%=dynamic_index%>+i) < fieldCount){
+					if ((<%=dynamic_index%>+i) < fieldCount_<%=cid %>){
 						if(temp_row_<%= cid %>[<%=dynamic_index%>+i]<%=(isTrimAll || (!trimSelects.isEmpty() && ("true").equals(trimSelects.get(i).get("TRIM"))))?".trim()":"" %>.length() < 1){
 							emptyColumnCount_<%= cid %>++;
 						}
@@ -557,8 +569,6 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 //
 		}
 					}%>
-					nb_line_<%=cid%>++;
-					<%log4jFileUtil.debugRetriveData(node);%>
 <%if(rejectConnName.equals(firstConnName)) {%> <%=firstConnName %> = null; <%}%>
 
 <%
@@ -570,7 +580,8 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 <%
 	}
 %>
-
+			nb_line_<%=cid%>++;
+			<%log4jFileUtil.debugRetriveData(node);%>
     } catch (java.lang.Exception e) {
         whetherReject_<%=cid%> = true;
         <%
@@ -644,18 +655,18 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 			        if(useRegex){//this part process the regex issue
 
 				        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(oneSheetName);
-				        for (org.apache.poi.xssf.usermodel.XSSFSheet sheet : workbook) {
+				        for (org.apache.poi.ss.usermodel.Sheet sheet : workbook) {
 				            String sheetName = sheet.getSheetName();
 				            java.util.regex.Matcher matcher = pattern.matcher(sheetName);
 				            if (matcher.matches()) {
 				            	if(sheet != null){
-				                	list.add(sheet);
+				                	list.add((org.apache.poi.xssf.usermodel.XSSFSheet) sheet);
 				                }
 				            }
 				        }
 
 			        }else{
-			        	org.apache.poi.xssf.usermodel.XSSFSheet sheet = workbook.getSheet(oneSheetName);
+			        	org.apache.poi.xssf.usermodel.XSSFSheet sheet = (org.apache.poi.xssf.usermodel.XSSFSheet) workbook.getSheet(oneSheetName);
 		            	if(sheet != null){
 		                	list.add(sheet);
 		                }
@@ -667,7 +678,7 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 
 			    public java.util.List<org.apache.poi.xssf.usermodel.XSSFSheet> getSheets(org.apache.poi.xssf.usermodel.XSSFWorkbook workbook, int index, boolean useRegex) {
 			    	java.util.List<org.apache.poi.xssf.usermodel.XSSFSheet> list =  new java.util.ArrayList<org.apache.poi.xssf.usermodel.XSSFSheet>();
-			    	org.apache.poi.xssf.usermodel.XSSFSheet sheet = workbook.getSheetAt(index);
+			    	org.apache.poi.xssf.usermodel.XSSFSheet sheet = (org.apache.poi.xssf.usermodel.XSSFSheet) workbook.getSheetAt(index);
 	            	if(sheet != null){
 	                	list.add(sheet);
 	                }
@@ -694,8 +705,8 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 		if(isAllSheets){
 %>
     	java.util.List<org.apache.poi.xssf.usermodel.XSSFSheet> sheetList_<%= cid %> = new java.util.ArrayList<org.apache.poi.xssf.usermodel.XSSFSheet>();
-    	for(org.apache.poi.xssf.usermodel.XSSFSheet sheet_<%=cid%>:workbook_<%=cid%>){
-   			sheetList_<%= cid %>.add(sheet_<%=cid%>);
+    	for(org.apache.poi.ss.usermodel.Sheet sheet_<%=cid%> : workbook_<%=cid%>){
+   			sheetList_<%= cid %>.add((org.apache.poi.xssf.usermodel.XSSFSheet) sheet_<%=cid%>);
     	}
 <%
 		}else{
@@ -1064,16 +1075,18 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 							dynamic_index = i;
 							%>
 							dynamic_<%=cid %>.clearColumnValues();
-							int fieldCount = row_<%= cid %>.getLastCellNum()-row_<%= cid %>.getFirstCellNum()+1;
+							int fieldCount_<%=cid %> = 0;
+							if(row_<%= cid %>!=null){
+								fieldCount_<%=cid %> = row_<%= cid %>.getLastCellNum()-row_<%= cid %>.getFirstCellNum()+1;
+							}
 							dynamic_column_count_<%=cid%> = dynamic_<%=cid %>.getColumnCount();
 							for (int i = 0; i < dynamic_column_count_<%=cid%> ; i++) {
-								if ((<%=dynamic_index%>+i) < fieldCount){
+								if ((<%=dynamic_index%>+i) < fieldCount_<%=cid %>){
 									if(temp_row_<%= cid %>[<%=dynamic_index%>+i]<%=(isTrimAll || (!trimSelects.isEmpty() && ("true").equals(trimSelects.get(i).get("TRIM"))))?".trim()":"" %>.length() < 1){
 										emptyColumnCount_<%= cid %>++;
 									}
 									dynamic_<%=cid %>.addColumnValue(temp_row_<%= cid %>[<%=dynamic_index%>+i]<%=(isTrimAll || (!trimSelects.isEmpty() && ("true").equals(trimSelects.get(i).get("TRIM"))))?".trim()":"" %>);
-								}
-								else{
+								}else{
 									dynamic_<%=cid %>.addColumnValue("");
 									emptyColumnCount_<%= cid %>++;
 								}
@@ -1106,8 +1119,6 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 		}
 					}
 %>
-					nb_line_<%=cid%>++;
-					<%log4jFileUtil.debugRetriveData(node);%>
 <%if(rejectConnName.equals(firstConnName)) {%> <%=firstConnName %> = null; <%}%>
 
 <%
@@ -1119,6 +1130,8 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 <%
 	}
 %>
+				nb_line_<%=cid%>++;
+				<%log4jFileUtil.debugRetriveData(node);%>
 			}catch(java.lang.Exception e){
 			whetherReject_<%=cid%> = true;
 <%
@@ -1408,10 +1421,10 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 							dynamic_index = i;
 			%>
 							dynamic_<%=cid %>.clearColumnValues();
-							int fieldCount = row_<%= cid %>.size();
+							int fieldCount_<%=cid %> = row_<%= cid %>.size();
 							dynamic_column_count_<%=cid%> = dynamic_<%=cid %>.getColumnCount();
 							for (int i = 0; i < dynamic_column_count_<%=cid%> ; i++) {
-								if ((<%=dynamic_index%>+i) < fieldCount){
+								if ((<%=dynamic_index%>+i) < fieldCount_<%=cid %>){
 									if(temp_row_<%= cid %>[<%=dynamic_index%>+i]<%=(isTrimAll || (!trimSelects.isEmpty() && ("true").equals(trimSelects.get(i).get("TRIM"))))?".trim()":"" %>.length() < 1){
 										emptyColumnCount_<%= cid %>++;
 									}
@@ -1450,20 +1463,9 @@ if ((metadatas!=null)&&(metadatas.size()>0)) {
 		}
 					}//TD128
 %>
-
-					nb_line_<%=cid%>++;
-					<%log4jFileUtil.debugRetriveData(node);%>
 <%if(rejectConnName.equals(firstConnName)) {%> <%=firstConnName %> = null; <%}%>
-
-<%
-	if(stopOnEmptyRow && false){
-%>
-        if(emptyColumnCount_<%= cid %> >= <%=size %><%if(hasDynamic){%>+dynamic_column_count_<%=cid%>-1<%}%>){
-        	break; //if meet the empty row, there will break the iterate.
-        }
-<%
-	}
-%>
+			nb_line_<%=cid%>++;
+			<%log4jFileUtil.debugRetriveData(node);%>
 		} catch(java.lang.Exception e) {
 			whetherReject_<%=cid%> = true;
 <%

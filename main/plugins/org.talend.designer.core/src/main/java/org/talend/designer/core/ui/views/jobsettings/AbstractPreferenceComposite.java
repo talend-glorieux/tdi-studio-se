@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -533,7 +533,11 @@ public abstract class AbstractPreferenceComposite extends MultipleThreadDynamicC
                  * @param version
                  */
                 private void applySettingsToSubJob(String id, String version) {
-                    ProcessType processType = ItemCacheManager.getProcessItem(id, version).getProcess();
+                    final ProcessItem processItem = ItemCacheManager.getProcessItem(id, version);
+                    if (processItem == null) {
+                        return;
+                    }
+                    ProcessType processType = processItem.getProcess();
                     EList<ElementParameterType> parameters = processType.getParameters().getElementParameter();
                     StatsAndLogsViewHelper.applySettings(parameters, elem);
 

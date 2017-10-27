@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -149,12 +149,8 @@ public class SubjobContainerLayoutEditPolicy extends XYLayoutEditPolicy {
         if (Note.class.equals(request.getNewObjectType())) {
             command = new CreateNoteCommand(linkedProcess, (Note) request.getNewObject(), constraint.getLocation());
         } else if (request.getNewObject() instanceof Node) {
-            NodeContainer nodeContainer = null;
-            if (((Node) request.getNewObject()).isJoblet() || ((Node) request.getNewObject()).isMapReduce()) {
-                nodeContainer = new JobletContainer((Node) request.getNewObject());
-            } else {
-                nodeContainer = new NodeContainer((Node) request.getNewObject());
-            }
+            Node node = (Node) request.getNewObject();
+            NodeContainer nodeContainer = ((Process)node.getProcess()).loadNodeContainer(node, false);
             command = new CreateNodeContainerCommand(linkedProcess, nodeContainer, constraint.getLocation());
         }
 

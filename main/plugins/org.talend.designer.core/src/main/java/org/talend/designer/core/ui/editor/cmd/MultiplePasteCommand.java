@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -139,6 +139,15 @@ public class MultiplePasteCommand extends CompoundCommand {
      */
     public void setSelectedSubjobs(List<SubjobContainerPart> subjobParts) {
         nodeCmd.setSelectedSubjobs(subjobParts);
+    }
+
+    /**
+     * Sets the selectedExpandedJoblet.
+     * 
+     * @param selectedExpandedJoblet the selectedExpandedJoblet to set
+     */
+    public void setSelectedExpandedJoblet(List<NodePart> selectedExpandedJoblet) {
+        nodeCmd.setSelectedExpandedJoblet(selectedExpandedJoblet);
     }
 
 }

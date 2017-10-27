@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -20,6 +20,7 @@ import org.talend.commons.ui.runtime.expressionbuilder.IExpressionBuilderDialogC
 import org.talend.commons.ui.runtime.expressionbuilder.IExpressionDataBean;
 import org.talend.core.model.process.INode;
 import org.talend.core.runtime.services.IExpressionBuilderDialogService;
+import org.talend.expressionbuilder.ui.BatchExpressionBuilderDialog;
 import org.talend.expressionbuilder.ui.ExpressionBuilderDialog;
 import org.talend.expressionbuilder.ui.PigExpressionBuilderDialog;
 
@@ -57,4 +58,9 @@ public class ExpressionBuilderService implements IExpressionBuilderDialogService
         return new PigExpressionBuilderDialog(parent.getShell(), dataBean, component, vars, hasPigDataFuCategory);
     }
 
+    @Override
+    public IExpressionBuilderDialogController getExpressionBuilderInstance(Composite parent, IExpressionDataBean dataBean,
+            INode component, boolean isBatch) {
+        return new BatchExpressionBuilderDialog(parent.getShell(), dataBean, component);
+    }
 }

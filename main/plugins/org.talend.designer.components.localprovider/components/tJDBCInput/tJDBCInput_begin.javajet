@@ -37,22 +37,26 @@ imports="
 		      String conn = "conn_" + connection;
 		      INode connectionNode = NodeUtil.getNodeByUniqueName(node.getProcess(),connection,false);
 		      driverName = ElementParameterParser.getValue(connectionNode, "__DRIVER_CLASS__");
-         } else {
+          } else {
 				driverName = ElementParameterParser.getValue(node, "__DRIVER_CLASS__");
 			}
-			if(null != driverName && driverName.indexOf("mysql") != -1){
+			if(null != driverName && driverName.toLowerCase().contains("mysql")){
 %>
 				stmt_<%=cid %> = conn_<%=cid%>.createStatement(java.sql.ResultSet.TYPE_FORWARD_ONLY,
 																					java.sql.ResultSet.CONCUR_READ_ONLY);
-				((com.mysql.jdbc.Statement)stmt_<%=cid %>).enableStreamingResults();
+				if(stmt_<%=cid %> instanceof com.mysql.jdbc.Statement){
+				    ((com.mysql.jdbc.Statement)stmt_<%=cid %>).enableStreamingResults();
+				}else if(stmt_<%=cid %> instanceof com.mysql.jdbc.jdbc2.optional.JDBC4StatementWrapper){
+				    ((com.mysql.jdbc.jdbc2.optional.JDBC4StatementWrapper)stmt_<%=cid %>).enableStreamingResults();
+				}
 <%
-			}else{
+			} 
             if(("true").equals(useCursor)) {
 %>
-                stmt_<%=cid %>.setFetchSize(<%=cursorSize %>);
+              stmt_<%=cid %>.setFetchSize(<%=cursorSize %>);
 <%
-			   }
-		   }            
+			  }
+			
 		}
 		
 		public void createConnection(INode node) {
@@ -69,8 +73,12 @@ imports="
 %>
 				java.util.Map<String, routines.system.TalendDataSource> dataSources_<%=cid%> = (java.util.Map<String, routines.system.TalendDataSource>) globalMap.get(KEY_DB_DATASOURCES);
 				if (null != dataSources_<%=cid%>) {
-					conn_<%=cid%> = dataSources_<%=cid%>.get(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>).getConnection();
-				} else {
+        			String dsAlias_<%=cid%> = <%=(null != alias && !("".equals(alias)))?alias:"\"\""%>;
+            		if (dataSources_<%=cid%>.get(dsAlias_<%=cid%>) == null) {
+               			throw new RuntimeException("No DataSource with alias: " + dsAlias_<%=cid%> + " available!");
+                  	}
+            		conn_<%=cid%> = dataSources_<%=cid%>.get(dsAlias_<%=cid%>).getConnection();
+        		} else {
 <%
 			}
 %>

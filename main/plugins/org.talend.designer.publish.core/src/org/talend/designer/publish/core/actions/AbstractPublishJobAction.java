@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -162,11 +162,15 @@ public abstract class AbstractPublishJobAction implements IRunnableWithProgress 
             // TDI-32861, because for publish job, so means, must be binaries
             exportChoiceMap.put(ExportChoice.binaries, true);
             exportChoiceMap.put(ExportChoice.includeLibs, true);
+            exportChoiceMap.put(ExportChoice.addStatistics, true);
 
             ProcessItem processItem = (ProcessItem) node.getObject().getProperty().getItem();
-
-            BuildJobManager.getInstance().buildJob(tmpJob.getAbsolutePath(), processItem, jobVersion,
-                    processItem.getProcess().getDefaultContext(), exportChoiceMap, exportType, monitor);
+            String contextName = (String) exportChoiceMap.get(ExportChoice.contextName);
+            if (contextName == null) {
+                contextName = processItem.getProcess().getDefaultContext();
+            }
+            BuildJobManager.getInstance().buildJob(tmpJob.getAbsolutePath(), processItem, jobVersion, contextName,
+                    exportChoiceMap, exportType, monitor);
             if (GlobalServiceRegister.getDefault().isServiceRegistered(IRunProcessService.class)) {
                 IRunProcessService service = (IRunProcessService) GlobalServiceRegister.getDefault().getService(
                         IRunProcessService.class);

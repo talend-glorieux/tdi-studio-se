@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,7 +13,6 @@
 package org.talend.repository.ui.wizards.exportjob.handler;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -94,7 +93,7 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
         LastGenerationInfo.getInstance().getUseDynamicMap().clear();
         LastGenerationInfo.getInstance().getUseRulesMap().clear();
 
-        final Map<String, Object> argumentsMap = new HashMap<String, Object>();
+        final Map<String, Object> argumentsMap = new HashMap<String, Object>(getArguments());
 
         argumentsMap.put(TalendProcessArgumentConstant.ARG_ENABLE_APPLY_CONTEXT_TO_CHILDREN,
                 isOptionChoosed(ExportChoice.applyToChildren));
@@ -120,6 +119,11 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
             }
             argumentsMap.put(TalendProcessArgumentConstant.ARG_CONTEXT_NAME, context);
         }
+        boolean onlyDefaultContext = isOptionChoosed(ExportChoice.onlyDefautContext);
+        if (onlyDefaultContext) {
+            argumentsMap.put(TalendProcessArgumentConstant.ARG_ONLY_DEFAUT_CONTEXT, onlyDefaultContext);
+        }
+
         boolean needParamValues = isOptionChoosed(ExportChoice.needParameterValues);
         if (needParamValues) {
             argumentsMap.put(TalendProcessArgumentConstant.ARG_CONTEXT_PARAMS,
@@ -145,9 +149,18 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
         }
         argumentsMap.put(TalendProcessArgumentConstant.ARG_GENERATE_OPTION, generationOption);
 
-        IProcessor processor = ProcessorUtilities.generateCode(processItem, contextName, version, argumentsMap, monitor);
-        ProcessorUtilities.resetExportConfig();
-        return processor;
+        // deployVersion for ci builder
+        String deployVersion = (String) exportChoice.get(ExportChoice.deployVersion);
+        if (deployVersion != null) {
+            argumentsMap.put(TalendProcessArgumentConstant.ARG_DEPLOY_VERSION, deployVersion);
+        }
+
+        try {
+            IProcessor processor = ProcessorUtilities.generateCode(processItem, contextName, version, argumentsMap, monitor);
+            return processor;
+        } finally {
+            ProcessorUtilities.resetExportConfig();
+        }
     }
 
     @Override
@@ -199,12 +212,12 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
                 items.add(repositoryObject.getProperty().getItem());
             }
         }
-        if(isOptionChoosed(ExportChoice.executeTests)){
-        	 IPath path = talendProcessJavaProject.getTargetFolder().getFolder("surefire-reports").getLocation();
-             File reports = new File(path.toOSString());
-             if (reports.exists()) {
-            	 FilesUtils.deleteFolder(reports, false);
-             }
+        if (isOptionChoosed(ExportChoice.executeTests)) {
+            IPath path = talendProcessJavaProject.getTargetFolder().getFolder("surefire-reports").getLocation();
+            File reports = new File(path.toOSString());
+            if (reports.exists()) {
+                FilesUtils.deleteFolder(reports, false);
+            }
         }
         if (isOptionChoosed(ExportChoice.needJobItem)) {
             File destination = new File(itemsFolder.getLocation().toFile().getAbsolutePath());
@@ -226,6 +239,9 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
         if (GlobalServiceRegister.getDefault().isServiceRegistered(ITransformService.class)) {
             tdmService = (ITransformService) GlobalServiceRegister.getDefault().getService(ITransformService.class);
         }
+        if (tdmService == null) {
+            return;
+        }
         try {
             // add __tdm dependencies
             ExportFileResource resouece = new ExportFileResource();
@@ -234,6 +250,10 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
                 final Iterator<String> relativepath = resouece.getRelativePathList().iterator();
                 while (relativepath.hasNext()) {
                     String relativePath = relativepath.next();
+                    // TDQ-12852 do nothing if it is DQ resources.
+                    if (relativePath == null || relativePath.contains("metadata/survivorship")) { //$NON-NLS-1$
+                        continue;
+                    }
                     Set<URL> sources = resouece.getResourcesByRelativePath(relativePath);
                     for (URL sourceUrl : sources) {
                         File currentResource = new File(org.talend.commons.utils.io.FilesUtils.getFileRealPath(sourceUrl
@@ -257,7 +277,7 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
             // add .settings/com.oaklandsw.base.projectProps for tdm, it should be added via ExportItemUtil, here just
             // make sure to export again.
             for (Item item : items) {
-                if (tdmService != null && tdmService.isTransformItem(item)) {
+                if (tdmService.isTransformItem(item)) {
                     setNeedItemDependencies(true);
                     String itemProjectFolder = getProject(item).getTechnicalLabel();
                     if (isProjectNameLowerCase()) {// should be same as ExportItemUtil.getProjectOutputPath
@@ -301,7 +321,7 @@ public class BuildJobHandler extends AbstractBuildJobHandler {
         return null;
     }
 
-    private void addDQDependencies(IFolder parentFolder, List<Item> items) throws IOException {
+    private void addDQDependencies(IFolder parentFolder, List<Item> items) throws Exception {
         if (GlobalServiceRegister.getDefault().isServiceRegistered(ITDQItemService.class)) {
             ITDQItemService tdqItemService = (ITDQItemService) GlobalServiceRegister.getDefault().getService(
                     ITDQItemService.class);

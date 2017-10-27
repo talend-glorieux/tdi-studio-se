@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -40,7 +40,7 @@ import org.talend.designer.core.model.components.NodeConnector;
 
 /**
  * created by nrousseau on Jun 27, 2012 Detailled comment
- * 
+ *
  */
 public abstract class AbstractFakeComponent extends AbstractComponent {
 
@@ -126,6 +126,50 @@ public abstract class AbstractFakeComponent extends AbstractComponent {
         param.setShow(true);
         listParam.add(param);
 
+        param = new ElementParameter(node);
+        param.setName("PROPERTY");//$NON-NLS-1$
+        param.setCategory(EComponentCategory.BASIC);
+        param.setDisplayName(EParameterName.PROPERTY_TYPE.getDisplayName());
+        param.setFieldType(EParameterFieldType.PROPERTY_TYPE);
+        param.setValue("");//$NON-NLS-1$
+        param.setNumRow(1);
+        param.setShow(true);
+
+        ElementParameter propertyChildParam = new ElementParameter(node);
+        propertyChildParam.setCategory(EComponentCategory.BASIC);
+        propertyChildParam.setName(EParameterName.PROPERTY_TYPE.getName());
+        propertyChildParam.setDisplayName(EParameterName.PROPERTY_TYPE.getDisplayName());
+        propertyChildParam.setListItemsDisplayName(new String[] { EmfComponent.TEXT_BUILTIN, EmfComponent.TEXT_REPOSITORY });
+        propertyChildParam.setListItemsDisplayCodeName(new String[] { EmfComponent.BUILTIN, EmfComponent.REPOSITORY });
+        propertyChildParam.setListItemsValue(new String[] { EmfComponent.BUILTIN, EmfComponent.REPOSITORY });
+        propertyChildParam.setValue(EmfComponent.BUILTIN);
+        propertyChildParam.setNumRow(param.getNumRow());
+        propertyChildParam.setFieldType(EParameterFieldType.TECHNICAL);
+        propertyChildParam.setShow(false);
+        propertyChildParam.setShowIf(param.getName() + " =='" + EmfComponent.REPOSITORY + "'"); //$NON-NLS-1$ //$NON-NLS-2$
+        propertyChildParam.setReadOnly(param.isReadOnly());
+        propertyChildParam.setNotShowIf(param.getNotShowIf());
+        propertyChildParam.setSerialized(true);
+        propertyChildParam.setParentParameter(param);
+
+        propertyChildParam = new ElementParameter(node);
+        propertyChildParam.setCategory(EComponentCategory.BASIC);
+        propertyChildParam.setName(EParameterName.REPOSITORY_PROPERTY_TYPE.getName());
+        propertyChildParam.setDisplayName(EParameterName.REPOSITORY_PROPERTY_TYPE.getDisplayName());
+        propertyChildParam.setListItemsDisplayName(new String[] {});
+        propertyChildParam.setListItemsValue(new String[] {});
+        propertyChildParam.setNumRow(param.getNumRow());
+        propertyChildParam.setFieldType(EParameterFieldType.TECHNICAL);
+        propertyChildParam.setValue(""); //$NON-NLS-1$
+        propertyChildParam.setShow(false);
+        propertyChildParam.setRequired(true);
+        propertyChildParam.setReadOnly(param.isReadOnly());
+        propertyChildParam.setShowIf(param.getName() + " =='" + EmfComponent.REPOSITORY + "'"); //$NON-NLS-1$//$NON-NLS-2$
+        propertyChildParam.setNotShowIf(param.getNotShowIf());
+        propertyChildParam.setSerialized(true);
+        propertyChildParam.setParentParameter(param);
+        listParam.add(param);
+
         for (INodeConnector connector : createConnectors(node)) {
             if (!connector.getDefaultConnectionType().hasConnectionCategory(IConnectionCategory.DATA)) {
                 continue;
@@ -179,7 +223,7 @@ public abstract class AbstractFakeComponent extends AbstractComponent {
     }
 
     @Override
-    public List<? extends INodeReturn> createReturns() {
+    public List<? extends INodeReturn> createReturns(INode node) {
         return Collections.emptyList();
     }
 
@@ -351,5 +395,13 @@ public abstract class AbstractFakeComponent extends AbstractComponent {
         nodeConnector.addConnectionProperty(currentType, rgb, lineStyle);
         nodeConnector.setBaseSchema(nodeConnector.getName());
         return nodeConnector;
+    }
+
+    /* (non-Javadoc)
+     * @see org.talend.core.model.components.IComponent#getModulesNeeded(org.talend.core.model.process.INode)
+     */
+    @Override
+    public List<ModuleNeeded> getModulesNeeded(INode node) {
+        return getModulesNeeded();
     }
 }

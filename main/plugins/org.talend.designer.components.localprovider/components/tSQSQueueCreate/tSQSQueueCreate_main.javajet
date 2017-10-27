@@ -39,7 +39,7 @@ imports="
 		<%
 		}
 		%>
-		com.amazonaws.services.sqs.model.CreateQueueRequest createQueueRequest_<%=cid%> = new com.amazonaws.services.sqs.model.CreateQueueRequest(<%=queue%>).withAttributes(attributes_<%=cid%>);
+		com.amazonaws.services.sqs.model.CreateQueueRequest createQueueRequest_<%=cid%> = new com.amazonaws.services.sqs.model.CreateQueueRequest(<%=queue%>)<%if(queueAttributes.size()>0){%>.withAttributes(attributes_<%=cid%>)<%}%>;
         String queueUrl_<%=cid%> = conn_<%=cid%>.createQueue(createQueueRequest_<%=cid%>).getQueueUrl();
 		<%
 		if(isLog4jEnabled){

@@ -29,23 +29,6 @@ imports="
 	java.sql.Connection conn_<%=cid%> = (java.sql.Connection)globalMap.get("<%=conn%>");
 <%	
 	log4jCodeGenerateUtil.useExistConnection(node);
-	INode connectionNode = null;
-	for (INode processNode : node.getProcess().getGeneratingNodes()) {
-		if(connection.equals(processNode.getUniqueName())) {
-			connectionNode = processNode;
-			break;
-		} 
-	} 
-	boolean specify_alias = "true".equals(ElementParameterParser.getValue(connectionNode, "__SPECIFY_DATASOURCE_ALIAS__"));
-	if(specify_alias){
-		String alias = ElementParameterParser.getValue(connectionNode, "__DATASOURCE_ALIAS__"); 
-%> 
-		if (null == conn_<%=cid%>) {
-			java.util.Map<String, routines.system.TalendDataSource> dataSources_<%=cid%> = (java.util.Map<String, routines.system.TalendDataSource>) globalMap.get(KEY_DB_DATASOURCES); 
-			conn_<%=cid%> = dataSources_<%=cid%>.get(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>).getConnection();
-		}
-<%
-	}
 %>
 int nb_table_<%=cid%> = 0;
 

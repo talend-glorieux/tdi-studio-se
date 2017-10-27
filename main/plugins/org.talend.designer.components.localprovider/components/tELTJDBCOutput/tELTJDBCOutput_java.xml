@@ -35,6 +35,35 @@
   </CONNECTORS>
 
   <PARAMETERS>
+  	<PARAMETER
+      NAME="TABLE_ACTION"
+      FIELD="CLOSED_LIST"
+      NUM_ROW="1"
+    >
+      <ITEMS DEFAULT="NONE">
+        <ITEM NAME="NONE" VALUE="NONE" />
+        <ITEM NAME="DROP_CREATE" VALUE="DROP_CREATE"/>
+        <ITEM NAME="CREATE" VALUE="CREATE"/>
+        <ITEM NAME="CREATE_IF_NOT_EXISTS" VALUE="CREATE_IF_NOT_EXISTS"/>
+        <ITEM NAME="DROP_IF_EXISTS_AND_CREATE" VALUE="DROP_IF_EXISTS_AND_CREATE" />
+        <ITEM NAME="CLEAR" VALUE="CLEAR"/>
+        <ITEM NAME="TRUNCATE" VALUE="TRUNCATE"/>
+      </ITEMS>
+    </PARAMETER>
+    
+    <!-- work for teradata only -->
+    <PARAMETER
+      NAME="CREATE_TABLE_TYPE"
+      FIELD="CLOSED_LIST"
+      NUM_ROW="3"
+      SHOW="false"
+    >
+      <ITEMS DEFAULT="SET">
+          <ITEM NAME="SET" VALUE="SET" />
+          <ITEM NAME="MULTISET" VALUE="MULTISET" />
+      </ITEMS>
+    </PARAMETER>
+    
     <PARAMETER
       NAME="DATA_ACTION"
       FIELD="CLOSED_LIST"
@@ -74,6 +103,14 @@
     >
       <DEFAULT>""</DEFAULT>
     </PARAMETER>
+    
+    <PARAMETER
+      NAME="IS_TABLE_NAME_VARIABLE"
+      FIELD="CHECK"
+      NUM_ROW="25"
+      SHOW_IF="USE_DIFFERENT_TABLE=='false'">
+        <DEFAULT>false</DEFAULT>
+    </PARAMETER>
 
     <PARAMETER
       NAME="USE_DIFFERENT_TABLE"
@@ -91,7 +128,15 @@
       SHOW_IF="USE_DIFFERENT_TABLE=='true'"
     >
       <DEFAULT>""</DEFAULT>
-    </PARAMETER> 
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="MAPPING"
+      FIELD="MAPPING_TYPE"
+      NUM_ROW="40"
+    >
+      <DEFAULT>mysql_id</DEFAULT>
+    </PARAMETER>
     
   </PARAMETERS>
   

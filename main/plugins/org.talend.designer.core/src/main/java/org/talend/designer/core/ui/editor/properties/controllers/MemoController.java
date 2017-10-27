@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -99,7 +99,7 @@ public class MemoController extends AbstractElementPropertySectionController {
         if (!(text instanceof Text)) {
             text.setEnabled(!param.isReadOnly());
         } else {
-            text.setEditable(!param.isReadOnly());
+            text.setEditable(!param.isReadOnly() && !param.isRepositoryValueUsed());
         }
         IPreferenceStore preferenceStore = CorePlugin.getDefault().getPreferenceStore();
         String fontType = preferenceStore.getString(TalendDesignerPrefConstants.MEMO_TEXT_FONT);

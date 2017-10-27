@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -21,6 +21,7 @@ import java.util.Set;
 
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.jface.resource.ImageDescriptor;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.talend.core.model.components.EComponentType;
@@ -133,40 +134,70 @@ public class TalendEditorPaletteFactoryTest {
     }
 
     @Test
-    public void testGetRelatedComponents() {
-        String keywords1 = "tjava";
-        String keywords2 = "write java code";
-        String keywords3 = "row";
-        IComponentsFactory componentsFactory = ComponentsFactoryProvider.getInstance();
-
-        /**
-         * Result without RecentlyUsed
-         */
-        List<IComponent> componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keywords1);
-        assert (componentHits.get(0).getName().equals(TJAVA));
-
-        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keywords2);
-        assert (componentHits.get(0).getName().equals(TJAVA));
-
-        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keywords3);
-        assert (componentHits.get(0).getName().equals(TROWGENERATOR));
-
-
-        /**
-         * Result with RecentlyUsed
-         */
+    public void testGetRelatedComponents_ComponentName() {
         storeRecentlyUsed();
 
-        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keywords1);
-        assert (componentHits.get(0).getName().equals(TJAVAROW));
+        IComponentsFactory componentsFactory = ComponentsFactoryProvider.getInstance();
 
-        // won't sort result from help
-        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keywords2);
-        assert (componentHits.get(0).getName().equals(TJAVA));
+        String keyword = "tJava";
+        List<IComponent> componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keyword);
+        Assert.assertFalse("Can't find any components", componentHits.isEmpty());
+        assertExistedComponent(TJAVA, keyword, componentHits);
+        assertExistedComponent(TJAVAROW, keyword, componentHits);
 
-        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keywords3);
-        assert (componentHits.get(0).getName().equals(TMYSQLROW));
-        assert (componentHits.get(1).getName().equals(TJAVAROW));
+        keyword = "tjava";
+        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keyword);
+        Assert.assertFalse("Can't find any components", componentHits.isEmpty());
+        assertExistedComponent(TJAVA, keyword, componentHits);
+        assertExistedComponent(TJAVAROW, keyword, componentHits);
+    }
+
+    @Test
+    public void testGetRelatedComponents_partOfComponentName() {
+        storeRecentlyUsed();
+
+        IComponentsFactory componentsFactory = ComponentsFactoryProvider.getInstance();
+
+        String keyword = "row";
+        List<IComponent> componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keyword);
+        Assert.assertFalse("Can't find any components", componentHits.isEmpty());
+        assertExistedComponent(TJAVAROW, keyword, componentHits);
+        assertExistedComponent(TMYSQLROW, keyword, componentHits);
+
+        keyword = "Row";
+        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keyword);
+        Assert.assertFalse("Can't find any components", componentHits.isEmpty());
+        assertExistedComponent(TJAVAROW, keyword, componentHits);
+        assertExistedComponent(TMYSQLROW, keyword, componentHits);
+    }
+
+    @Test
+    public void testGetRelatedComponents_help() {
+        storeRecentlyUsed();
+
+        IComponentsFactory componentsFactory = ComponentsFactoryProvider.getInstance();
+
+        String keyword = "enter code";
+        List<IComponent> componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keyword);
+        Assert.assertFalse("Can't find any components", componentHits.isEmpty());
+        assertExistedComponent(TJAVA, keyword, componentHits);
+
+        keyword = "enter";
+        componentHits = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, keyword);
+        Assert.assertFalse("Can't find any components", componentHits.isEmpty());
+        assertExistedComponent(TJAVA, keyword, componentHits);
+        assertExistedComponent(TJAVAROW, keyword, componentHits);
+    }
+
+    private void assertExistedComponent(String compName, String keywords, List<IComponent> componentHits) {
+        boolean found = false;
+        for (IComponent comp : componentHits) {
+            if (comp.getName().equals(compName)) {
+                found = true;
+                break;
+            }
+        }
+        Assert.assertTrue("Can't find the keywords \"" + keywords + "\" for component: " + compName, found);
     }
 
     private void storeRecentlyUsed() {
@@ -206,6 +237,11 @@ public class TalendEditorPaletteFactoryTest {
         @Override
         public String getName() {
             return name;
+        }
+
+        @Override
+        public String getOriginalName() {
+            return getName();
         }
 
         @Override
@@ -254,7 +290,7 @@ public class TalendEditorPaletteFactoryTest {
         }
 
         @Override
-        public List<? extends INodeReturn> createReturns() {
+        public List<? extends INodeReturn> createReturns(INode node) {
             return null;
         }
 
@@ -466,6 +502,16 @@ public class TalendEditorPaletteFactoryTest {
         @Override
         public boolean isAllowedPropagated() {
             return false;
+        }
+
+        /*
+         * (non-Javadoc)
+         * 
+         * @see org.talend.core.model.components.IComponent#getModulesNeeded(org.talend.core.model.process.INode)
+         */
+        @Override
+        public List<ModuleNeeded> getModulesNeeded(INode node) {
+            return getModulesNeeded();
         }
 
     }

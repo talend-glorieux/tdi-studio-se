@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -41,9 +41,6 @@ import org.talend.core.model.process.INode;
 import org.talend.core.model.process.INodeConnector;
 import org.talend.core.model.utils.TalendTextUtils;
 import org.talend.core.runtime.services.IGenericWizardService;
-import org.talend.core.service.IDbMapService;
-import org.talend.core.service.ISparkMapService;
-import org.talend.core.service.IXmlMapService;
 import org.talend.designer.core.i18n.Messages;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.components.EmfComponent;
@@ -327,6 +324,7 @@ public class ChangeMetadataCommand extends Command {
                     }
                 }
             }
+            Boolean doPropagate = null;
             for (IODataComponent currentIO : outputdataContainer.getOuputs()) {
                 INodeConnector nodeConnector = null;
                 String baseConnector = null;
@@ -351,7 +349,10 @@ public class ChangeMetadataCommand extends Command {
                     targetNode.metadataInputChanged(currentIO, currentIO.getUniqueName());
                     if (isExecute) {
                         if (targetNode instanceof Node) {
-                            if (((Node) targetNode).getComponent().isSchemaAutoPropagated() && getPropagate()
+                            if(doPropagate == null){
+                                doPropagate = getPropagate();
+                            }
+                            if (((Node) targetNode).getComponent().isSchemaAutoPropagated() && doPropagate
                                     && targetNode.getMetadataList().size() > 0) {
                                 IMetadataTable tmpClone;
                                 if (sourceIsBuiltIn) {
@@ -415,7 +416,10 @@ public class ChangeMetadataCommand extends Command {
                         currentIO.setColumnNameChanged(null);
                     } else {
                         if (targetNode instanceof Node) {
-                            if (!targetIsBuiltIn && getPropagate()) {
+                            if(doPropagate == null){
+                                doPropagate = getPropagate();
+                            }
+                            if (!targetIsBuiltIn && doPropagate) {
                                 if (((Node) targetNode).getComponent().isSchemaAutoPropagated()) {
                                     if (outputdataContainer.getOuputs().size() > 0) {
                                         List<ColumnNameChanged> columnNameChanged = outputdataContainer.getOuputs().get(0)
@@ -505,33 +509,9 @@ public class ChangeMetadataCommand extends Command {
                             }
                         }
 
-                        if (GlobalServiceRegister.getDefault().isServiceRegistered(IXmlMapService.class)) {
-                            final IXmlMapService service = (IXmlMapService) GlobalServiceRegister.getDefault().getService(
-                                    IXmlMapService.class);
-                            if (service.isXmlMapComponent(target.getExternalNode())) {
-                                output.setColumnNameChanged(columnNameChanges);
-                                target.metadataInputChanged(output, outgoingConnection.getName());
-                            }
-                        }
-                        if (GlobalServiceRegister.getDefault().isServiceRegistered(ISparkMapService.class)) {
-                            final ISparkMapService service = (ISparkMapService) GlobalServiceRegister.getDefault().getService(
-                                    ISparkMapService.class);
-                            if (service.isSparkMapComponent(target.getExternalNode())) {
-                                output.setColumnNameChanged(columnNameChanges);
-                                target.metadataInputChanged(output, outgoingConnection.getName());
-                            }
-                        }
+                        output.setColumnNameChanged(columnNameChanges);
+                        target.metadataInputChanged(output, outgoingConnection.getName());
 
-                        if (GlobalServiceRegister.getDefault().isServiceRegistered(IDbMapService.class)) {
-                            final IDbMapService service = (IDbMapService) GlobalServiceRegister.getDefault().getService(
-                                    IDbMapService.class);
-                            if (service.isDbMapComponent(target.getExternalNode())) {
-                                // TDI-25307:should setColumNameChanged here for ELtDbMap in case the propagate schema
-                                // does not affect it.
-                                output.setColumnNameChanged(columnNameChanges);
-                                target.metadataInputChanged(output, outgoingConnection.getName());
-                            }
-                        }
                     }
                 }
             }
@@ -618,16 +598,17 @@ public class ChangeMetadataCommand extends Command {
             if ((!connector.getName().equals(currentConnector)) && connector.getBaseSchema().equals(currentConnector)) {
                 // if there is some other schema dependant of this one, modify them
                 MetadataToolHelper.copyTable(newOutputMetadata, node.getMetadataFromConnector(connector.getName()));
-                updateComponentSchema(node.getMetadataFromConnector(connector.getName()));
+                updateComponentSchema(node, node.getMetadataFromConnector(connector.getName()));
             }
         }
 
-        updateComponentSchema(currentOutputMetadata);
+        updateComponentSchema(node, currentOutputMetadata);
 
         List<ColumnNameChanged> columnNameChanged = MetadataToolHelper.getColumnNameChanged(oldOutputMetadata, newOutputMetadata);
         ColumnListController.updateColumnList(node, columnNameChanged, true);
 
         if (inputNode != null) {
+            updateComponentSchema(inputNode, currentInputMetadata);
             List<ColumnNameChanged> inputColumnNameChangedExt = MetadataToolHelper.getColumnNameChangedExt(inputNode,
                     oldInputMetadata, newInputMetadata);
             ColumnListController.updateColumnList(node, inputColumnNameChangedExt);
@@ -646,13 +627,13 @@ public class ChangeMetadataCommand extends Command {
         refreshMetadataChanged();
     }
 
-    private void updateComponentSchema(IMetadataTable table) {
+    private void updateComponentSchema(INode selectedNode, IMetadataTable table) {
         IGenericWizardService wizardService = null;
         if (GlobalServiceRegister.getDefault().isServiceRegistered(IGenericWizardService.class)) {
             wizardService = (IGenericWizardService) GlobalServiceRegister.getDefault().getService(IGenericWizardService.class);
         }
         if (wizardService != null) {
-            wizardService.updateComponentSchema(node, table);
+            wizardService.updateComponentSchema(selectedNode, table);
         }
     }
 
@@ -743,7 +724,8 @@ public class ChangeMetadataCommand extends Command {
                                 parameter.setRepositoryValueUsed(true);
                             }
                         }
-                    } else if (componentName != null && componentName.startsWith("tHBase") //$NON-NLS-1$
+                    } else if (componentName != null
+                            && (componentName.startsWith("tHBase") || componentName.startsWith("tMapRDB"))//$NON-NLS-1$//$NON-NLS-2$
                             && ("MAPPING".equals(parameter.getName()) || "FAMILIES".equals(parameter.getName()))) {//$NON-NLS-1$//$NON-NLS-2$
                         Object value = RepositoryToComponentProperty.getColumnMappingValue(connection, newOutputMetadata);
                         if (value != null) {

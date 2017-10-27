@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -149,12 +149,11 @@ public class JobExportAction implements IRunnableWithProgress {
     }
 
     private boolean exportJobScript(List<? extends IRepositoryNode> nodes, String version, String bundleVersion,
-            IProgressMonitor monitor) {
+            IProgressMonitor monitor) throws InvocationTargetException {
         manager.setJobVersion(version);
         manager.setBundleVersion(bundleVersion);
 
         List<ExportFileResource> processes = getProcesses(nodes, "");
-
         boolean isNotFirstTime = directoryName != null;
         if (isNotFirstTime && processes != null) {
             for (ExportFileResource process : processes) {
@@ -194,7 +193,7 @@ public class JobExportAction implements IRunnableWithProgress {
             }
         } catch (ProcessorException e) {
             MessageBoxExceptionHandler.process(e);
-            return false;
+            throw new InvocationTargetException(e);
         }
         boolean addClasspathJar = true;
         IDesignerCoreUIService designerCoreUIService = CoreUIPlugin.getDefault().getDesignerCoreUIService();

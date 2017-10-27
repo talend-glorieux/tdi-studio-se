@@ -3,14 +3,19 @@ package org.talend.designer.core.assist;
 import java.util.Iterator;
 import java.util.List;
 
+import org.eclipse.gef.palette.PaletteEntry;
+import org.eclipse.gef.requests.CreationFactory;
 import org.eclipse.jface.fieldassist.IContentProposal;
 import org.eclipse.jface.fieldassist.IContentProposalProvider;
 import org.talend.commons.ui.runtime.image.ECoreImage;
 import org.talend.commons.ui.runtime.image.ImageProvider;
 import org.talend.core.model.components.IComponent;
 import org.talend.core.model.components.IComponentsFactory;
+import org.talend.core.ui.component.ComponentPaletteUtilities;
 import org.talend.core.ui.component.ComponentsFactoryProvider;
+import org.talend.core.ui.component.TalendCreationToolEntry;
 import org.talend.designer.core.model.components.DummyComponent;
+import org.talend.designer.core.ui.editor.PaletteComponentFactory;
 import org.talend.designer.core.ui.editor.TalendEditorPaletteFactory;
 
 class TalendEditorComponentProposalProvider implements IContentProposalProvider {
@@ -43,12 +48,25 @@ class TalendEditorComponentProposalProvider implements IContentProposalProvider 
      */
     @Override
     public IContentProposal[] getProposals(String contents, int position) {
-
         List<IComponent> relatedComponent = TalendEditorPaletteFactory.getRelatedComponents(componentsFactory, contents);
         if (componentAssistant != null) {
             relatedComponent = componentAssistant.filterComponents(relatedComponent);
         }
         proposalList.clear();
+        // add joblet components in joblet editor.
+        List<PaletteEntry> extraPaletteEntry = ComponentPaletteUtilities.getExtraPaletteEntry();
+        if (extraPaletteEntry != null) {
+            for (PaletteEntry entry : extraPaletteEntry) {
+                if (entry != null && entry.isVisible() && entry instanceof TalendCreationToolEntry) {
+                    TalendCreationToolEntry tool = (TalendCreationToolEntry) entry;
+                    CreationFactory creationFactory = tool.getFactory();
+                    if (creationFactory != null && creationFactory instanceof PaletteComponentFactory) {
+                        PaletteComponentFactory componentFactory = (PaletteComponentFactory) creationFactory;
+                        proposalList.add(new ComponentContentProposal(componentFactory.getComponent()));
+                    }
+                }
+            }
+        }
         if (relatedComponent != null && !relatedComponent.isEmpty()) {
             Iterator<IComponent> iter = relatedComponent.iterator();
             while (iter.hasNext()) {

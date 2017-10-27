@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,13 +13,11 @@
 package org.talend.designer.codegen.components.model;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.log4j.Logger;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.FileLocator;
@@ -28,12 +26,10 @@ import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.jface.preference.IPreferenceStore;
 import org.osgi.framework.Bundle;
-import org.talend.commons.ui.runtime.exception.ExceptionHandler;
 import org.talend.commons.utils.io.FilesUtils;
+import org.talend.commons.utils.resource.UpdatesHelper;
 import org.talend.core.GlobalServiceRegister;
-import org.talend.core.PluginChecker;
-import org.talend.core.i18n.Messages;
-import org.talend.core.model.components.AbstractComponentsProvider;
+import org.talend.core.model.components.AbstractCustomComponentsProvider;
 import org.talend.core.model.components.ComponentUtilities;
 import org.talend.core.model.components.IComponentsFactory;
 import org.talend.core.model.general.Project;
@@ -44,13 +40,7 @@ import org.talend.designer.codegen.components.ui.IComponentPreferenceConstant;
 import org.talend.repository.ProjectManager;
 
 /***/
-public class UserComponentsProvider extends AbstractComponentsProvider {
-
-    private static Logger logger = Logger.getLogger(UserComponentsProvider.class);
-
-    /***/
-    public UserComponentsProvider() {
-    }
+public class UserComponentsProvider extends AbstractCustomComponentsProvider {
 
     @Override
     protected File getExternalComponentsLocation() {
@@ -82,60 +72,36 @@ public class UserComponentsProvider extends AbstractComponentsProvider {
 
     @Override
     public void preComponentsLoad() throws IOException {
-        File installationFolder = getInstallationFolder();
-        if (installationFolder.exists()) {
-            FilesUtils.removeFolder(installationFolder, true);
-        }
-        FilesUtils.createFoldersIfNotExists(installationFolder.getAbsolutePath(), false);
-        FileFilter ff = new FileFilter() {
+        super.preComponentsLoad();
 
-            @Override
-            public boolean accept(File pathname) {
-                if (FilesUtils.isSVNFolder(pathname)) {
-                    return false;
-                }
-                return true;
-            }
-
-        };
+        // 2. copy old CF components from <project>/components
+        final File installationFolder = getInstallationFolder();
 
         // synchroniz shared custom component
-        if (PluginChecker.isSVNProviderPluginLoaded()) {
-            Set<Project> allProjects = new HashSet<Project>();
-            allProjects.add(ProjectManager.getInstance().getCurrentProject());
-            allProjects.addAll(ProjectManager.getInstance().getReferencedProjects());
-            for (Project project : allProjects) {
-                String projectLabel = project.getTechnicalLabel();
-                IProject eclipseProject = ResourcesPlugin.getWorkspace().getRoot().getProject(projectLabel);
-                String sourcePath = eclipseProject.getLocation().toString() + "/"
-                        + ERepositoryObjectType.getFolderName(ERepositoryObjectType.COMPONENTS);
-                File source = new File(sourcePath);
-                if (source.exists()) {
-                    for (File file : source.listFiles(ff)) {
-                        if (file.isDirectory())
-                            FilesUtils.copyFolder(file,
-                                    new File(installationFolder.getAbsolutePath() + File.separator + file.getName()), true, ff,
+        Set<Project> allProjects = new HashSet<Project>();
+        allProjects.add(ProjectManager.getInstance().getCurrentProject());
+        allProjects.addAll(ProjectManager.getInstance().getAllReferencedProjects());
+        for (Project project : allProjects) {
+            String projectLabel = project.getTechnicalLabel();
+            IProject eclipseProject = ResourcesPlugin.getWorkspace().getRoot().getProject(projectLabel);
+            String sourcePath = eclipseProject.getLocation().toString() + "/"
+                    + ERepositoryObjectType.getFolderName(ERepositoryObjectType.COMPONENTS);
+            File source = new File(sourcePath);
+            if (source.exists()) {
+                final File[] listFiles = source.listFiles(ff);
+                if (listFiles != null) {
+                    for (File file : listFiles) {
+                        if (file.isFile() && UpdatesHelper.isComponentUpdateSite(file)) {
+                            // TUP-17680, won't support to install the new CF from project
+                        } else if (UpdatesHelper.isOldComponent(file)) {
+                            FilesUtils.copyFolder(file, new File(installationFolder.getAbsolutePath(), file.getName()), true, ff,
                                     null, true, false);
+                        }
                     }
                 }
             }
         }
 
-        // if components in user component path include some shared components , replace it
-        File externalComponentsLocation = getExternalComponentsLocation();
-        if (externalComponentsLocation != null) {
-            if (externalComponentsLocation.exists()) {
-                try {
-                    FilesUtils.copyFolder(externalComponentsLocation, installationFolder, false, ff, null, true, false);
-                } catch (IOException e) {
-                    ExceptionHandler.process(e);
-                }
-
-            } else {
-                logger.warn(Messages
-                        .getString("AbstractComponentsProvider.folderNotExist", externalComponentsLocation.toString())); //$NON-NLS-1$
-            }
-        }
     }
 
     @Override
@@ -173,4 +139,5 @@ public class UserComponentsProvider extends AbstractComponentsProvider {
     public boolean isUseLocalProvider() {
         return true;
     }
+
 }

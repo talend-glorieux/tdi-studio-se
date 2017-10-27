@@ -33,6 +33,7 @@ import javax.xml.transform.stream.StreamSource;
 import org.apache.commons.codec.binary.Base64;
 import org.jdom.input.DOMBuilder;
 import org.jdom.output.XMLOutputter;
+import org.talend.soap.sun.SunNtlmAuthenticationUpdater;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -40,6 +41,14 @@ import org.w3c.dom.Node;
 import com.sun.xml.messaging.saaj.soap.SOAPPartImpl;
 
 public class SOAPUtil {
+
+    private static final String vmVendor = System.getProperty("java.vendor.url");
+
+    private static final String ibmVmVendor = "http://www.ibm.com/";
+
+    private static final String sunVmVendor = "http://java.sun.com/";
+
+    private static final String oracleVmVendor = "http://java.oracle.com/";
 
     private SOAPConnection connection;
 
@@ -88,6 +97,12 @@ public class SOAPUtil {
 
     public void setNTLMAuth(String domain, String username, String password) {
         setAuthenticator(domain + "\\" + username, password);
+    }
+
+    public void enforceNtlmCredentials() {
+        if (vmVendor.equals(sunVmVendor) || vmVendor.equals(oracleVmVendor)) {
+            SunNtlmAuthenticationUpdater.getInstance().resetNtlmAuthenticationCallback();
+        }
     }
 
     public void setProxy(String host, int port, String username, String password) {

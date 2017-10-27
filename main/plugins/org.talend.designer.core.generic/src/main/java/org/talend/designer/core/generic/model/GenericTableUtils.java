@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -29,8 +29,7 @@ import org.talend.daikon.properties.property.Property;
  */
 public class GenericTableUtils {
 
-    public static void setTableValues(Properties tableProperties, List<Map<String, Object>> value,
-            IElementParameter param) {
+    public static void setTableValues(Properties tableProperties, List<Map<String, Object>> value, IElementParameter param) {
         List<Map<String, String>> table = ElementParameterParser.createTableValues(value, param);
         for (String column : param.getListItemsDisplayCodeName()) {
             Property property = tableProperties.getValuedProperty(column);
@@ -70,17 +69,26 @@ public class GenericTableUtils {
                     if (columnValue instanceof List) {
                         List values = (List) columnValue;
                         if (type.equals(EParameterFieldType.CHECK)) {
-                            Object o = values.get(i);
-                            if (o == null) {
-                                line.put(columnName, Boolean.FALSE);
+                            if (values.size() > i) {
+                                Object o = values.get(i);
+                                if (o == null) {
+                                    line.put(columnName, Boolean.FALSE);
+                                } else {
+                                    line.put(columnName, new Boolean(o.toString()));
+                                }
                             } else {
-                                line.put(columnName, new Boolean(o.toString()));
+                                line.put(columnName, Boolean.FALSE);
                             }
                         } else {
                             line.put(columnName, values.get(i));
                         }
+                    } else {
+                        if (type.equals(EParameterFieldType.CHECK)) {
+                            for (int j = 0; j < ((List) value).size(); j++) {
+                                line.put(columnName, Boolean.FALSE);
+                            }
+                        }
                     }
-
                 }
                 table.add(line);
             }

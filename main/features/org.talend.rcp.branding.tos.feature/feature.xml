@@ -2,7 +2,7 @@
 <feature
       id="org.talend.rcp.branding.tos.feature"
       label="Tos branding feature"
-      version="6.3.0.qualifier"
+      version="7.0.1.qualifier"
       provider-name=".Talend SA."
       plugin="org.talend.rcp.branding.tos">
 
@@ -14,7 +14,7 @@
       [Enter Copyright Description here.]
    </copyright>
 
-   <license url="http://www.talend.com/tos/terms-conditions/index.php">
+   <license>
       [Enter License Description here.]
    </license>
 
@@ -54,6 +54,13 @@
 
    <plugin
          id="org.talend.designer.maven.tos"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         fragment="true"/>
+
+   <plugin
+         id="org.talend.libraries.mdm.webservice.ce"
          download-size="0"
          install-size="0"
          version="0.0.0"

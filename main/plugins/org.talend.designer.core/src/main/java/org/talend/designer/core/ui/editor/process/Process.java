@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -17,6 +17,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,6 +67,7 @@ import org.talend.commons.exception.PersistenceException;
 import org.talend.commons.runtime.model.emf.EmfHelper;
 import org.talend.commons.runtime.model.repository.ERepositoryStatus;
 import org.talend.commons.ui.runtime.image.ImageUtils;
+import org.talend.commons.utils.Hex;
 import org.talend.commons.utils.VersionUtils;
 import org.talend.core.CorePlugin;
 import org.talend.core.GlobalServiceRegister;
@@ -84,6 +87,7 @@ import org.talend.core.model.metadata.IMetadataColumn;
 import org.talend.core.model.metadata.IMetadataTable;
 import org.talend.core.model.metadata.MetadataSchemaType;
 import org.talend.core.model.metadata.MetadataToolHelper;
+import org.talend.core.model.process.AbstractNode;
 import org.talend.core.model.process.EComponentCategory;
 import org.talend.core.model.process.EConnectionType;
 import org.talend.core.model.process.EParameterFieldType;
@@ -94,6 +98,7 @@ import org.talend.core.model.process.IContext;
 import org.talend.core.model.process.IContextManager;
 import org.talend.core.model.process.IContextParameter;
 import org.talend.core.model.process.IElementParameter;
+import org.talend.core.model.process.IElementParameterDefaultValue;
 import org.talend.core.model.process.IExternalNode;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.process.INodeConnector;
@@ -109,6 +114,7 @@ import org.talend.core.model.properties.ProcessItem;
 import org.talend.core.model.properties.Property;
 import org.talend.core.model.properties.RoutineItem;
 import org.talend.core.model.properties.User;
+import org.talend.core.model.relationship.RelationshipItemBuilder;
 import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.model.repository.IRepositoryViewObject;
 import org.talend.core.model.routines.RoutinesUtil;
@@ -117,6 +123,7 @@ import org.talend.core.model.utils.TalendTextUtils;
 import org.talend.core.repository.model.ProxyRepositoryFactory;
 import org.talend.core.repository.utils.ConvertJobsUtil;
 import org.talend.core.repository.utils.XmiResourceManager;
+import org.talend.core.service.IScdComponentService;
 import org.talend.core.ui.IJobletProviderService;
 import org.talend.core.ui.ILastVersionChecker;
 import org.talend.core.ui.component.ComponentsFactoryProvider;
@@ -152,6 +159,7 @@ import org.talend.designer.core.ui.AbstractMultiPageTalendEditor;
 import org.talend.designer.core.ui.editor.cmd.ChangeConnTextCommand;
 import org.talend.designer.core.ui.editor.cmd.PropertyChangeCommand;
 import org.talend.designer.core.ui.editor.connections.Connection;
+import org.talend.designer.core.ui.editor.jobletcontainer.AbstractJobletContainer;
 import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainer;
 import org.talend.designer.core.ui.editor.jobletcontainer.JobletUtil;
 import org.talend.designer.core.ui.editor.nodecontainer.NodeContainer;
@@ -169,6 +177,7 @@ import org.talend.designer.core.ui.views.problems.Problems;
 import org.talend.designer.core.utils.DesignerUtilities;
 import org.talend.designer.core.utils.JavaProcessUtil;
 import org.talend.designer.core.utils.JobSettingVersionUtil;
+import org.talend.designer.core.utils.UpdateParameterUtils;
 import org.talend.designer.core.utils.ValidationRulesUtil;
 import org.talend.designer.runprocess.IRunProcessService;
 import org.talend.designer.runprocess.ItemCacheManager;
@@ -189,6 +198,8 @@ import org.talend.repository.ui.utils.Log4jPrefsSettingManager;
  * 
  */
 public class Process extends Element implements IProcess2, IGEFProcess, ILastVersionChecker {
+
+    private static String UTF8 = "UTF-8";
 
     protected List<INode> nodes = new ArrayList<INode>();
 
@@ -257,11 +268,11 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
     private String componentsType;
 
     private boolean isNeedLoadmodules = true;
-    
+
     private static Perl5Matcher matcher;
-    
+
     private static Pattern pattern;
-    
+
     static {
         matcher = new Perl5Matcher();
         Perl5Compiler compiler = new Perl5Compiler();
@@ -692,10 +703,10 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
     public void removeNodeContainer(final NodeContainer nodeContainer) {
         String uniqueName = nodeContainer.getNode().getUniqueName();
         removeUniqueNodeName(uniqueName);
-        if (nodeContainer instanceof JobletContainer) {
+        if (nodeContainer instanceof AbstractJobletContainer) {
             // use readedContainers to record the containers alreay be read, in case of falling into dead loop
             Set<NodeContainer> readedContainers = new HashSet<NodeContainer>();
-            removeUniqueNodeNamesInJoblet((JobletContainer) nodeContainer, readedContainers);
+            removeUniqueNodeNamesInJoblet((AbstractJobletContainer) nodeContainer, readedContainers);
         }
         removeNode(uniqueName);
         Element toRemove = nodeContainer;
@@ -720,7 +731,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         // fireStructureChange(NEED_UPDATE_JOB, elem);
     }
 
-    private void removeUniqueNodeNamesInJoblet(JobletContainer jobletContainer, Set<NodeContainer> readedContainers) {
+    private void removeUniqueNodeNamesInJoblet(AbstractJobletContainer jobletContainer, Set<NodeContainer> readedContainers) {
         List<NodeContainer> nodeContainers = jobletContainer.getNodeContainers();
         if (nodeContainers == null) {
             return;
@@ -730,9 +741,9 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         readedContainers.add(jobletContainer);
         while (iter.hasNext()) {
             NodeContainer nodeContainer = iter.next();
-            if (nodeContainer instanceof JobletContainer) {
+            if (nodeContainer instanceof AbstractJobletContainer) {
                 if (!readedContainers.contains(nodeContainer)) {
-                    removeUniqueNodeNamesInJoblet((JobletContainer) nodeContainer, readedContainers);
+                    removeUniqueNodeNamesInJoblet((AbstractJobletContainer) nodeContainer, readedContainers);
                 }
             } else {
                 String uniqueName = nodeContainer.getNode().getUniqueName();
@@ -818,7 +829,8 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                 generatingProcess.buildFromGraphicalProcess(sortedFlow);
                 generatedNodeList = generatingProcess.getNodeList();
                 if (isActivate()) {
-                    // if not activated, like during the loading of job, we will still rebuild the list of generated nodes
+                    // if not activated, like during the loading of job, we will still rebuild the list of generated
+                    // nodes
                     processModified = false;
                 }
                 setBuilding(false);
@@ -1084,7 +1096,8 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                     return;
                 }
             }
-            if (param.getParentParameter().getFieldType().equals(EParameterFieldType.SCHEMA_TYPE)) {
+            if (param.getParentParameter().getFieldType().equals(EParameterFieldType.SCHEMA_TYPE)
+                    || param.getParentParameter().getFieldType().equals(EParameterFieldType.SCHEMA_REFERENCE)) {
                 IElementParameter paramBuiltInRepository = param.getParentParameter().getChildParameters()
                         .get(EParameterName.SCHEMA_TYPE.getName());
                 if (isJoblet && param.getName().equals(EParameterName.CONNECTION.getName())) {
@@ -1135,6 +1148,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
             List<Map<String, Object>> tableValues = (List<Map<String, Object>>) value;
             for (Map<String, Object> currentLine : tableValues) {
                 for (int i = 0; i < param.getListItemsDisplayCodeName().length; i++) {
+                    boolean isHexValue = false;
                     ElementValueType elementValue = fileFact.createElementValueType();
                     elementValue.setElementRef(param.getListItemsDisplayCodeName()[i]);
                     Object o = currentLine.get(param.getListItemsDisplayCodeName()[i]);
@@ -1153,6 +1167,14 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                     } else {
                         if (o instanceof String) {
                             strValue = (String) o;
+                            isHexValue = isNeedConvertToHex(strValue);
+                            if (isHexValue) {
+                                try {
+                                    strValue = Hex.encodeHexString(strValue.getBytes(UTF8));
+                                } catch (UnsupportedEncodingException e) {
+                                    ExceptionHandler.process(e);
+                                }
+                            }
                         } else {
                             if (o instanceof Boolean) {
                                 strValue = ((Boolean) o).toString();
@@ -1164,7 +1186,9 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                     } else {
                         elementValue.setValue(strValue);
                     }
-                    //
+                    if (isHexValue) {
+                        elementValue.setHexValue(true);
+                    }
                     Object object = currentLine.get(param.getListItemsDisplayCodeName()[i] + IEbcdicConstant.REF_TYPE);
                     if (object != null) {
                         elementValue.setType((String) object);
@@ -1208,6 +1232,19 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         listParamType.add(pType);
     }
 
+    protected boolean isNeedConvertToHex(String value) {
+        if (value == null || "".equals(value.trim())) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            int ch = value.charAt(i);
+            if (ch < 32) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void loadElementParameters(Element elemParam, EList listParamType) {
         loadElementParameters(elemParam, listParamType, false);
     }
@@ -1242,11 +1279,6 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                                     if (!param.isSerialized()) {
                                         continue;
                                     }
-                                    if ((param.isReadOnly() && !isJunitLoad)
-                                            && !(param.getName().equals(EParameterName.UNIQUE_NAME.getName()) || param.getName()
-                                                    .equals(EParameterName.VERSION.getName()))) {
-                                        continue;
-                                    }
                                     Object object = comp
                                             .getElementParameterValueFromComponentProperties((INode) elemParam, param);
                                     param.setValue(object);
@@ -1271,7 +1303,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
 
                         param = elemParam.getElementParameter(pType.getName());
                         if (param != null) {
-                            if ((param.isReadOnly() && !isJunitLoad)
+                            if ((param.isReadOnly() && !isJunitLoad && noNeedSetValue(param, pType.getValue()))
                                     && !(param.getName().equals(EParameterName.UNIQUE_NAME.getName()) || param.getName().equals(
                                             EParameterName.VERSION.getName()))) {
                                 continue;
@@ -1283,6 +1315,8 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                 }
             }
         } else {
+            String tempLabel = null;
+            String tempParaName = null;
             for (int j = 0; j < listParamType.size(); j++) {
                 pType = (ElementParameterType) listParamType.get(j);
                 if (pType != null) {
@@ -1301,18 +1335,45 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                         continue;
                     }
                     param = elemParam.getElementParameter(pType.getName());
+                    if (pType.getField() != null && pType.getField().equals(EParameterFieldType.DBTABLE.getName())
+                            && param == null) {
+                        tempLabel = pType.getValue();
+                        tempParaName = pType.getName();
+                    }
                     if (param != null) {
-                        if ((param.isReadOnly() && !isJunitLoad)
+                        String paraValue = pType.getValue();
+                        if ((param.isReadOnly() && !isJunitLoad && noNeedSetValue(param, paraValue))
                                 && !(param.getName().equals(EParameterName.UNIQUE_NAME.getName()) || param.getName().equals(
                                         EParameterName.VERSION.getName()))) {
                             continue;
                         }
-                        //
-                        loadElementParameters(elemParam, pType, param, pType.getName(), pType.getValue(), false);
+                        if (pType.getName().equals(EParameterName.LABEL.getName()) && tempLabel != null) {
+                            if (tempParaName != null && pType.getValue().equals(DesignerUtilities.getParameterVar(tempParaName))) {
+                                paraValue = tempLabel;
+                            }
+                        }
+                        loadElementParameters(elemParam, pType, param, pType.getName(), paraValue, false);
                     }
                 }
             }
         }
+
+        for (IElementParameter param : elemParam.getElementParameters()) {
+            UpdateParameterUtils.setDefaultValues(param, elemParam);
+        }
+
+    }
+    
+    protected boolean noNeedSetValue(IElementParameter param, String paraValue){
+        if(paraValue == null){
+            return true;
+        }
+        for(IElementParameterDefaultValue defaultValue : param.getDefaultValues()){
+            if(defaultValue.getDefaultValue() != null &&  defaultValue.getDefaultValue().equals(paraValue)){
+                return true;
+            }
+        }
+        return false;
     }
 
     private void loadElementParameters(Element elemParam, ElementParameterType pType, IElementParameter param, String key,
@@ -1372,7 +1433,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                     }
                     if (found) {
                         if ((lineValues == null) || (lineValues.get(elementValue.getElementRef()) != null)) {
-                            lineValues = new HashMap<String, Object>();
+                            lineValues = new LinkedHashMap<String, Object>();
                             tableValues.add(lineValues);
                         }
                         boolean needRemoveQuotes = false;
@@ -1393,11 +1454,18 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                         if (tmpParam != null && EParameterFieldType.PASSWORD.equals(tmpParam.getFieldType())) {
                             elemValue = elementValue.getRawValue();
                         }
-                        if (needRemoveQuotes) {
-                            lineValues.put(elementValue.getElementRef(), TalendTextUtils.removeQuotes(elemValue));
-                        } else {
-                            lineValues.put(elementValue.getElementRef(), elemValue);
+                        if (elementValue.isHexValue() && elemValue != null) {
+                            byte[] decodeBytes = Hex.decodeHex(elemValue.toCharArray());
+                            try {
+                                elemValue = new String(decodeBytes, UTF8);
+                            } catch (UnsupportedEncodingException e) {
+                                ExceptionHandler.process(e);
+                            }
                         }
+                        if (needRemoveQuotes) {
+                            elemValue = TalendTextUtils.removeQuotes(elemValue);
+                        }
+                        lineValues.put(elementValue.getElementRef(), elemValue);
                         if (elementValue.getType() != null) {
                             lineValues.put(elementValue.getElementRef() + IEbcdicConstant.REF_TYPE, elementValue.getType());
                         }
@@ -1530,20 +1598,10 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
             if (element instanceof SubjobContainer) {
                 saveSubjob(fileFact, processType, (SubjobContainer) element);
                 for (NodeContainer container : ((SubjobContainer) element).getNodeContainers()) {
-                    if (container.getNode().isJoblet()) {
-                        if (checkJoblet) {
-                            if (!(container instanceof JobletContainer)) {
-                                continue;
-                            }
-                            JobletContainer jobletCon = (JobletContainer) container;
-                            boolean needUpdate = false;
-                            IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault()
-                                    .getService(IJobletProviderService.class);
-                            if (service != null) {
-                                needUpdate = service.checkModify(jobletCon);
-                            }
-
-                            saveJobletNode(jobletCon, needUpdate);
+                    if (container instanceof AbstractJobletContainer) {
+                        if (checkJoblet && container.getNode().isJoblet()) {
+                            AbstractJobletContainer jobletCon = (AbstractJobletContainer) container;
+                            saveJobletNode(jobletCon);
                         }
 
                         saveNode(fileFact, processType, nList, cList, container.getNode(), factory);
@@ -1551,17 +1609,10 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                         saveNode(fileFact, processType, nList, cList, container.getNode(), factory);
                     }
                 }
-            }
-            if (element instanceof JobletContainer) {
-                if (checkJoblet) {
-                    JobletContainer jobletCon = (JobletContainer) element;
-                    boolean needUpdate = false;
-                    IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
-                            IJobletProviderService.class);
-                    if (service != null) {
-                        needUpdate = service.checkModify(jobletCon);
-                    }
-                    saveJobletNode(jobletCon, needUpdate);
+            } else if (element instanceof AbstractJobletContainer) {
+                if (checkJoblet && ((AbstractJobletContainer) element).getNode().isJoblet()) {
+                    AbstractJobletContainer jobletCon = (AbstractJobletContainer) element;
+                    saveJobletNode(jobletCon);
                 }
 
                 saveNode(fileFact, processType, nList, cList, ((NodeContainer) element).getNode(), factory);
@@ -1883,7 +1934,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         }
     }
 
-    private void saveRoutinesDependencies(ProcessType process) {
+    protected void saveRoutinesDependencies(ProcessType process) {
         /* if process is joblet,parameters will be null,so that create a new parametertype for joblet */
         if (process.getParameters() == null) {
             ParametersType parameterType = TalendFileFactory.eINSTANCE.createParametersType();
@@ -2152,12 +2203,39 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         Node nc;
 
         EList listParamType;
-
+        boolean isCurrentProject = ProjectManager.getInstance().isInCurrentMainProject(this.getProperty());
         unloadedNode = new ArrayList<NodeType>();
         for (int i = 0; i < nodeList.size(); i++) {
             nType = (NodeType) nodeList.get(i);
             listParamType = nType.getElementParameter();
-            IComponent component = ComponentsFactoryProvider.getInstance().get(nType.getComponentName(), componentsType);
+            String componentName = nType.getComponentName();
+            IComponent component = ComponentsFactoryProvider.getInstance().get(componentName, componentsType);
+            if (component != null) {
+                if (component.getComponentType() == EComponentType.JOBLET) {
+                    if (!isCurrentProject && !componentName.contains(":")) { //$NON-NLS-1$
+                        component = getComponentFromRefWithProjectName(componentName, new Project(ProjectManager.getInstance()
+                                .getProject(this.getProperty())));
+                    }
+                    if (component != null) {
+                        for (int j = 0; j < listParamType.size(); j++) {
+                            ElementParameterType pType = (ElementParameterType) listParamType.get(j);
+                            if (EParameterName.PROCESS_TYPE_VERSION.name().equals(pType.getName())) {
+                                String jobletVersion = pType.getValue();
+                                if (!RelationshipItemBuilder.LATEST_VERSION.equals(jobletVersion)) {
+                                    IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault()
+                                            .getService(IJobletProviderService.class);
+                                    if (service != null) {
+                                        String componentProcessId = service.getJobletComponentItem(component).getId();
+                                        component = service.setPropertyForJobletComponent(componentProcessId, jobletVersion);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+            }
             if (component == null) {
                 unloadedNode.add(nType);
                 continue;
@@ -2167,10 +2245,48 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         }
 
         if (!unloadedNode.isEmpty()) {
+            List<NodeType> tempNodes = new ArrayList<NodeType>(unloadedNode);
+            JobletUtil jobletUtil = new JobletUtil();
+            for (NodeType unNode : tempNodes) {
+                listParamType = unNode.getElementParameter();
+                String componentName = unNode.getComponentName();
+                if (!isCurrentProject && !componentName.contains(":")) {
+                    componentName = ProjectManager.getInstance().getProject(this.getProperty()).getLabel() + ":" + componentName; //$NON-NLS-1$
+                } else if (jobletUtil.matchExpression(componentName)) {
+                    String[] names = componentName.split(":"); //$NON-NLS-1$
+                    componentName = names[1];
+                }
+                IComponent component = ComponentsFactoryProvider.getInstance().get(componentName, componentsType);
+                if (component == null && jobletUtil.isJoblet(unNode)) {
+                    component = ComponentsFactoryProvider.getInstance().getJobletComponent(componentName, componentsType);
+                }
+                if (component != null) {
+                    unloadedNode.remove(unNode);
+                    nc = loadNode(unNode, component, nodesHashtable, listParamType);
+                }
+            }
+        }
+
+        if (!unloadedNode.isEmpty()) {
             for (int i = 0; i < unloadedNode.size(); i++) {
                 createDummyNode(unloadedNode.get(i), nodesHashtable);
             }
         }
+    }
+
+    private IComponent getComponentFromRefWithProjectName(String componentName, Project project) {
+        String componentNameWithPro = project.getLabel() + ":" + componentName; //$NON-NLS-1$
+        IComponent component = ComponentsFactoryProvider.getInstance().get(componentNameWithPro, componentsType);
+        if (component == null) {
+            List<Project> referencedProjects = ProjectManager.getInstance().getReferencedProjects(project);
+            for (Project refPro : referencedProjects) {
+                component = getComponentFromRefWithProjectName(componentName, refPro);
+                if (component != null) {
+                    return component;
+                }
+            }
+        }
+        return component;
     }
 
     protected Node createDummyNode(NodeType nType, Hashtable<String, Node> nodesHashtable) {
@@ -2184,12 +2300,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
             nc.setSize(new Dimension(nType.getSizeX(), nType.getSizeY()));
         }
         loadElementParameters(nc, nType.getElementParameter());
-        NodeContainer nodec = null;
-        if (nc.isJoblet() || nc.isMapReduce()) {
-            nodec = new JobletContainer(nc);
-        } else {
-            nodec = new NodeContainer(nc);
-        }
+        NodeContainer nodec = loadNodeContainer(nc, false);
         loadSchema(nc, nType);
         addNodeContainer(nodec);
         nodesHashtable.put(nc.getUniqueName(), nc);
@@ -2264,22 +2375,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         ValidationRulesUtil.createRejectConnector(nc);
 
         loadColumnsBasedOnSchema(nc, listParamType);
-        NodeContainer nodeContainer = null;// loadNodeContainer(nc, nType);
-        if (isJunitContainer) {
-            if (GlobalServiceRegister.getDefault().isServiceRegistered(ITestContainerGEFService.class)) {
-                ITestContainerGEFService testContainerService = (ITestContainerGEFService) GlobalServiceRegister.getDefault()
-                        .getService(ITestContainerGEFService.class);
-                if (testContainerService != null) {
-                    nodeContainer = testContainerService.createJunitContainer(nc);
-                }
-            }
-        } else if (nc.isJoblet()) {
-            nodeContainer = new JobletContainer(nc);
-        } else if (nc.isMapReduce()) {
-            nodeContainer = new JobletContainer(nc);
-        } else {
-            nodeContainer = new NodeContainer(nc);
-        }
+        NodeContainer nodeContainer = loadNodeContainer(nc, isJunitContainer);
 
         addNodeContainer(nodeContainer);
         nodesHashtable.put(nc.getUniqueName(), nc);
@@ -2289,10 +2385,31 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
             IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
                     IJobletProviderService.class);
             if (service != null) {
-                service.reloadJobletProcess(nc);
+                // reload only for stuido ,because joblet can be changed in the job editor
+                service.reloadJobletProcess(nc, !CommonsPlugin.isHeadless());
             }
         }
         return nc;
+    }
+
+    public NodeContainer loadNodeContainer(Node node, boolean isJunitContainer) {
+        NodeContainer nodeContainer = null;
+        if (isJunitContainer) {
+            if (GlobalServiceRegister.getDefault().isServiceRegistered(ITestContainerGEFService.class)) {
+                ITestContainerGEFService testContainerService = (ITestContainerGEFService) GlobalServiceRegister.getDefault()
+                        .getService(ITestContainerGEFService.class);
+                if (testContainerService != null) {
+                    nodeContainer = testContainerService.createJunitContainer(node);
+                }
+            }
+        } else if (node.isJoblet()) {
+            nodeContainer = new JobletContainer(node);
+        } else if (node.isMapReduce()) {
+            nodeContainer = new JobletContainer(node);
+        } else {
+            nodeContainer = new NodeContainer(node);
+        }
+        return nodeContainer;
     }
 
     protected void loadColumnsBasedOnSchema(Node nc, EList listParamType) {
@@ -2443,7 +2560,8 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
             if (!listNames.contains(metadataTable.getTableName())) {
                 listNames.add(metadataTable.getTableName());
                 listMetaData.add(metadataTable);
-                if (nc.getConnectorFromType(EConnectionType.FLOW_MAIN).isMultiSchema()
+                if (nc.getConnectorFromType(EConnectionType.FLOW_MAIN) != null
+                        && nc.getConnectorFromType(EConnectionType.FLOW_MAIN).isMultiSchema()
                         && checkValidConnectionName(metadataTable.getTableName())) {
                     addUniqueConnectionName(metadataTable.getTableName());
                     // for tmap 11884
@@ -2469,6 +2587,11 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                         properties.put("isinput", "true"); //$NON-NLS-1$ //$NON-NLS-2$
                     }
                 }
+            }
+            if (GlobalServiceRegister.getDefault().isServiceRegistered(IScdComponentService.class)) {
+                IScdComponentService service = (IScdComponentService) GlobalServiceRegister.getDefault().getService(
+                        IScdComponentService.class);
+                service.updateOutputMetadata(nc, metadataTable);
             }
         }
         List<IMetadataTable> oldComponentMetadataList = new ArrayList<IMetadataTable>(nc.getMetadataList());
@@ -2664,7 +2787,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                 for (int i = 0; i < connecList.size(); i++) {
                     cType = (ConnectionType) connecList.get(i);
                     if (cType.getTarget().equals(node.getUniqueName())) {
-                        if (cType.isSetMergeOrder()&&connectionsHashtable.get(cType)!=null) {
+                        if (cType.isSetMergeOrder() && connectionsHashtable.get(cType) != null) {
                             Connection connection = connectionsHashtable.get(cType);
                             connection.setInputId(cType.getMergeOrder());
                             connection.updateName();
@@ -2726,6 +2849,10 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         }
 
         return false;
+    }
+
+    public void loadContexts() {
+        loadContexts(getProcessType());
     }
 
     private void loadContexts(ProcessType process) {
@@ -2998,7 +3125,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         if (checkExists && checkIgnoreCase(connectionName)) {
             return false;
         }
-        
+
         if (!matcher.matches(connectionName, pattern)) {
             return false;
         }
@@ -3099,7 +3226,7 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
     }
 
     public String generateUniqueNodeName(INode node) {
-        String baseName = node.getComponent().getName();
+        String baseName = node.getComponent().getOriginalName();
         return UniqueNodeNameGenerator.generateUniqueNodeName(baseName, uniqueNodeNameList);
     }
 
@@ -3295,12 +3422,12 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
      */
     @Override
     public void checkProcess() {
-        if (isActivate()) {
+        if (isActivate() && !isDuplicate()) {
             checkProblems();
         }
     }
 
-    private void checkProblems() {
+    protected void checkProblems() {
         Problems.removeProblemsByProcess(this);
 
         for (INode node : nodes) {
@@ -3457,9 +3584,26 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         generatingNodes = (List<INode>) getGeneratingNodes();
         getMatchingNodes(componentName, matchingNodes, generatingNodes);
 
+        generatingNodes = getRealGraphicalNodesFromVirtrualNodes(generatingNodes);
+        getMatchingNodes(componentName, matchingNodes, generatingNodes);
+
         generatingNodes = (List<INode>) getGraphicalNodes();
         getMatchingNodes(componentName, matchingNodes, generatingNodes);
+
         return matchingNodes;
+    }
+
+    private List<INode> getRealGraphicalNodesFromVirtrualNodes(List<INode> generatingNodes) {
+        Set<INode> set = new HashSet<INode>();
+        if (generatingNodes != null) {
+            for (INode node : generatingNodes) {
+                if (node.isVirtualGenerateNode() && node instanceof AbstractNode
+                        && ((AbstractNode) node).getRealGraphicalNode() != null) {
+                    set.add(((AbstractNode) node).getRealGraphicalNode());
+                }
+            }
+        }
+        return new ArrayList<INode>(set);
     }
 
     private void getMatchingNodes(String componentName, List<INode> matchingNodes, List<INode> generatingNodes) {
@@ -3667,8 +3811,17 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
      * @param editor the editor to set
      */
     public void setEditor(AbstractMultiPageTalendEditor editor) {
+        AbstractMultiPageTalendEditor oldEditor = this.editor;
         this.editor = editor;
         if (editor != null && !duplicate) {
+            if (oldEditor == null) {
+                List<? extends INode> graphicalNodes = getGraphicalNodes();
+                for (INode node : graphicalNodes) {
+                    if (node instanceof Node) {
+                        ((Node) node).updateVisibleData();
+                    }
+                }
+            }
             CommandStack commandStack = (CommandStack) editor.getTalendEditor().getAdapter(CommandStack.class);
             commandStack.addCommandStackEventListener(commandStackEventListener);
             if (!isReadOnly()) { // when readonly. don't check the modifications.
@@ -4203,7 +4356,11 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         // ProcessType process = this.getProcessType();
         // process.getParameters().getRoutinesParameter().addAll(parameters.getRoutinesParameter());
         // }
-
+        routinesDependencies.clear();
+        List newRoutinesList = parameters.getRoutinesParameter();
+        if (newRoutinesList != null) {
+            routinesDependencies.addAll(newRoutinesList);
+        }
     }
 
     private void updateProSetingParameters(EList listParamType) {
@@ -4270,9 +4427,12 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
         checkProcess();
     }
 
-    private void saveJobletNode(JobletContainer jobletContainer, boolean needUpdate) {
+    private void saveJobletNode(AbstractJobletContainer jobletContainer) {
         INode jobletNode = jobletContainer.getNode();
         IProcess jobletProcess = jobletNode.getComponent().getProcess();
+        if (jobletProcess == null) {
+            return;
+        }
         if (jobletProcess instanceof IProcess2) {
             Item item = ((IProcess2) jobletProcess).getProperty().getItem();
             if (item instanceof JobletProcessItem) {
@@ -4280,28 +4440,10 @@ public class Process extends Element implements IProcess2, IGEFProcess, ILastVer
                 IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
                         IJobletProviderService.class);
                 if (service != null) {
-                    List<INode> addNodes = service.checkAddNodes(jobletContainer);
-                    List<INode> deleteNodes = new ArrayList<INode>();
-                    if (addNodes.size() <= 0) {
-                        deleteNodes.addAll(service.checkDeleteNodes(jobletContainer));
-                    } else {
-                        return;
-                    }
-                    if (needUpdate && (addNodes.size() <= 0) && (deleteNodes.size() <= 0)) {
-                        service.saveJobletNode(jobletItem, jobletContainer);
-                    }
+                    service.saveJobletNode(jobletItem, jobletContainer);
+
                 }
             }
-        }
-
-    }
-
-    private void addNewJobletNode(JobletContainer jobletContainer) {
-        IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
-                IJobletProviderService.class);
-        if (service != null) {
-            service.checkAddNodes(jobletContainer);
-            service.checkDeleteNodes(jobletContainer);
         }
 
     }

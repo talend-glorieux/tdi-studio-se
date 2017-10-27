@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -19,7 +19,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -49,8 +51,8 @@ import org.osgi.framework.ServiceReference;
 import org.osgi.service.packageadmin.PackageAdmin;
 import org.talend.commons.CommonsPlugin;
 import org.talend.commons.exception.BusinessException;
+import org.talend.commons.exception.ExceptionHandler;
 import org.talend.commons.runtime.utils.io.SHA1Util;
-import org.talend.commons.ui.runtime.exception.ExceptionHandler;
 import org.talend.commons.utils.io.FilesUtils;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.language.LanguageManager;
@@ -63,15 +65,19 @@ import org.talend.core.model.components.ComponentCategory;
 import org.talend.core.model.components.ComponentManager;
 import org.talend.core.model.components.ComponentProviderInfo;
 import org.talend.core.model.components.ComponentUtilities;
+import org.talend.core.model.components.EComponentType;
 import org.talend.core.model.components.IComponent;
 import org.talend.core.model.components.IComponentsFactory;
 import org.talend.core.model.components.IComponentsHandler;
+import org.talend.core.model.components.filters.ComponentsFactoryProviderManager;
+import org.talend.core.model.components.filters.IComponentFactoryFilter;
 import org.talend.core.ui.IJobletProviderService;
+import org.talend.core.ui.ISparkJobletProviderService;
+import org.talend.core.ui.ISparkStreamingJobletProviderService;
 import org.talend.core.ui.branding.IBrandingService;
 import org.talend.core.ui.images.CoreImageProvider;
 import org.talend.core.utils.TalendCacheUtils;
 import org.talend.designer.codegen.CodeGeneratorActivator;
-import org.talend.designer.codegen.additionaljet.ComponentsFactoryProviderManager;
 import org.talend.designer.codegen.i18n.Messages;
 import org.talend.designer.core.ITisLocalProviderService;
 import org.talend.designer.core.ITisLocalProviderService.ResClassLoader;
@@ -80,6 +86,7 @@ import org.talend.designer.core.model.components.ComponentFilesNaming;
 import org.talend.designer.core.model.components.EmfComponent;
 import org.talend.designer.core.model.process.AbstractProcessProvider;
 import org.talend.designer.core.model.process.GenericProcessProvider;
+import org.talend.designer.core.ui.editor.jobletcontainer.JobletUtil;
 
 /**
  * Component factory that look for each component and load their information. <br/>
@@ -99,7 +106,7 @@ public class ComponentsFactory implements IComponentsFactory {
 
     private static Logger log = Logger.getLogger(ComponentsFactory.class);
 
-    private static HashSet<IComponent> componentList = null;
+    private static Set<IComponent> componentList = null;
 
     private static HashSet<IComponent> customComponentList = null;
 
@@ -144,8 +151,7 @@ public class ComponentsFactory implements IComponentsFactory {
         // TimeMeasure.displaySteps = true;
         // TimeMeasure.measureActive = true;
         // TimeMeasure.begin("initComponents");
-
-        componentList = new HashSet<IComponent>();
+        componentList = Collections.synchronizedSet(new HashSet<IComponent>());
         customComponentList = new HashSet<IComponent>();
         skeletonList = new ArrayList<String>();
         userComponentList = new HashSet<IComponent>();
@@ -508,7 +514,7 @@ public class ComponentsFactory implements IComponentsFactory {
                             currentComp.getTranslatedFamilyName();
                             currentComp.getPluginExtension();
                             currentComp.getVersion();
-                            currentComp.getModulesNeeded();
+                            currentComp.getModulesNeeded(null);
                             currentComp.getPluginDependencies();
                             // end of force cache update.
 
@@ -769,6 +775,32 @@ public class ComponentsFactory implements IComponentsFactory {
     }
 
     @Override
+    public IComponent getJobletComponent(String name, String paletteType) {
+        if (componentList == null) {
+            init(false);
+        }
+
+        for (IComponent comp : componentList) {
+            if (comp.getComponentType() != EComponentType.JOBLET) {
+                continue;
+            }
+            String comName = comp.getName();
+            if (comp != null && paletteType.equals(comp.getPaletteType())) {
+                if (comName.equals(name)) {
+                    return comp;
+                } else if (new JobletUtil().matchExpression(comName)) {
+                    String[] names = comName.split(":"); //$NON-NLS-1$
+                    comName = names[1];
+                    if (comName.equals(name)) {
+                        return comp;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
     public void initializeComponents(IProgressMonitor monitor) {
         this.monitor = monitor;
         if (componentList == null) {
@@ -799,6 +831,16 @@ public class ComponentsFactory implements IComponentsFactory {
             init(false);
         }
         return componentList;
+    }
+
+    @Override
+    public Collection<IComponent> readComponents() {
+        Set<IComponent> components = getComponents();
+        Collection<IComponent> readComponents = null;
+        synchronized (components) {
+            readComponents = Arrays.asList(components.toArray(new IComponent[0]));
+        }
+        return readComponents;
     }
 
     @Override
@@ -844,6 +886,22 @@ public class ComponentsFactory implements IComponentsFactory {
                     IJobletProviderService.class);
             if (jobletService != null) {
                 jobletService.clearJobletComponent();
+            }
+        }
+
+        if (GlobalServiceRegister.getDefault().isServiceRegistered(ISparkJobletProviderService.class)) {
+            ISparkJobletProviderService jobletService = (ISparkJobletProviderService) GlobalServiceRegister.getDefault()
+                    .getService(ISparkJobletProviderService.class);
+            if (jobletService != null) {
+                jobletService.clearSparkJobletComponent();
+            }
+        }
+
+        if (GlobalServiceRegister.getDefault().isServiceRegistered(ISparkStreamingJobletProviderService.class)) {
+            ISparkStreamingJobletProviderService jobletService = (ISparkStreamingJobletProviderService) GlobalServiceRegister
+                    .getDefault().getService(ISparkStreamingJobletProviderService.class);
+            if (jobletService != null) {
+                jobletService.clearSparkStreamingJobletComponent();
             }
         }
     }

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -240,15 +240,7 @@ public class ActiveProcessTracker implements IPartListener {
         if (part instanceof AbstractMultiPageTalendEditor) {
             AbstractMultiPageTalendEditor mpte = (AbstractMultiPageTalendEditor) part;
             mpte.beforeDispose();
-        }
-        IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
-        if (page != null) {
-            if (page.getActiveEditor() != null) {
-                if (!page.getActiveEditor().getSite().getId().equals(DISTARTID)
-                        && !page.getActiveEditor().getSite().getId().equals(MDMSTARTID)) {
-                    JobSettings.switchToCurJobSettingsView();
-                }
-            }
+            JobSettings.switchToCurJobSettingsView();
         }
 
     }

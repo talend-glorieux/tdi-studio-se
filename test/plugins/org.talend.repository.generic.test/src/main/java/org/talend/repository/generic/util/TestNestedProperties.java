@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -27,9 +27,9 @@ import org.talend.daikon.properties.property.Property;
  */
 public class TestNestedProperties extends PropertiesImpl {
 
-    public Property userName = newProperty("userName").setRequired(); //$NON-NLS-1$
+    public Property<String> userName = newString("userName").setRequired(); //$NON-NLS-1$
 
-    public Property userPassword = newProperty("userPassword").setRequired(); //$NON-NLS-1$
+    public Property<String> userPassword = newString("userPassword").setRequired(); //$NON-NLS-1$
 
     public TestNestedProperties(String name) {
         super(name);

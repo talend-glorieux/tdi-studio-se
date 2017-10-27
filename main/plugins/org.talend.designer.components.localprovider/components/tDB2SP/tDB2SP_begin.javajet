@@ -32,22 +32,8 @@ if(("true").equals(useExistingConn)) {
 	String connection = ElementParameterParser.getValue(node,"__CONNECTION__");
 	String conn = "conn_" + connection;
 %>
-connection_<%=cid%> = (java.sql.Connection)globalMap.get("<%=conn%>");
-<%
-INode connectionNode = NodeUtil.getNodeByUniqueName(node.getProcess(),connection);
-boolean specify_alias = "true".equals(ElementParameterParser.getValue(connectionNode, "__SPECIFY_DATASOURCE_ALIAS__"));
-if(specify_alias){
-	String alias = ElementParameterParser.getValue(connectionNode, "__DATASOURCE_ALIAS__");
-	String autoCommit = "true".equals(ElementParameterParser.getValue(connectionNode, "__AUTO_COMMIT__"))?"true":"false";
-	%>
-	if (null == connection_<%=cid%>) {
-		java.util.Map<String, routines.system.TalendDataSource> dataSources_<%=cid%> = (java.util.Map<String, routines.system.TalendDataSource>) globalMap.get(KEY_DB_DATASOURCES);
-		connection_<%=cid%> = dataSources_<%=cid%>.get(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>).getConnection();
-	}
-<%
-}
-%>
-<%dbLog.conn().useExistConn("connection_"+cid+".getMetaData().getURL()", "connection_"+cid+".getMetaData().getUserName()");%>
+    connection_<%=cid%> = (java.sql.Connection)globalMap.get("<%=conn%>");
+    <%dbLog.conn().useExistConn("connection_"+cid+".getMetaData().getURL()", "connection_"+cid+".getMetaData().getUserName()");%>
 <%
 } else {       
 	boolean specify_alias = "true".equals(ElementParameterParser.getValue(node, "__SPECIFY_DATASOURCE_ALIAS__"));   
@@ -56,7 +42,11 @@ if(specify_alias){
 		%>
 		java.util.Map<String, routines.system.TalendDataSource> dataSources_<%=cid%> = (java.util.Map<String, routines.system.TalendDataSource>) globalMap.get(KEY_DB_DATASOURCES);
 		if (null != dataSources_<%=cid%>) {
-			connection_<%=cid %> = dataSources_<%=cid%>.get(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>).getConnection();
+			String dsAlias_<%=cid%> = <%=(null != alias && !("".equals(alias)))?alias:"\"\""%>;
+    		if (dataSources_<%=cid%>.get(dsAlias_<%=cid%>) == null) {
+       			throw new RuntimeException("No DataSource with alias: " + dsAlias_<%=cid%> + " available!");
+          	}
+    		connection_<%=cid%> = dataSources_<%=cid%>.get(dsAlias_<%=cid%>).getConnection();
 		} else {
 	<%
 	}

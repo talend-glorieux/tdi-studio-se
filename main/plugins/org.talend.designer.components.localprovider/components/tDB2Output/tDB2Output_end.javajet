@@ -67,7 +67,11 @@ imports="
 			if (pstmt_<%=cid %> != null && batchSizeCounter_<%=cid%> > 0) {
 				<%dbLog.batch().executeTry(dbLog.str(dataAction));%>
 				for(int countEach_<%=cid%>: pstmt_<%=cid %>.executeBatch()) {
-					countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+					if(countEach_<%=cid%> == java.sql.Statement.SUCCESS_NO_INFO ){
+						countSum_<%=cid%> += 1;
+					}else{
+						countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+					}
 				}
 				<%dbLog.batch().executeDone(dbLog.str(dataAction));%>
 			}
@@ -84,16 +88,36 @@ imports="
 	    	    deletedCount_<%=cid%> += countSum_<%=cid%>;
 	    	<%
 	    	}%>
-    }catch (java.sql.BatchUpdateException e){
+    }catch (java.sql.BatchUpdateException e_<%=cid%>){
+    
+    	java.sql.SQLException ne_<%=cid%> = e_<%=cid%>.getNextException(),sqle_<%=cid%>=null;
+    	String errormessage_<%=cid%>;
+		if (ne_<%=cid%> != null) {
+			// build new exception to provide the original cause
+			sqle_<%=cid%> = new java.sql.SQLException(e_<%=cid%>.getMessage() + "\ncaused by: " + ne_<%=cid%>.getMessage(), ne_<%=cid%>.getSQLState(), ne_<%=cid%>.getErrorCode(), ne_<%=cid%>);
+			errormessage_<%=cid%> = sqle_<%=cid%>.getMessage();
+		}else{
+			errormessage_<%=cid%> = e_<%=cid%>.getMessage();
+		}
+		
     	<%if(("true").equals(dieOnError)) {
     	%>
-    		throw(e);
+    		if (ne_<%=cid%> != null) {
+    			throw(sqle_<%=cid%>);
+    		}else{
+            	throw(e_<%=cid%>);
+            }
     	<%
     	}else {
     	%>
+    	System.err.println(errormessage_<%=cid%>);
     	int countSum_<%=cid%> = 0;
-		for(int countEach_<%=cid%>: e.getUpdateCounts()) {
-			countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+		for(int countEach_<%=cid%>: e_<%=cid%>.getUpdateCounts()) {
+			if(countEach_<%=cid%> == java.sql.Statement.SUCCESS_NO_INFO ){
+				countSum_<%=cid%> += 1;
+			}else{
+				countSum_<%=cid%> += (countEach_<%=cid%> < 0 ? 0 : countEach_<%=cid%>);
+			}
 		}
 		<%if (("INSERT").equals(dataAction)) {
     	%>
@@ -108,11 +132,9 @@ imports="
     	    deletedCount_<%=cid%> += countSum_<%=cid%>;
     	<%
     	}
-    	dbLog.logPrintedException("e.getMessage()");
-    	%>
-    	System.err.println(e.getMessage());
-    	<%
+    	dbLog.logPrintedException("errormessage_"+cid);
     	}%>
+    	
 	}
     <%
     }%>
@@ -132,12 +154,19 @@ imports="
         <%
         }
         %>
-        <%dbLog.conn().closeTry(null);%>
+        <%
+        dbLog.conn().closeTry(null);
+        //need to end the transaction for db2 by the commit method before closing the connection, DDL and DML both need it
+        %>
+        if(!conn_<%=cid%>.getAutoCommit()) {
+        	conn_<%=cid%>.commit();
+        }
         conn_<%=cid%> .close();
         <%dbLog.conn().closeDone(null);%>
         resourceMap.put("finish_<%=cid%>", true);
     <%
 	}
     %>
+   <%@ include file="../templates/DB/Output/DBOutputEndGlobalVars.javajet"%>
 
-<%@ include file="../templates/DB/Output/DBOutputEndGlobalVars.javajet"%>
+

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -185,7 +185,7 @@ public class RepositoryService implements IRepositoryService, IRepositoryContext
 
     @Override
     public IPath getRepositoryPath(IRepositoryNode node) {
-        return RepositoryNodeUtilities.getPath((RepositoryNode) node);
+        return RepositoryNodeUtilities.getPath(node);
     }
 
     /*
@@ -378,6 +378,7 @@ public class RepositoryService implements IRepositoryService, IRepositoryContext
                 ExceptionHandler.process(e);
             }
 
+            LoginHelper.isAutoLogonFailed = false;
             try {
                 ConnectionBean bean = null;
 
@@ -393,6 +394,7 @@ public class RepositoryService implements IRepositoryService, IRepositoryContext
                         bean = ConnectionBean.getDefaultConnectionBean();
                     }
                 }
+                LoginHelper.getInstance().setCurrentSelectedConnBean(bean);
 
                 Context ctx = CorePlugin.getContext();
                 RepositoryContext repositoryContext = new RepositoryContext();
@@ -480,22 +482,26 @@ public class RepositoryService implements IRepositoryService, IRepositoryContext
                     MessageBoxExceptionHandler.process(e, new Shell());
                 }
                 repositoryFactory.logOffProject();
-                return false;
+                LoginHelper.isAutoLogonFailed = true;
             } catch (LoginException e) {
                 MessageBoxExceptionHandler.process(e, new Shell());
                 repositoryFactory.logOffProject();
-                return false;
+                LoginHelper.isAutoLogonFailed = true;
             } catch (BusinessException e) {
                 MessageBoxExceptionHandler.process(e, new Shell());
                 repositoryFactory.logOffProject();
-                return false;
+                LoginHelper.isAutoLogonFailed = true;
             } catch (CoreException e) {
                 MessageBoxExceptionHandler.process(e, new Shell());
                 repositoryFactory.logOffProject();
-                return false;
+                LoginHelper.isAutoLogonFailed = true;
             } catch (JSONException e) {
-                // TODO Auto-generated catch block
                 ExceptionHandler.process(e);
+                LoginHelper.isAutoLogonFailed = true;
+            }
+            
+            if (LoginHelper.isAutoLogonFailed) {
+                LoginHelper.isRestart=true;
             }
 
             return true;
@@ -663,6 +669,7 @@ public class RepositoryService implements IRepositoryService, IRepositoryContext
     public ContextItem openRepositoryReviewDialog(ERepositoryObjectType type, String repositoryType,
             List<IContextParameter> params, IContextManager contextManager) {
         ContextRepositoryReviewDialog dialog = new ContextRepositoryReviewDialog(new Shell(), type, params, contextManager);
+        dialog.setFilterReferenceNode(true);
         if (dialog.open() == Window.OK) {
             return dialog.getItem();
         }

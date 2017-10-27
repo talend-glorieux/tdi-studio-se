@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -64,6 +64,14 @@ public class JobSettingVersionUtil {
             }
             elementParameter.setListItemsDisplayName(StatsAndLogsConstants.MYSQL_VERSION_DISPLAY);
             elementParameter.setListItemsValue(StatsAndLogsConstants.MYSQL_VERSION_CODE);
+        } else if (dbType.toUpperCase().indexOf("MSSQL") != -1) {//$NON-NLS-1$
+            if (withInitialValue) {
+                elementParameter.setValue(StatsAndLogsConstants.MSSQL_VERSION_CODE[0]);
+            } else {
+                elementParameter.setValue(dbVersion);
+            }
+            elementParameter.setListItemsDisplayName(StatsAndLogsConstants.MSSQL_VERSION_DISPLAY);
+            elementParameter.setListItemsValue(StatsAndLogsConstants.MSSQL_VERSION_CODE);
         } else if (dbType.toUpperCase().indexOf("POSTGRESQL") != -1) {//$NON-NLS-1$
             if (withInitialValue) {
                 elementParameter.setValue(StatsAndLogsConstants.PSQL_VERSION_CODE[0]);

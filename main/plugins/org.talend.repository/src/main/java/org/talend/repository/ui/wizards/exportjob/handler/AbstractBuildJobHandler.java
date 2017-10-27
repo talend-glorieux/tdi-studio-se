@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -12,6 +12,7 @@
 // ============================================================================
 package org.talend.repository.ui.wizards.exportjob.handler;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,19 +21,22 @@ import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.runtime.CoreException;
+import org.talend.commons.CommonsPlugin;
 import org.talend.commons.exception.ExceptionHandler;
+import org.talend.commons.exception.PersistenceException;
+import org.talend.commons.utils.workbench.resources.ResourceUtils;
 import org.talend.core.CorePlugin;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.ICoreService;
+import org.talend.core.ITDQSurvivorshipService;
 import org.talend.core.model.process.ProcessUtils;
 import org.talend.core.model.properties.Item;
 import org.talend.core.model.properties.ProcessItem;
 import org.talend.core.model.properties.Project;
-import org.talend.core.model.properties.Property;
-import org.talend.core.model.utils.JavaResourcesHelper;
 import org.talend.core.runtime.process.IBuildJobHandler;
 import org.talend.core.runtime.process.ITalendProcessJavaProject;
 import org.talend.core.runtime.process.LastGenerationInfo;
+import org.talend.designer.core.model.utils.emf.talendfile.NodeType;
 import org.talend.designer.maven.model.TalendMavenConstants;
 import org.talend.designer.runprocess.IRunProcessService;
 import org.talend.repository.ProjectManager;
@@ -53,7 +57,7 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
 
     protected static final String NEGATION = "!"; //$NON-NLS-1$
 
-    protected static final String JOB_EXTENSION = ".zip"; //$NON-NLS-1$
+    protected static final String JOB_EXTENSION = "zip"; //$NON-NLS-1$
 
     protected static final String JOB_NAME_SEP = "-"; //$NON-NLS-1$
 
@@ -69,6 +73,8 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
 
     private boolean itemDependencies;
 
+    private final Map<String, Object> argumentsMap = new HashMap<String, Object>();
+
     public AbstractBuildJobHandler(ProcessItem processItem, String version, String contextName,
             Map<ExportChoice, Object> exportChoiceMap) {
         this.processItem = processItem;
@@ -81,6 +87,17 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
         }
         IRunProcessService runProcessService = CorePlugin.getDefault().getRunProcessService();
         this.talendProcessJavaProject = runProcessService.getTalendProcessJavaProject();
+        IFolder targetFolder = talendProcessJavaProject.getTargetFolder();
+        try {
+            ResourceUtils.emptyFolder(targetFolder);
+        } catch (PersistenceException e) {
+            ExceptionHandler.process(e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getArguments() {
+        return argumentsMap;
     }
 
     protected boolean isOptionChoosed(Object key) {
@@ -135,6 +152,26 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
         return LastGenerationInfo.getInstance().isUsePigUDFs(processItem.getProperty().getId(), this.version);
     }
 
+    protected boolean needDQSurvivorshipRules() {
+        // when needJobItem or itemDependencies is true, the survivorship rules will be included.so return false here.
+        if (isOptionChoosed(ExportChoice.needJobItem) || itemDependencies) {
+            return false;
+        }
+
+        Collection<NodeType> survivorshipNodes = null;
+        if (GlobalServiceRegister.getDefault().isServiceRegistered(ITDQSurvivorshipService.class)) {
+            ITDQSurvivorshipService tdqSurvShipService = (ITDQSurvivorshipService) GlobalServiceRegister.getDefault().getService(
+                    ITDQSurvivorshipService.class);
+            if (tdqSurvShipService != null) {
+                survivorshipNodes = tdqSurvShipService.getSurvivorshipNodesOfProcess(processItem);
+            }
+        }
+        if (survivorshipNodes != null && !survivorshipNodes.isEmpty()) {
+            return true;
+        }
+        return false;
+    }
+
     protected String getProgramArgs() {
         StringBuffer programArgs = new StringBuffer();
         StringBuffer profileArgs = getProfileArgs();
@@ -151,6 +188,13 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
 
     protected StringBuffer getProfileArgs() {
         StringBuffer profileBuffer = new StringBuffer();
+        String property = System.getProperty("maven.additional.params");
+        if (property != null) {
+            profileBuffer.append(SPACE);
+            profileBuffer.append(property);
+            profileBuffer.append(SPACE);
+        }
+
         profileBuffer.append(TalendMavenConstants.PREFIX_PROFILE);
         profileBuffer.append(SPACE);
 
@@ -161,6 +205,10 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
         // if not binaries, need add maven resources
         boolean isBinaries = isOptionChoosed(ExportChoice.binaries);
         addArg(profileBuffer, !isBinaries, TalendMavenConstants.PROFILE_INCLUDE_MAVEN_RESOURCES);
+        // DQ survivorship rules when items not exported.
+        if (needDQSurvivorshipRules()) {
+            addArg(profileBuffer, true, TalendMavenConstants.PROFILE_INCLUDE_SURVIVORSHIP_RULES);
+        }
         addArg(profileBuffer, isOptionChoosed(ExportChoice.needJobItem) || itemDependencies,
                 TalendMavenConstants.PROFILE_INCLUDE_ITEMS);
 
@@ -175,7 +223,7 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
 
         // the running context is only useful, when binaries
         addArg(profileBuffer, isBinaries && isOptionChoosed(ExportChoice.needContext),
-                TalendMavenConstants.PROFILE_INCLUDE_CONTEXTS, ProcessUtils.isHDInsight());
+                TalendMavenConstants.PROFILE_INCLUDE_CONTEXTS, ProcessUtils.jarNeedsToContainContext());
 
         // for test
         addArg(profileBuffer, isOptionChoosed(ExportChoice.includeTestSource), TalendMavenConstants.PROFILE_INCLUDE_TEST_SOURCES);
@@ -218,6 +266,10 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
         }
         otherArgsBuffer.append(" -Dmaven.main.skip=true");
 
+        // if debug
+        if (CommonsPlugin.isDebugMode()) {
+            otherArgsBuffer.append(" -X");
+        }
         return otherArgsBuffer;
     }
 
@@ -249,15 +301,23 @@ public abstract class AbstractBuildJobHandler implements IBuildJobHandler {
         if (talendProcessJavaProject == null) {
             return null;
         }
-        Property jobProperty = processItem.getProperty();
-        String jobZipName = JavaResourcesHelper.getJobJarName(jobProperty.getLabel(), jobProperty.getVersion()) + JOB_EXTENSION;
         IFolder targetFolder = talendProcessJavaProject.getTargetFolder();
+        IFile jobFile = null;
         try {
             targetFolder.refreshLocal(IResource.DEPTH_ONE, null);
+            // we only build one zip at a time, so just get the zip file to be able to manage some pom customizations.
+            for (IResource resource : targetFolder.members()) {
+                if (resource instanceof IFile) {
+                    IFile file = (IFile) resource;
+                    if (JOB_EXTENSION.equals(file.getFileExtension())) {
+                        jobFile = file;
+                        break;
+                    }
+                }
+            }
         } catch (CoreException e) {
             ExceptionHandler.process(e);
         }
-        IFile jobFile = targetFolder.getFile(jobZipName);
         return jobFile;
     }
 

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -368,6 +368,12 @@ public class ConnectionListController extends AbstractElementPropertySectionCont
                         }
                     }
                     curLine.put(newConnectionName, newValue);
+                }
+            }else if(curParam.getFieldType().equals(EParameterFieldType.SCHEMA_TYPE)){
+                Map<String, IElementParameter> children = curParam.getChildParameters();
+                IElementParameter ele = children.get(EParameterName.CONNECTION.getName());
+                if(ele!=null && ele.getFieldType().equals(EParameterFieldType.CONNECTION_LIST) && ele.getValue().equals(oldConnectionName)){
+                    ele.setValue(newConnectionName);
                 }
             }
         }

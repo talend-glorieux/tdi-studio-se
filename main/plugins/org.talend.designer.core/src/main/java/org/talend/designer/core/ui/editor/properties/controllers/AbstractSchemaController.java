@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -479,7 +479,7 @@ public abstract class AbstractSchemaController extends AbstractRepositoryControl
 
     /**
      * Find the IRepositoryObject of metadata connection thats contains current schema.
-     * 
+     *
      * @param schemaId
      * @return
      */
@@ -497,7 +497,7 @@ public abstract class AbstractSchemaController extends AbstractRepositoryControl
 
     /**
      * Use the database table wizard to update the schema in the repository.
-     * 
+     *
      * @param button
      */
     public void updateRepositorySchema(Button button) {
@@ -555,7 +555,7 @@ public abstract class AbstractSchemaController extends AbstractRepositoryControl
     /**
      * If schema type is repository, display a dialog to ask the user to change to built-in mode or update the schema in
      * the repository. Return true to stop the process.
-     * 
+     *
      * @param button
      */
     public boolean checkForRepositoryShema(Button button) {
@@ -855,7 +855,7 @@ public abstract class AbstractSchemaController extends AbstractRepositoryControl
             }
 
             if (metaDialog != null) {
-                metaDialog.setText(Messages.getString("AbstractSchemaController.schemaOf") + node.getLabel()); //$NON-NLS-1$
+                metaDialog.setText(Messages.getString("AbstractSchemaController.schema.title", node.getLabel())); //$NON-NLS-1$
                 metaDialog.setInputReadOnly(inputReadOnly);
                 metaDialog.setOutputReadOnly(outputReadOnly);
 
@@ -917,9 +917,7 @@ public abstract class AbstractSchemaController extends AbstractRepositoryControl
             String filter = schemaParam.getFilter();
             if (elem instanceof Node) {
                 Node sapNode = (Node) elem;
-                if (sapNode.getComponent().getName().startsWith("tSAP") && !sapNode.getComponent().getName().startsWith("tSAPHana")) { //$NON-NLS-1$ //$NON-NLS-2$
-                    type = ERepositoryObjectType.METADATA_SAP_FUNCTION;
-                } else if (sapNode.getComponent().getName().startsWith("tESB")) { //$NON-NLS-1$
+                if (sapNode.getComponent().getName().startsWith("tESB")) { //$NON-NLS-1$
                     filter = ERepositoryObjectType.SERVICESOPERATION.getType();
                 }
             }

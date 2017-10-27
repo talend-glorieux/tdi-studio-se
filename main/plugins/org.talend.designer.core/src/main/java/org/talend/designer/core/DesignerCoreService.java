@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -35,7 +35,7 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.part.MultiPageEditorPart;
-import org.talend.commons.ui.runtime.exception.ExceptionHandler;
+import org.talend.commons.exception.ExceptionHandler;
 import org.talend.core.CorePlugin;
 import org.talend.core.model.components.ComponentCategory;
 import org.talend.core.model.components.IComponent;
@@ -48,6 +48,7 @@ import org.talend.core.model.metadata.IMetadataTable;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.Element;
 import org.talend.core.model.process.IConnection;
+import org.talend.core.model.process.IContextManager;
 import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.process.INodeConnector;
@@ -85,6 +86,7 @@ import org.talend.designer.core.ui.editor.connections.TracesConnectionUtils;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.editor.process.ConvertRepositoryNodeToProcessNode;
 import org.talend.designer.core.ui.editor.process.JobTemplateViewsAndProcessUtil;
+import org.talend.designer.core.ui.editor.process.Process;
 import org.talend.designer.core.ui.editor.properties.GefEditorLabelProvider;
 import org.talend.designer.core.ui.editor.properties.RepositoryValueUtils;
 import org.talend.designer.core.ui.editor.update.UpdateManagerUtils;
@@ -159,6 +161,24 @@ public class DesignerCoreService implements IDesignerCoreService {
      * (non-Javadoc)
      * 
      * @see
+     * org.talend.designer.core.IDesignerCoreService#getProcessContextFromItem(org.talend.core.model.properties.Item)
+     */
+    @Override
+    public IContextManager getProcessContextFromItem(Item item) {
+        try {
+            Process process = new Process(item.getProperty());
+            process.loadContexts();
+            return process.getContextManager();
+        } catch (Exception e) {
+            ExceptionHandler.process(e);
+        }
+        return null;
+    }
+
+    /*
+     * (non-Javadoc)
+     * 
+     * @see
      * org.talend.designer.core.IDesignerCoreService#getProcessFromJobletProcessItem(org.talend.core.model.properties
      * .JobletProcessItem)
      */
@@ -218,6 +238,11 @@ public class DesignerCoreService implements IDesignerCoreService {
     @Override
     public void switchToCurJobSettingsView() {
         JobSettings.switchToCurJobSettingsView();
+    }
+
+    @Override
+    public void switchToCurProcessView() {
+        DesignerPlugin.getDefault().getRunProcessService().switchToCurProcessView();
     }
 
     @Override
@@ -733,6 +758,16 @@ public class DesignerCoreService implements IDesignerCoreService {
         return 0;
     }
 
+    @Override
+    public int getHBaseOrMaprDBScanLimit() {
+        final IPreferenceStore preferenceStore = DesignerPlugin.getDefault().getPreferenceStore();
+        if (preferenceStore != null) {
+            return preferenceStore.getInt(ITalendCorePrefConstants.HBASE_OR_MAPRDB_SCAN_LIMIT);
+        }
+        // disable
+        return 0;
+    }
+
     /*
      * (non-Javadoc)
      * 
@@ -762,6 +797,19 @@ public class DesignerCoreService implements IDesignerCoreService {
         int timeOut = -1;
         if (preferenceStore != null && preferenceStore.contains(ITalendCorePrefConstants.PERFORMANCE_TAC_CONNECTION_TIMEOUT)) {
             timeOut = preferenceStore.getInt(ITalendCorePrefConstants.PERFORMANCE_TAC_CONNECTION_TIMEOUT);
+        }
+        if (timeOut < 0) {
+            timeOut = 0;
+        }
+        return timeOut;
+    }
+
+    @Override
+    public int getTACReadTimeout() {
+        final IPreferenceStore preferenceStore = DesignerPlugin.getDefault().getPreferenceStore();
+        int timeOut = -1;
+        if (preferenceStore != null && preferenceStore.contains(ITalendCorePrefConstants.PERFORMANCE_TAC_READ_TIMEOUT)) {
+            timeOut = preferenceStore.getInt(ITalendCorePrefConstants.PERFORMANCE_TAC_READ_TIMEOUT);
         }
         if (timeOut < 0) {
             timeOut = 0;

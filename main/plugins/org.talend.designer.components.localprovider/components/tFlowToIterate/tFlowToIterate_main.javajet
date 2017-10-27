@@ -45,7 +45,6 @@ if (inMainConns != null && !inMainConns.isEmpty()) {
         	log.trace(log.str("Set global var, key=" + inputRowName + "." + columnLabel + ", value="), inputRowName + "." + columnLabel, log.str("."));    
         	%>            
             globalMap.put("<%=inputRowName %>.<%=columnLabel %>", <%=inputRowName %>.<%=columnLabel %>);
-            nb_line_<%=cid %>++;  
     	<%  
       	}
     	%>
@@ -57,13 +56,13 @@ if (inMainConns != null && !inMainConns.isEmpty()) {
               log.trace(log.str("Set global var, key="), line.get("KEY"), log.str(", value="), inputRowName + "." + line.get("VALUE"), log.str("."));    
         %>
               globalMap.put(<%= line.get("KEY") %>, <%=inputRowName %>.<%= line.get("VALUE") %>);
-              nb_line_<%=cid %>++;
         <%
             }
         %>
  <%
 	}            
 %> 
+	   nb_line_<%=cid %>++;  
        counter_<%=cid %>++;
        <%log.debug(log.str("Current iteration is: "), log.var("counter"), log.str("."));%>
        globalMap.put("<%=cid %>_CURRENT_ITERATION", counter_<%=cid %>);

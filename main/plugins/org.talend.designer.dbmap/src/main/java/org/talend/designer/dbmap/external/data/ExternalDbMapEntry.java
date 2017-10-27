@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -127,5 +127,40 @@ public class ExternalDbMapEntry implements IExternalMapEntry, Serializable, Clon
     public Object clone() throws CloneNotSupportedException {
         return super.clone();
     }
+    
+    /*
+     * (non-Javadoc)
+     * 
+     * @see java.lang.Object#equals(java.lang.Object)
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        final ExternalDbMapEntry other = (ExternalDbMapEntry) obj;
+        if (this.expression == null) {
+            if (other.expression != null)
+                return false;
+        } else if (!this.expression.equals(other.expression))
+            return false;
+        if (this.name == null) {
+            if (other.name != null)
+                return false;
+        } else if (!this.name.equals(other.name))
+            return false;
+        if (this.isJoin() != other.isJoin())
+            return false;
+        if (this.operator == null) {
+            if (other.operator != null)
+                return false;
+        } else if (!this.operator.equals(other.operator))
+            return false;
+        return true;
+    }
+
 
 }

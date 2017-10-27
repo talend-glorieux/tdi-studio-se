@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -51,6 +51,10 @@ public class UpdateLabelProvider implements ITableLabelProvider {
                 Job job = (Job) element;
                 if (job.isJoblet()) {
                     image = ECoreImage.JOBLET_ICON;
+                }else if(job.isSparkJoblet()){
+                    image = ECoreImage.PROCESS_BATCH_SPARK_ICON;
+                }else if(job.isSparkStreamingJoblet()){
+                    image = ECoreImage.PROCESS_STREAMING_SPARK_ICON;
                 } else {
                     org.talend.core.model.properties.Item item = job.getModelItem();
                     if (item != null) {

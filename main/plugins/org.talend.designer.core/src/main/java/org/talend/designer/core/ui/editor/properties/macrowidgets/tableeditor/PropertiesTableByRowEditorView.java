@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -205,7 +205,7 @@ public class PropertiesTableByRowEditorView<B> extends AbstractDataTableEditorVi
                             if (element instanceof Node) {
                                 List<IConnection> listConnection = (List<IConnection>) ((Node) element).getInputs();
                                 for (IConnection con : listConnection) {
-                                    if (con.getName().equals(columnName)) {
+                                    if (con.getName().equals(columnName) && con.getMetadataTable() != null) {
                                         List<IMetadataColumn> columns = con.getMetadataTable().getListColumns();
                                         for (IMetadataColumn column : columns) {
                                             stringToDisplay.add(column.getLabel());

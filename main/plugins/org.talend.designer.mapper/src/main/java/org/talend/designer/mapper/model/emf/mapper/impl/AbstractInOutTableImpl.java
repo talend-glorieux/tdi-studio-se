@@ -7,11 +7,8 @@
 package org.talend.designer.mapper.model.emf.mapper.impl;
 
 import org.eclipse.emf.common.notify.Notification;
-
 import org.eclipse.emf.ecore.EClass;
-
 import org.eclipse.emf.ecore.impl.ENotificationImpl;
-
 import org.talend.designer.mapper.model.emf.mapper.AbstractInOutTable;
 import org.talend.designer.mapper.model.emf.mapper.MapperPackage;
 
@@ -25,6 +22,8 @@ import org.talend.designer.mapper.model.emf.mapper.MapperPackage;
  *   <li>{@link org.talend.designer.mapper.model.emf.mapper.impl.AbstractInOutTableImpl#getExpressionFilter <em>Expression Filter</em>}</li>
  *   <li>{@link org.talend.designer.mapper.model.emf.mapper.impl.AbstractInOutTableImpl#isActivateExpressionFilter <em>Activate Expression Filter</em>}</li>
  *   <li>{@link org.talend.designer.mapper.model.emf.mapper.impl.AbstractInOutTableImpl#isActivateCondensedTool <em>Activate Condensed Tool</em>}</li>
+ *   <li>{@link org.talend.designer.mapper.model.emf.mapper.impl.AbstractInOutTableImpl#isActivateColumnNameFilter <em>Activate Column Name Filter</em>}</li>
+ *   <li>{@link org.talend.designer.mapper.model.emf.mapper.impl.AbstractInOutTableImpl#getColumnNameFilter <em>Column Name Filter</em>}</li>
  *   <li>{@link org.talend.designer.mapper.model.emf.mapper.impl.AbstractInOutTableImpl#getId <em>Id</em>}</li>
  * </ul>
  * </p>
@@ -91,6 +90,46 @@ public abstract class AbstractInOutTableImpl extends AbstractDataMapTableImpl im
      * @ordered
      */
     protected boolean activateCondensedTool = ACTIVATE_CONDENSED_TOOL_EDEFAULT;
+
+    /**
+     * The default value of the '{@link #isActivateColumnNameFilter() <em>Activate Column Name Filter</em>}' attribute.
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @see #isActivateColumnNameFilter()
+     * @generated
+     * @ordered
+     */
+    protected static final boolean ACTIVATE_COLUMN_NAME_FILTER_EDEFAULT = false;
+
+    /**
+     * The cached value of the '{@link #isActivateColumnNameFilter() <em>Activate Column Name Filter</em>}' attribute.
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @see #isActivateColumnNameFilter()
+     * @generated
+     * @ordered
+     */
+    protected boolean activateColumnNameFilter = ACTIVATE_COLUMN_NAME_FILTER_EDEFAULT;
+
+    /**
+     * The default value of the '{@link #getColumnNameFilter() <em>Column Name Filter</em>}' attribute.
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @see #getColumnNameFilter()
+     * @generated
+     * @ordered
+     */
+    protected static final String COLUMN_NAME_FILTER_EDEFAULT = null;
+
+    /**
+     * The cached value of the '{@link #getColumnNameFilter() <em>Column Name Filter</em>}' attribute.
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @see #getColumnNameFilter()
+     * @generated
+     * @ordered
+     */
+    protected String columnNameFilter = COLUMN_NAME_FILTER_EDEFAULT;
 
     /**
      * The default value of the '{@link #getId() <em>Id</em>}' attribute.
@@ -199,6 +238,48 @@ public abstract class AbstractInOutTableImpl extends AbstractDataMapTableImpl im
      * <!-- end-user-doc -->
      * @generated
      */
+    public boolean isActivateColumnNameFilter() {
+        return activateColumnNameFilter;
+    }
+
+    /**
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated
+     */
+    public void setActivateColumnNameFilter(boolean newActivateColumnNameFilter) {
+        boolean oldActivateColumnNameFilter = activateColumnNameFilter;
+        activateColumnNameFilter = newActivateColumnNameFilter;
+        if (eNotificationRequired())
+            eNotify(new ENotificationImpl(this, Notification.SET, MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_COLUMN_NAME_FILTER, oldActivateColumnNameFilter, activateColumnNameFilter));
+    }
+
+    /**
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated
+     */
+    public String getColumnNameFilter() {
+        return columnNameFilter;
+    }
+
+    /**
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated
+     */
+    public void setColumnNameFilter(String newColumnNameFilter) {
+        String oldColumnNameFilter = columnNameFilter;
+        columnNameFilter = newColumnNameFilter;
+        if (eNotificationRequired())
+            eNotify(new ENotificationImpl(this, Notification.SET, MapperPackage.ABSTRACT_IN_OUT_TABLE__COLUMN_NAME_FILTER, oldColumnNameFilter, columnNameFilter));
+    }
+
+    /**
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated
+     */
     public String getId() {
         return id;
     }
@@ -229,6 +310,10 @@ public abstract class AbstractInOutTableImpl extends AbstractDataMapTableImpl im
                 return isActivateExpressionFilter();
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_CONDENSED_TOOL:
                 return isActivateCondensedTool();
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_COLUMN_NAME_FILTER:
+                return isActivateColumnNameFilter();
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__COLUMN_NAME_FILTER:
+                return getColumnNameFilter();
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ID:
                 return getId();
         }
@@ -251,6 +336,12 @@ public abstract class AbstractInOutTableImpl extends AbstractDataMapTableImpl im
                 return;
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_CONDENSED_TOOL:
                 setActivateCondensedTool((Boolean)newValue);
+                return;
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_COLUMN_NAME_FILTER:
+                setActivateColumnNameFilter((Boolean)newValue);
+                return;
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__COLUMN_NAME_FILTER:
+                setColumnNameFilter((String)newValue);
                 return;
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ID:
                 setId((String)newValue);
@@ -276,6 +367,12 @@ public abstract class AbstractInOutTableImpl extends AbstractDataMapTableImpl im
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_CONDENSED_TOOL:
                 setActivateCondensedTool(ACTIVATE_CONDENSED_TOOL_EDEFAULT);
                 return;
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_COLUMN_NAME_FILTER:
+                setActivateColumnNameFilter(ACTIVATE_COLUMN_NAME_FILTER_EDEFAULT);
+                return;
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__COLUMN_NAME_FILTER:
+                setColumnNameFilter(COLUMN_NAME_FILTER_EDEFAULT);
+                return;
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ID:
                 setId(ID_EDEFAULT);
                 return;
@@ -297,6 +394,10 @@ public abstract class AbstractInOutTableImpl extends AbstractDataMapTableImpl im
                 return activateExpressionFilter != ACTIVATE_EXPRESSION_FILTER_EDEFAULT;
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_CONDENSED_TOOL:
                 return activateCondensedTool != ACTIVATE_CONDENSED_TOOL_EDEFAULT;
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__ACTIVATE_COLUMN_NAME_FILTER:
+                return activateColumnNameFilter != ACTIVATE_COLUMN_NAME_FILTER_EDEFAULT;
+            case MapperPackage.ABSTRACT_IN_OUT_TABLE__COLUMN_NAME_FILTER:
+                return COLUMN_NAME_FILTER_EDEFAULT == null ? columnNameFilter != null : !COLUMN_NAME_FILTER_EDEFAULT.equals(columnNameFilter);
             case MapperPackage.ABSTRACT_IN_OUT_TABLE__ID:
                 return ID_EDEFAULT == null ? id != null : !ID_EDEFAULT.equals(id);
         }
@@ -319,10 +420,50 @@ public abstract class AbstractInOutTableImpl extends AbstractDataMapTableImpl im
         result.append(activateExpressionFilter);
         result.append(", activateCondensedTool: ");
         result.append(activateCondensedTool);
+        result.append(", activateColumnNameFilter: ");
+        result.append(activateColumnNameFilter);
+        result.append(", columnNameFilter: ");
+        result.append(columnNameFilter);
         result.append(", id: ");
         result.append(id);
         result.append(')');
         return result.toString();
+    }
+    
+    /**
+     * <!-- begin-user-doc -->
+     * <!-- end-user-doc -->
+     * @generated not
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        AbstractInOutTableImpl other = (AbstractInOutTableImpl) obj;
+        if(this.activateColumnNameFilter != other.activateColumnNameFilter){
+            return false;
+        }
+        if (this.activateExpressionFilter != other.activateExpressionFilter) {
+            return false;
+        }
+        if (this.activateCondensedTool != other.activateCondensedTool) {
+            return false;
+        }
+        if (this.expressionFilter == null) {
+            if (other.expressionFilter != null) {
+                return false;
+            }
+        } else if (!this.expressionFilter.equals(other.expressionFilter)) {
+            return false;
+        }
+        return super.equals(obj);
     }
 
 } //AbstractInOutTableImpl

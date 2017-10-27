@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -139,6 +139,7 @@ public class ReadQueriesAction extends AContextualAction {
                         String dbType = dbConn.getDatabaseType();
                         if (EDatabaseTypeName.HIVE.getXmlName().equalsIgnoreCase(dbType)
                                 || EDatabaseTypeName.HBASE.getXmlName().equalsIgnoreCase(dbType)
+                                || EDatabaseTypeName.MAPRDB.getXmlName().equalsIgnoreCase(dbType)
                                 || EDatabaseTypeName.IMPALA.getXmlName().equalsIgnoreCase(dbType)) {
                             canWork = false;
                             break;

@@ -52,6 +52,13 @@ if (isUseExistConnection) {
 if(("JBoss").equals(serverType) || ("ActiveMQ").equals(serverType)){
 	String msgType = ElementParameterParser.getValue(node, "__MSGTYPE__");
 	if( ("JBoss").equals(serverType) || ( ("ActiveMQ").equals(serverType)) ){
+		 if (isCommitRollback && transacted) {
+		 %>
+		 	globalMap.put("producer_<%=cid %>",producer_<%=cid %>);
+		 	globalMap.put("session_<%=cid %>",session_<%=cid %>);
+		 	globalMap.put("connection_<%=cid %>",connection_<%=cid %>);
+		 <%
+		 }
 		// if no commmit or rollback component exists and set transacted - commit session
 		if(!isCommitRollback && transacted){
 			if (isLog4jEnabled) {
@@ -67,19 +74,6 @@ if(("JBoss").equals(serverType) || ("ActiveMQ").equals(serverType)){
 				log.info("<%=cid%> - Commit successfully.");
 			<%
 			}
-		}
-		if (isLog4jEnabled) {
-		%>
-			log.info("<%=cid%> - Closing producer...");
-		<%
-		}
-		%>
-		producer_<%=cid %>.close();
-		<%
-		if (isLog4jEnabled) {
-		%>
-			log.info("<%=cid%> - Closed successfully.");
-		<%
 		}
         if (!isCommitRollback && !isUseExistConnection) {
         	if (isLog4jEnabled) {
@@ -97,6 +91,19 @@ if(("JBoss").equals(serverType) || ("ActiveMQ").equals(serverType)){
 				log.info("<%=cid%> - Closed successfully.");
 			<%
 			}
+            if (isLog4jEnabled) {
+            %>
+                log.info("<%=cid%> - Closing producer...");
+            <%
+            }
+            %>
+            producer_<%=cid %>.close();
+            <%
+            if (isLog4jEnabled) {
+            %>
+                log.info("<%=cid%> - Closed successfully.");
+            <%
+            }
 		}
 	}
 	if(("ActiveMQ").equals(serverType) && !isCommitRollback && transacted){

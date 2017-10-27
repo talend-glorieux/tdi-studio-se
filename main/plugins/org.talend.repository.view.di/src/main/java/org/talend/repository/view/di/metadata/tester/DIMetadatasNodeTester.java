@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -12,8 +12,8 @@
 // ============================================================================
 package org.talend.repository.view.di.metadata.tester;
 
-import org.talend.core.GlobalServiceRegister;
 import org.talend.core.hadoop.IHadoopClusterService;
+import org.talend.core.hadoop.repository.HadoopRepositoryUtil;
 import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.repository.model.RepositoryNode;
 
@@ -91,12 +91,9 @@ public class DIMetadatasNodeTester extends CoMetadataNodeTester {
     @Override
     public boolean isTypeNode(RepositoryNode repositoryNode, ERepositoryObjectType type) {
         if (ERepositoryObjectType.METADATA_CONNECTIONS.equals(type)) {
-            if (GlobalServiceRegister.getDefault().isServiceRegistered(IHadoopClusterService.class)) {
-                IHadoopClusterService hadoopClusterService = (IHadoopClusterService) GlobalServiceRegister.getDefault()
-                        .getService(IHadoopClusterService.class);
-                if (hadoopClusterService != null && hadoopClusterService.isHadoopFolderNode(repositoryNode.getParent())) {
-                    return false;
-                }
+            IHadoopClusterService hadoopClusterService = HadoopRepositoryUtil.getHadoopClusterService();
+            if (hadoopClusterService != null && hadoopClusterService.isHadoopFolderNode(repositoryNode.getParent())) {
+                return false;
             }
         }
         return super.isTypeNode(repositoryNode, type);

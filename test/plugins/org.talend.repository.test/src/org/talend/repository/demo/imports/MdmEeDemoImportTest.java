@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -16,6 +16,7 @@ import java.io.File;
 import java.util.Iterator;
 import java.util.List;
 
+import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.NullProgressMonitor;
 import org.eclipse.core.runtime.Path;
 import org.junit.Assert;
@@ -57,13 +58,19 @@ public class MdmEeDemoImportTest extends DemosImportTest {
     @Test
     public void testMdmEeDemoImportComplete() throws Exception {
         Assert.assertTrue(mdmResEeManager instanceof FileResourcesUnityManager);
-        Iterator path = mdmResEeManager.getPaths().iterator();
-        String firstFilePath = ((Path) path.next()).toPortableString();
-        String tempFolderPath = firstFilePath.substring(0,
-                firstFilePath.indexOf(TEMP_FOLDER_SUFFIEX) + TEMP_FOLDER_SUFFIEX.length());
-        Assert.assertTrue(new File(tempFolderPath).exists());
-        String rootPath = tempFolderPath + File.separator;
-        Assert.assertTrue(new File(rootPath).exists());
+        Iterator pathes = mdmResEeManager.getPaths().iterator();
+        IPath projectPath = null;
+        while (pathes.hasNext()) {
+            IPath p = ((Path) pathes.next());
+            if (p.lastSegment().equals(FileConstants.LOCAL_PROJECT_FILENAME)) {
+                projectPath = p;
+                break;
+            }
+        }
+        Assert.assertNotNull("Can't find the talend.project, so it's invalid demo", projectPath);
+        final File talendProjectFile = projectPath.toFile();
+        Assert.assertTrue(talendProjectFile.exists());
+        String rootPath = talendProjectFile.getParentFile().toString();
 
         // test the job items under MDM_EE_Demo.zip
         int currentJobItemsSize = ProxyRepositoryFactory.getInstance().getAll(ERepositoryObjectType.PROCESS).size();

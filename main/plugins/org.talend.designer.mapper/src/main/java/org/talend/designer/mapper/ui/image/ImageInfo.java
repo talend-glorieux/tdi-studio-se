@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -27,6 +27,7 @@ public enum ImageInfo {
     CHECKED_ICON("/icons/checked.png"), //$NON-NLS-1$
     UNCHECKED_ICON("/icons/unchecked.png"), //$NON-NLS-1$
     ADD_FILTER_ICON("/icons/addfilter.png"), //$NON-NLS-1$
+    TMAP_FILTER_ICON("/icons/tmap_filter.png"), //$NON-NLS-1$
     ACTIVATE_FILTER_ICON("/icons/addfilter.png"), //$NON-NLS-1$
     ACTIVATE_PERSISTENT_ICON("/icons/drive.png"), //$NON-NLS-1$
     TOOL("/icons/tool.png"), //$NON-NLS-1$

@@ -2,6 +2,7 @@
 <?eclipse version="3.4"?>
 <plugin>
    <extension-point id="fieldType_mapping" name="FieldType Mapping" schema="schema/fieldType_mapping.exsd"/>
+   
    <extension
          point="org.talend.designer.core.process_provider">
       <ProcessProvider
@@ -28,7 +29,43 @@
               id="org.talend.designer.core.generic.model.migration.Salesforce620Migration"
               name="Salesforce620Migration"
               version="6.2.1">
-        </projecttask> 
+        </projecttask>
+        <projecttask
+              beforeLogon="false"
+              breaks="6.4.0"
+              class="org.talend.designer.core.generic.model.migration.NewAzureBlobMigrationTask"
+              description="migration task for jobs using azureBlob cpt to tcomp"
+              id="org.talend.designer.core.generic.model.migration.NewAzureBlobMigrationTask"
+              name="NewAzureBlobMigrationTask"
+              version="6.4.0">
+        </projecttask>
+       <projecttask
+               beforeLogon="false"
+               breaks="6.4.0"
+               class="org.talend.designer.core.generic.model.migration.NewMarketoMigrationTask"
+               description="Migration task for jobs using Marketo components to TCOMP"
+               id="org.talend.designer.core.generic.model.migration.NewMarketoMigrationTask"
+               name="NewMarketoMigrationTask"
+               version="6.4.0">
+       </projecttask>
+       <projecttask
+               beforeLogon="false"
+               breaks="6.4.0"
+               class="org.talend.designer.core.generic.model.migration.NewNetsuiteMigrationTask"
+               description="Migration task for jobs using Netsuite components to TCOMP"
+               id="org.talend.designer.core.generic.model.migration.NewNetsuiteMigrationTask"
+               name="NewNetsuiteMigrationTask"
+               version="6.4.0">
+       </projecttask>
+       <!--<projecttask
+             beforeLogon="false"
+             breaks="6.3.0"
+             class="org.talend.designer.core.generic.model.migration.NewFileDelimitedMigrationTask"
+             description="New file delimited migration task"
+             id="org.talend.designer.core.generic.model.migration.NewFileDelimitedMigrationTask"
+             name="NewFileDelimitedMigrationTask"
+             version="6.3.0">
+       </projecttask> -->
    </extension>
    <extension
          point="org.talend.designer.core.generic.fieldType_mapping">
@@ -119,6 +156,16 @@
              name="widget.type.textArea"
              widgetType="widget.type.textArea">
        </Mapping>
+       <Mapping
+             mapFieldType="JSON_TABLE"
+             name="widget.type.jsonTable"
+             widgetType="widget.type.jsonTable">
+       </Mapping>
+       <Mapping
+             mapFieldType="DIRECTORY"
+             name="widget.type.directory"
+             widgetType="widget.type.directory">
+       </Mapping>
    </extension>
    <extension
          point="org.talend.designer.core.generators">
@@ -151,6 +198,11 @@
             class="org.talend.designer.core.generic.controller.generator.SchemaReferenceGenerator"
             mapping="SCHEMA_REFERENCE"
             name="Schema Reference">
+      </generator>
+      <generator
+            class="org.talend.designer.core.generic.controller.generator.JsonTableGenerator"
+            mapping="JSON_TABLE"
+            name="Json Table">
       </generator>
    </extension>
    <extension

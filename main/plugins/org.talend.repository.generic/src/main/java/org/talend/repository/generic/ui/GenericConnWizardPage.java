@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -50,7 +50,6 @@ import org.talend.designer.core.generic.constants.IElementParameterEventProperti
 import org.talend.designer.core.generic.constants.IGenericConstants;
 import org.talend.designer.core.generic.model.GenericElementParameter;
 import org.talend.designer.core.model.FakeElement;
-import org.talend.designer.core.model.components.ElementParameter;
 import org.talend.repository.generic.model.genericMetadata.GenericConnectionItem;
 import org.talend.repository.generic.ui.common.GenericWizardPage;
 import org.talend.repository.generic.ui.context.ContextComposite;
@@ -75,7 +74,7 @@ public class GenericConnWizardPage extends GenericWizardPage implements Property
      * DOC nrousseau Comment method "getNameParameter".
      */
     private GenericElementParameter getNameParameter() {
-        for (ElementParameter parameter : parameters) {
+        for (IElementParameter parameter : baseElement.getElementParameters()) {
             if (parameter instanceof GenericElementParameter) {
                 if (IGenericConstants.NAME_PROPERTY.equals(parameter.getName())) {
                     return (GenericElementParameter) parameter;
@@ -92,11 +91,12 @@ public class GenericConnWizardPage extends GenericWizardPage implements Property
         container.setLayout(new FormLayout());
         setControl(container);
 
-        Element element = new FakeElement(form.getName());
-        element.setReadOnly(!isRepositoryObjectEditable);
+        baseElement = new FakeElement(form.getName());
+        baseElement.setReadOnly(!isRepositoryObjectEditable);
         dynamicComposite = new DynamicComposite(container, SWT.H_SCROLL | SWT.V_SCROLL | SWT.NO_FOCUS, EComponentCategory.BASIC,
-                element, true, container.getBackground(), form, false);
+                baseElement, true, container.getBackground(), form, false);
         dynamicComposite.setLayoutData(createMainFormData(addContextFields));
+        dynamicComposite.setWizardPropertyChangeListener(this);
         dynamicComposite.setConnectionItem(connectionItem);
         addCheckListener(dynamicComposite.getChecker());
 
@@ -136,11 +136,11 @@ public class GenericConnWizardPage extends GenericWizardPage implements Property
     public void setVisible(boolean visible) {
         super.setVisible(visible);
         if (visible) {
-            parameters = dynamicComposite.resetParameters();
+            dynamicComposite.resetParameters();
             dynamicComposite.refresh();
+            dynamicComposite.setMinHeight(dynamicComposite.getMinHeight());
             updateContextFields();
             if (getNameParameter() != null) {
-                getNameParameter().addPropertyChangeListener(this);
                 Job job = new Job("") { //$NON-NLS-1$
 
                     @Override
@@ -212,6 +212,7 @@ public class GenericConnWizardPage extends GenericWizardPage implements Property
         return list;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public boolean isValid(String itemName) {
 

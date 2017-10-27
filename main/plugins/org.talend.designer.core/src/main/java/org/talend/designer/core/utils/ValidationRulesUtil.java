@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,8 +13,8 @@
 package org.talend.designer.core.utils;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.gef.commands.Command;
@@ -251,7 +251,7 @@ public class ValidationRulesUtil {
             }
         }
 
-        Set<IComponent> components = ComponentsFactoryProvider.getInstance().getComponents();
+        Collection<IComponent> components = ComponentsFactoryProvider.getInstance().readComponents();
         List<IComponent> neededComponents = new ArrayList<IComponent>();
 
         EmfComponent emfComponent = null;

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -26,8 +26,8 @@ import org.apache.commons.lang.StringUtils;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.Path;
 import org.talend.core.CorePlugin;
-import org.talend.core.GlobalServiceRegister;
 import org.talend.core.hadoop.IHadoopClusterService;
+import org.talend.core.hadoop.repository.HadoopRepositoryUtil;
 import org.talend.core.model.general.ModuleNeeded;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.IContext;
@@ -40,11 +40,12 @@ import org.talend.core.model.process.JobInfo;
 import org.talend.core.model.process.ProcessUtils;
 import org.talend.core.model.properties.Item;
 import org.talend.core.model.properties.ProcessItem;
-import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.model.utils.ContextParameterUtils;
 import org.talend.core.model.utils.TalendTextUtils;
+import org.talend.core.runtime.process.LastGenerationInfo;
 import org.talend.designer.core.IDesignerCoreService;
 import org.talend.designer.core.model.components.EParameterName;
+import org.talend.designer.core.model.components.EmfComponent;
 import org.talend.designer.runprocess.ItemCacheManager;
 import org.talend.librariesmanager.model.ModulesNeededProvider;
 
@@ -154,16 +155,7 @@ public class JavaProcessUtil {
         if (process instanceof IProcess2) {
             Item item = ((IProcess2) process).getProperty().getItem();
             if (item instanceof ProcessItem) {
-                List<ModuleNeeded> modulesNeededForRoutines = ModulesNeededProvider.getModulesNeededForRoutines(
-                        (ProcessItem) item, ERepositoryObjectType.ROUTINES);
-                if (modulesNeededForRoutines != null) {
-                    modulesNeeded.addAll(modulesNeededForRoutines);
-                }
-                List<ModuleNeeded> modulesNeededForPigudf = ModulesNeededProvider.getModulesNeededForRoutines((ProcessItem) item,
-                        ERepositoryObjectType.PIG_UDF);
-                if (modulesNeededForPigudf != null) {
-                    modulesNeeded.addAll(modulesNeededForPigudf);
-                }
+                modulesNeeded.addAll(ModulesNeededProvider.getModulesNeededForProcess((ProcessItem) item, process));
             }
         }
 
@@ -175,13 +167,11 @@ public class JavaProcessUtil {
         List<? extends INode> nodeList = process.getGeneratingNodes();
         for (INode node : nodeList) {
             if (hadoopItemId == null) {
-                String propertyId = getPropertyId(node);
-                Item hadoopClusterItem = getHadoopClusterItem(propertyId);
-                if (hadoopClusterItem != null) {
-                    hadoopItemId = propertyId;
+                String itemId = getHadoopClusterItemId(node);
+                if (itemId != null) {
+                    hadoopItemId = itemId;
                 }
             }
-
             if (process instanceof IProcess2) {
                 ((IProcess2) node.getProcess()).setNeedLoadmodules(((IProcess2) process).isNeedLoadmodules());
             }
@@ -189,14 +179,17 @@ public class JavaProcessUtil {
             Set<ModuleNeeded> nodeNeededModules = getNeededModules(node, searchItems, withChildrens, forMR);
             if (nodeNeededModules != null) {
                 modulesNeeded.addAll(nodeNeededModules);
+                if (node.getComponent().getName().equals("tLibraryLoad")) { //$NON-NLS-1$
+                    LastGenerationInfo.getInstance().getHighPriorityModuleNeeded().addAll(nodeNeededModules);
+                }
             }
         }
 
         if (hadoopItemId == null) { // Incase it is a bigdata process.
             IElementParameter propertyParam = process.getElementParameter("MR_PROPERTY"); //$NON-NLS-1$
             if (propertyParam != null) {
-                IElementParameter repositoryParam = propertyParam.getChildParameters().get(
-                        EParameterName.REPOSITORY_PROPERTY_TYPE.getName());
+                IElementParameter repositoryParam = propertyParam.getChildParameters()
+                        .get(EParameterName.REPOSITORY_PROPERTY_TYPE.getName());
                 if (repositoryParam != null) {
                     hadoopItemId = String.valueOf(repositoryParam.getValue());
                 }
@@ -208,27 +201,45 @@ public class JavaProcessUtil {
         }
     }
 
-    private static Item getHadoopClusterItem(String id) {
-        IHadoopClusterService hadoopClusterService = null;
-        if (GlobalServiceRegister.getDefault().isServiceRegistered(IHadoopClusterService.class)) {
-            hadoopClusterService = (IHadoopClusterService) GlobalServiceRegister.getDefault().getService(
-                    IHadoopClusterService.class);
+    public static String getHadoopClusterItemId(INode node) {
+        IHadoopClusterService hadoopClusterService = HadoopRepositoryUtil.getHadoopClusterService();
+        if (hadoopClusterService == null) {
+            return null;
         }
-        if (hadoopClusterService != null) {
-            return hadoopClusterService.getHadoopClusterItemById(id);
+        if (isUseExistingConnection(node)) {
+            return null;
+        }
+        IElementParameter propertyElementParameter = node.getElementParameterFromField(EParameterFieldType.PROPERTY_TYPE);
+        if (propertyElementParameter == null) {
+            return null;
+        }
+        Map<String, IElementParameter> childParameters = propertyElementParameter.getChildParameters();
+        String propertyType = (String) childParameters.get(EParameterName.PROPERTY_TYPE.getName()).getValue();
+        if (!EmfComponent.REPOSITORY.equals(propertyType)) {
+            return null;
+        }
+        IElementParameter propertyParam = childParameters.get(EParameterName.REPOSITORY_PROPERTY_TYPE.getName());
+        if (propertyParam == null) {
+            return null;
+        }
+        Object propertyValue = propertyParam.getValue();
+        if (propertyValue == null) {
+            return null;
+        }
+        String id = String.valueOf(propertyValue);
+        Item item = hadoopClusterService.getHadoopClusterItemById(id);
+        if (item != null) {
+            return id;
         }
         return null;
     }
 
-    private static String getPropertyId(INode node) {
-        IElementParameter propertyParam = node.getElementParameter(EParameterName.REPOSITORY_PROPERTY_TYPE.getName());
-        if (propertyParam != null) {
-            Object propertyValue = propertyParam.getValue();
-            if (propertyValue != null) {
-                return String.valueOf(propertyValue);
-            }
+    public static boolean isUseExistingConnection(INode node) {
+        IElementParameter elementParameter = node.getElementParameter(EParameterName.USE_EXISTING_CONNECTION.getName());
+        if (elementParameter != null) {
+            return Boolean.valueOf(String.valueOf(elementParameter.getValue()));
         }
-        return null;
+        return false;
     }
 
     public static Set<ModuleNeeded> getNeededModules(final INode node, boolean withChildrens, boolean forMR) {
@@ -308,11 +319,13 @@ public class JavaProcessUtil {
         addNodeRelatedModules(process, modulesNeeded, node, false);
     }
 
-    public static void addNodeRelatedModules(final IProcess process, List<ModuleNeeded> modulesNeeded, INode node, boolean onlyMR) {
+    public static void addNodeRelatedModules(final IProcess process, List<ModuleNeeded> modulesNeeded, INode node,
+            boolean onlyMR) {
         if (!node.isActivate()) {
             // if node is deactivated, we don't need at all its dependencies.
             return;
         }
+
         List<ModuleNeeded> moduleList = node.getModulesNeeded();
         for (ModuleNeeded needed : moduleList) {
             if (needed != null) {
@@ -347,11 +360,7 @@ public class JavaProcessUtil {
     }
 
     private static void useCustomConfsJarIfNeeded(List<ModuleNeeded> modulesNeeded, String clusterId) {
-        IHadoopClusterService hadoopClusterService = null;
-        if (GlobalServiceRegister.getDefault().isServiceRegistered(IHadoopClusterService.class)) {
-            hadoopClusterService = (IHadoopClusterService) GlobalServiceRegister.getDefault().getService(
-                    IHadoopClusterService.class);
-        }
+        IHadoopClusterService hadoopClusterService = HadoopRepositoryUtil.getHadoopClusterService();
         if (hadoopClusterService != null) {
             hadoopClusterService.useCustomConfsJarIfNeeded(modulesNeeded, clusterId);
         }
@@ -402,7 +411,14 @@ public class JavaProcessUtil {
                                     }
 
                                 } else {
-                                    modulesNeeded.add(getModuleValue(process, moduleName));
+                                    ModuleNeeded mn = getModuleValue(process, moduleName);
+
+                                    if (line.get("JAR_NEXUS_VERSION") != null) {
+                                        String a = moduleName.replaceFirst("[.][^.]+$", "");
+                                        mn.setMavenUri(
+                                                "mvn:org.talend.libraries/" + a + "/" + line.get("JAR_NEXUS_VERSION") + "/jar");
+                                    }
+                                    modulesNeeded.add(mn);
                                 }
                             }
                         }
@@ -516,6 +532,7 @@ public class JavaProcessUtil {
                                 if (var.equals(paramName)) {
                                     ModuleNeeded module = getModuleNeededForContextParam(contextPara);
                                     if (module != null && !modulesNeeded.contains(module)) {
+                                        module.setDynamic(true);
                                         modulesNeeded.add(module);
                                     }
                                 }
@@ -523,6 +540,7 @@ public class JavaProcessUtil {
                         }
                     } else {
                         ModuleNeeded module = new ModuleNeeded(null, TalendTextUtils.removeQuotes(text), null, true);
+                        module.setDynamic(true);
                         modulesNeeded.add(module);
                     }
                 }

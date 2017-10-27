@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -59,5 +59,16 @@ public interface IGenericConstants {
     public static final String IS_CONTEXT_MODE = "IS_CONTEXT_MODE"; //$NON-NLS-1$
 
     public static final String IS_DYNAMIC = "IS_DYNAMIC"; //$NON-NLS-1$
+    
+    /**
+     * Tag key estimates what would line separator in property would be replaced with.
+     * The property is which value can include line separator
+     */
+    public static final String LINE_SEPARATOR_REPLACED_TO = "LINE_SEPARATOR_REPLACED_TO";//$NON-NLS-1$
 
+    public static final String IS_PROPERTY_SHOW = "IS_PROPERTY_SHOW";//$NON-NLS-1$
+
+    public static final String DYNAMIC_PROPERTY_VALUE = "DYNAMIC_PROPERTY_VALUE"; //$NON-NLS-1$
+    
+    public static final String driverTable = "connection.driverTable";
 }

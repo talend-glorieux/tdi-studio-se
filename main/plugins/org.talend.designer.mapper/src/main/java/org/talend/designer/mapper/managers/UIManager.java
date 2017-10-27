@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -50,6 +50,7 @@ import org.eclipse.swt.widgets.ScrollBar;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableItem;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.ui.IWorkbenchPart;
 import org.eclipse.ui.PlatformUI;
@@ -116,6 +117,7 @@ import org.talend.designer.mapper.model.tableentry.TableEntryLocation;
 import org.talend.designer.mapper.model.tableentry.VarTableEntry;
 import org.talend.designer.mapper.ui.MapperUI;
 import org.talend.designer.mapper.ui.commands.DataMapTableViewSelectedCommand;
+import org.talend.designer.mapper.ui.dialog.AutoMappingDialog;
 import org.talend.designer.mapper.ui.dialog.MapReducePropertySetDialog;
 import org.talend.designer.mapper.ui.dialog.OutputAddDialog;
 import org.talend.designer.mapper.ui.dialog.PropertySetDialog;
@@ -249,7 +251,7 @@ public class UIManager extends AbstractUIManager {
             previousSelectedTableView = this.currentSelectedInputTableView;
             this.currentSelectedInputTableView = (InputDataMapTableView) dataMapTableView;
             metadataTableEditorView.setReadOnly(this.currentSelectedInputTableView.getInputTable().hasReadOnlyMetadataColumns()
-                    || mapperManager.componentIsReadOnly());
+                    || mapperManager.componentIsReadOnly() || this.currentSelectedInputTableView.getInputTable().isReadOnly());
         } else if (currentZone == Zone.OUTPUTS) {
             metadataTableEditorView = tabFolderEditors.getOutputMetaEditorView();
             otherMetadataTableEditorView = tabFolderEditors.getInputMetaEditorView();
@@ -1092,9 +1094,13 @@ public class UIManager extends AbstractUIManager {
                     link.setState(LinkState.UNSELECTED);
                     ITableEntry sourceITableEntry = link.getPointLinkDescriptor1().getTableEntry();
                     TableItem tableItem = mapperManager.retrieveTableItem(sourceITableEntry);
-                    tableItem.setBackground(unselectedColor);
+                    if(tableItem != null) {
+                        tableItem.setBackground(unselectedColor);
+                    }
                     ITableEntry targetITableEntry = link.getPointLinkDescriptor2().getTableEntry();
-                    tableItem = mapperManager.retrieveTableItem(targetITableEntry);
+                    if(tableItem != null) {
+                        tableItem = mapperManager.retrieveTableItem(targetITableEntry);
+                    }
                     if (tableItem != null) {
                         tableItem.setBackground(unselectedColor);
                     }
@@ -1201,7 +1207,9 @@ public class UIManager extends AbstractUIManager {
     public void setEntryState(MapperManager pMapperManager, EntryState entryState, ITableEntry entry) {
         if (!(entry instanceof ExpressionFilterEntry)) {
             TableItem tableItem = pMapperManager.retrieveTableItem(entry);
-            tableItem.setBackground(entryState.getColor());
+            if(tableItem != null) {
+                tableItem.setBackground(entryState.getColor());
+            }
         }
     }
 
@@ -1227,32 +1235,89 @@ public class UIManager extends AbstractUIManager {
      */
     public Point getTableEntryPosition(ITableEntry tableEntry, boolean forceRecalculate) {
         DataMapTableView dataMapTableView = mapperManager.retrieveDataMapTableView(tableEntry);
+
+        int entriesSize = 0;
+        int minHeight = dataMapTableView.getTableViewerCreatorForColumns().getTable().getHeaderHeight() + dataMapTableView.getTableViewerCreatorForColumns().getTable().getItemHeight();
+        TableItem[] tableItems = new TableItem[0];
+        if (tableEntry instanceof InputColumnTableEntry || tableEntry instanceof OutputColumnTableEntry) {
+            tableItems = dataMapTableView.getTableViewerCreatorForColumns().getTable().getItems();
+        
+            AbstractInOutTable abstractInOutTable = (AbstractInOutTable) dataMapTableView.getDataMapTable();
+            if (dataMapTableView.getZone() == Zone.OUTPUTS) {
+                OutputTable outputTable = (OutputTable) abstractInOutTable;
+                List<IColumnEntry> oldOuputEntries = outputTable.getDataMapTableEntries();
+                entriesSize = oldOuputEntries.size();
+            }
+            if (dataMapTableView.getZone() == Zone.INPUTS) {
+                InputTable inputTable = (InputTable) abstractInOutTable;
+                List<IColumnEntry> oldOuputEntries = inputTable.getDataMapTableEntries();
+                entriesSize = oldOuputEntries.size();
+            }
+        }
         Rectangle tableViewBounds = dataMapTableView.getBounds();
         Point pointFromTableViewOrigin = null;
         Display display = dataMapTableView.getDisplay();
         Point returnedPoint = new Point(0, 0);
         TableEntryProperties tableEntryProperties = null;
+        
+        int itemIndex = 0;
         if (tableEntry instanceof IColumnEntry || tableEntry instanceof FilterTableEntry || tableEntry instanceof GlobalMapEntry) {
             tableEntryProperties = mapperManager.getTableEntryProperties(tableEntry);
             returnedPoint = tableEntryProperties.position;
             if (forceRecalculate || returnedPoint == null) {
                 int y;
                 TableItem tableItem = mapperManager.retrieveTableItem(tableEntry);
-                Table table = tableItem.getParent();
-                Rectangle boundsTableItem = tableItem.getBounds(1);// FIX for issue 1225 ("1" parameter added)
-                y = boundsTableItem.y + table.getItemHeight() / 2 + dataMapTableView.getBorderWidth();
-                int x = 0;
-                if (y < 0) {
-                    y = 0;
+                boolean isOutputEntry = tableEntry instanceof OutputColumnTableEntry;
+                boolean isIntputEntry = tableEntry instanceof InputColumnTableEntry;
+                boolean checked = false;
+                for (int i = 0; i < tableItems.length; i++) {
+                    if (tableItems[i].getData() == tableEntry) {
+                        itemIndex= i;
+                        break;
+                    } 
+                }
+                boolean allIsNull = false;
+                if(tableItem == null && (isIntputEntry || isOutputEntry)){
+                    if(tableItems.length > 0){
+                        tableItem = tableItems[0];
+                        checked = true;
+                    }else {
+                        allIsNull = true;
+                    }
                 }
 
-                Point point = new Point(x, y);
-
-                pointFromTableViewOrigin = display.map(tableItem.getParent(), dataMapTableView, point);
+                if(!allIsNull){
+                    Table table = tableItem.getParent();
+                    Rectangle boundsTableItem = tableItem.getBounds(1);// FIX for issue 1225 ("1" parameter added)
+                    y = boundsTableItem.y + table.getItemHeight() / 2  + dataMapTableView.getBorderWidth();
+             
+                    if(isOutputEntry || isIntputEntry) {
+                        if( entriesSize != tableItems.length) {
+                            y = boundsTableItem.y + table.getItemHeight() / 2  + dataMapTableView.getBorderWidth();
+                        }
+                    }
+                    if(checked) {
+                        y = boundsTableItem.y  + dataMapTableView.getBorderWidth();
+                        checked = false;
+                    }
+                    int x = 0;
+                    if (y < 0) {
+                        y = 0;
+                    }
+    
+                    Point point = new Point(x, y);
+    
+                    pointFromTableViewOrigin = display.map(tableItem.getParent(), dataMapTableView, point);
+                } else {
+                    Text columnFilterText = dataMapTableView.getColumnNameFilterText();
+                    Point point = new Point(-dataMapTableView.getBorderWidth() - 19, minHeight);
+                    pointFromTableViewOrigin = display.map(columnFilterText, dataMapTableView, point);
+                }
             }
         } else if (tableEntry instanceof ExpressionFilterEntry) {
             StyledText expressionFilterText = dataMapTableView.getExpressionFilterText();
-            Point point = new Point(-dataMapTableView.getBorderWidth(), 16);
+//            dataMapTableView.getex
+            Point point = new Point(-dataMapTableView.getBorderWidth() - 19, 16);
             pointFromTableViewOrigin = display.map(expressionFilterText, dataMapTableView, point);
         } else {
             throw new IllegalStateException("Case not found"); //$NON-NLS-1$
@@ -1306,6 +1371,13 @@ public class UIManager extends AbstractUIManager {
             mapperManager.getUiManager().refreshBackground(false, false);
         }
 
+    }
+    
+    public void parseNewFilterColumn(String expression, ITableEntry currentModifiedITableEntry, boolean appliedOrCanceled) {
+        ParseExpressionResult result = parseFilterColumn(expression, currentModifiedITableEntry, true, true, appliedOrCanceled);
+//        if (result.isAtLeastOneLinkHasBeenAddedOrRemoved()) {
+//            mapperManager.getUiManager().refreshBackground(false, false);
+//        }
     }
 
     /**
@@ -1443,6 +1515,71 @@ public class UIManager extends AbstractUIManager {
         return new ParseExpressionResult(linkHasBeenAdded, linkHasBeenRemoved);
     }
 
+    
+
+    public ParseExpressionResult parseFilterColumn(String expression, ITableEntry currentModifiedITableEntry,
+            boolean linkMustHaveSelectedState, boolean checkInputKeyAutomatically, boolean inputExpressionAppliedOrCanceled) {
+
+        if (currentModifiedITableEntry instanceof InputColumnTableEntry) {
+            InputColumnTableEntry entry = (InputColumnTableEntry) currentModifiedITableEntry;
+            if (StringUtils.trimToNull(expression) == null) {
+                entry.setOperator(null);
+            }
+        }
+
+        DataMapTableView dataMapTableView = mapperManager.retrieveDataMapTableView(currentModifiedITableEntry);
+        boolean linkHasBeenAdded = false;
+        boolean linkHasBeenRemoved = false;
+       
+        DataMapExpressionParser dataMapExpressionParser = new DataMapExpressionParser(LanguageProvider.getCurrentLanguage());
+        TableEntryLocation[] tableEntriesLocationsSources = dataMapExpressionParser.parseTableEntryLocations(expression);
+        Set<TableEntryLocation> alreadyProcessed = new HashSet<TableEntryLocation>();
+        Set<ITableEntry> sourcesForTarget = mapperManager.getSourcesForTarget(currentModifiedITableEntry);
+        Set<ITableEntry> sourcesForTargetToDelete = new HashSet<ITableEntry>(sourcesForTarget);
+
+        boolean isInputEntry = currentModifiedITableEntry instanceof InputColumnTableEntry;
+        
+        ECodeLanguage codeLanguage = LanguageProvider.getCurrentLanguage().getCodeLanguage();
+
+        for (TableEntryLocation tableEntriesLocationsSource : tableEntriesLocationsSources) {
+            TableEntryLocation location = tableEntriesLocationsSource;
+
+            // tests to know if link must be removed if key is unchecked
+            boolean dontRemoveLink = (!isInputEntry || isInputEntry
+                    && (inputExpressionAppliedOrCanceled || !inputExpressionAppliedOrCanceled
+                            && !mapperManager
+                                    .checkEntryHasInvalidUncheckedKey((InputColumnTableEntry) currentModifiedITableEntry)));
+
+            if (!alreadyProcessed.contains(location) && checkSourceLocationIsValid(location, currentModifiedITableEntry)
+                    && (mapperManager.isAdvancedMap() || !mapperManager.isAdvancedMap() && dontRemoveLink)) {
+                ITableEntry sourceTableEntry = mapperManager.retrieveTableEntry(location);
+                    if (sourceTableEntry != null && sourcesForTarget.contains(sourceTableEntry)){
+                        Set<IMapperLink> targets = mapperManager.getGraphicalLinksFromTarget(currentModifiedITableEntry);
+                        Set<IMapperLink> linksFromTarget = new HashSet<IMapperLink>(targets);
+                        for (IMapperLink link : linksFromTarget) {
+                                link.calculate();
+                        }
+                } 
+            }
+        }
+
+        mapperManager.orderLinks();
+
+        if (!mapperManager.isAdvancedMap()) {
+            if (dataMapTableView.getZone() == Zone.INPUTS) {
+                if (linkHasBeenAdded || linkHasBeenRemoved) {
+                    checkTargetInputKey(currentModifiedITableEntry, checkInputKeyAutomatically, inputExpressionAppliedOrCanceled);
+                }
+                if (inputExpressionAppliedOrCanceled) {
+                    openChangeKeysDialog((InputDataMapTableView) dataMapTableView);
+                }
+            }
+        }
+
+        return new ParseExpressionResult(linkHasBeenAdded, linkHasBeenRemoved);
+    }
+    
+    
     /**
      * DOC amaumont Comment method "removeInvalidKeys".
      * 
@@ -1879,6 +2016,16 @@ public class UIManager extends AbstractUIManager {
         } else {
             new PropertySetDialog(getShell(), mapperManager).open();
         }
+    }
+
+    /*
+     * (non-Javadoc)
+     * 
+     * @see org.talend.designer.abstractmap.managers.AbstractUIManager#openAutoMapDialog()
+     */
+    @Override
+    public void openAutoMappingDialog() {
+        new AutoMappingDialog(getShell(), mapperManager).open();
     }
 
     public boolean isTableViewMoveable(Zone zone, boolean moveUp) {

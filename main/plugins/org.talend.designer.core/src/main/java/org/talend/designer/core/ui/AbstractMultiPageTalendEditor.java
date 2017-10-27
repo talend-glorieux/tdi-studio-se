@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -159,6 +159,7 @@ import org.talend.designer.core.model.utils.emf.talendfile.RoutinesParameterType
 import org.talend.designer.core.ui.editor.AbstractTalendEditor;
 import org.talend.designer.core.ui.editor.CodeEditorFactory;
 import org.talend.designer.core.ui.editor.TalendJavaEditor;
+import org.talend.designer.core.ui.editor.jobletcontainer.AbstractJobletContainer;
 import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainer;
 import org.talend.designer.core.ui.editor.jobletcontainer.JobletUtil;
 import org.talend.designer.core.ui.editor.nodecontainer.NodeContainer;
@@ -283,6 +284,7 @@ public abstract class AbstractMultiPageTalendEditor extends MultiPageEditorPart 
         }
     }
 
+    @Override
     public void changePaletteComponentHandler() {
         ComponentsFactoryProvider.getInstance().setComponentsHandler(designerEditor.getComponenentsHandler());
     }
@@ -466,6 +468,8 @@ public abstract class AbstractMultiPageTalendEditor extends MultiPageEditorPart 
                                                     // version,
                                                     // means the editor/process will be refreshed to the latest version
                                                     refreshProcess(item, false);
+                                                    ProxyRepositoryFactory.getInstance().fireRepositoryPropertyChange(
+                                                            "view_refresh", null, item); //$NON-NLS-1$
                                                 }
 
                                                 Property property = processEditorInput.getItem().getProperty();
@@ -685,93 +689,105 @@ public abstract class AbstractMultiPageTalendEditor extends MultiPageEditorPart 
         super.pageChange(newPageIndex);
         setName();
         if (newPageIndex == 1) {
-            // TDI-25866:In case select a component and switch to the code page,need clean its componentSetting view
-            IComponentSettingsView viewer = (IComponentSettingsView) PlatformUI.getWorkbench().getActiveWorkbenchWindow()
-                    .getActivePage().findView(IComponentSettingsView.ID);
-
-            if (viewer != null) {
-                viewer.cleanDisplay();
-            }
-            if (codeEditor instanceof ISyntaxCheckableEditor) {
-                moveCursorToSelectedComponent();
-
-                /*
-                 * Belowing method had been called at line 331 within the generateCode method, as soon as code
-                 * generated.
-                 */
-                // ((ISyntaxCheckableEditor) codeEditor).validateSyntax();
-            }
-
-            codeSync();
-            updateCodeEditorContent();
-            changeContextsViewStatus(true);
+            turnToCodePage(newPageIndex);
         } else if (newPageIndex == 0 && (jobletEditor == getEditor(oldPageIndex))) {
             covertJobscriptOnPageChange();
             changeContextsViewStatus(true);
         } else if (jobletEditor == getEditor(newPageIndex)) {
-            ICreateXtextProcessService convertJobtoScriptService = CorePlugin.getDefault().getCreateXtextProcessService();
-
-            try {
-                final String scriptValue = convertJobtoScriptService.convertJobtoScript(getProcess().saveXmlFile());
-                IFile file = (IFile) jobletEditor.getEditorInput().getAdapter(IResource.class);
-                ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(scriptValue.getBytes());
-                if (file.exists()) {
-                    jobletEditor.getDocumentProvider().getDocument(jobletEditor.getEditorInput()).set(scriptValue);
-                    boolean isProcessReadOnly = ((JobEditorInput) getEditor(0).getEditorInput()).isReadOnly();
-
-                    IProxyRepositoryFactory rFactory = ProxyRepositoryFactory.getInstance();
-                    if (isProcessReadOnly || rFactory.isUserReadOnlyOnCurrentProject()) {
-                        IDocumentProvider provider = jobletEditor.getDocumentProvider();
-                        Class p = provider.getClass();
-                        Class[] type = new Class[1];
-                        type[0] = Boolean.TYPE;
-                        Object[] para = new Object[1];
-                        para[0] = Boolean.TRUE;
-                        Method method = p.getMethod("setReadOnly", type);
-                        method.invoke(provider, para);
-                    }
-
-                    IAction action = jobletEditor.getAction("FoldingRestore"); //$NON-NLS-1$
-                    action.run();
-                    jobletEditor.doSave(null);
-                } else {
-                    file.create(byteArrayInputStream, true, null);
-                }
-                if (propertyListener == null) {
-                    propertyListener = new IPropertyListener() {
-
-                        @Override
-                        public void propertyChanged(Object source, int propId) {
-                            if (source instanceof IEditorPart && ((IEditorPart) source).isDirty()) {
-                                getProcess().setProcessModified(true);
-                                getProcess().setNeedRegenerateCode(true);
-                            }
-                        }
-
-                    };
-                    jobletEditor.addPropertyListener(propertyListener);
-                }
-
-            } catch (PartInitException e) {
-                ExceptionHandler.process(e);
-            } catch (CoreException e) {
-                ExceptionHandler.process(e);
-            } catch (IOException e) {
-                ExceptionHandler.process(e);
-            } catch (SecurityException e) {
-                ExceptionHandler.process(e);
-            } catch (NoSuchMethodException e) {
-                ExceptionHandler.process(e);
-            } catch (IllegalArgumentException e) {
-                ExceptionHandler.process(e);
-            } catch (IllegalAccessException e) {
-                ExceptionHandler.process(e);
-            } catch (InvocationTargetException e) {
-                ExceptionHandler.process(e);
-            }
-            changeContextsViewStatus(false);
+            turnToJobScriptPage(newPageIndex);
         }
         oldPageIndex = getActivePage();
+    }
+
+    protected void turnToJobScriptPage(int newPageIndex) {
+        if (jobletEditor != getEditor(newPageIndex)) {
+            return;
+        }
+
+        ICreateXtextProcessService convertJobtoScriptService = CorePlugin.getDefault().getCreateXtextProcessService();
+
+        try {
+            final String scriptValue = convertJobtoScriptService.convertJobtoScript(getProcess().saveXmlFile());
+            IFile file = (IFile) jobletEditor.getEditorInput().getAdapter(IResource.class);
+            ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(scriptValue.getBytes());
+            if (file.exists()) {
+                jobletEditor.getDocumentProvider().getDocument(jobletEditor.getEditorInput()).set(scriptValue);
+                boolean isProcessReadOnly = ((JobEditorInput) getEditor(0).getEditorInput()).isReadOnly();
+
+                IProxyRepositoryFactory rFactory = ProxyRepositoryFactory.getInstance();
+                if (isProcessReadOnly || rFactory.isUserReadOnlyOnCurrentProject()) {
+                    IDocumentProvider provider = jobletEditor.getDocumentProvider();
+                    Class p = provider.getClass();
+                    Class[] type = new Class[1];
+                    type[0] = Boolean.TYPE;
+                    Object[] para = new Object[1];
+                    para[0] = Boolean.TRUE;
+                    Method method = p.getMethod("setReadOnly", type);
+                    method.invoke(provider, para);
+                }
+
+                IAction action = jobletEditor.getAction("FoldingRestore"); //$NON-NLS-1$
+                action.run();
+                jobletEditor.doSave(null);
+            } else {
+                file.create(byteArrayInputStream, true, null);
+            }
+            if (propertyListener == null) {
+                propertyListener = new IPropertyListener() {
+
+                    @Override
+                    public void propertyChanged(Object source, int propId) {
+                        if (source instanceof IEditorPart && ((IEditorPart) source).isDirty()) {
+                            getProcess().setProcessModified(true);
+                            getProcess().setNeedRegenerateCode(true);
+                        }
+                    }
+
+                };
+                jobletEditor.addPropertyListener(propertyListener);
+            }
+
+        } catch (PartInitException e) {
+            ExceptionHandler.process(e);
+        } catch (CoreException e) {
+            ExceptionHandler.process(e);
+        } catch (IOException e) {
+            ExceptionHandler.process(e);
+        } catch (SecurityException e) {
+            ExceptionHandler.process(e);
+        } catch (NoSuchMethodException e) {
+            ExceptionHandler.process(e);
+        } catch (IllegalArgumentException e) {
+            ExceptionHandler.process(e);
+        } catch (IllegalAccessException e) {
+            ExceptionHandler.process(e);
+        } catch (InvocationTargetException e) {
+            ExceptionHandler.process(e);
+        }
+        changeContextsViewStatus(false);
+
+    }
+
+    protected void turnToCodePage(int newPageIndex) {
+        // TDI-25866:In case select a component and switch to the code page,need clean its componentSetting view
+        IComponentSettingsView viewer = (IComponentSettingsView) PlatformUI.getWorkbench().getActiveWorkbenchWindow()
+                .getActivePage().findView(IComponentSettingsView.ID);
+
+        if (viewer != null) {
+            viewer.cleanDisplay();
+        }
+        if (codeEditor instanceof ISyntaxCheckableEditor) {
+            moveCursorToSelectedComponent();
+
+            /*
+             * Belowing method had been called at line 331 within the generateCode method, as soon as code generated.
+             */
+            // ((ISyntaxCheckableEditor) codeEditor).validateSyntax();
+        }
+
+        codeSync();
+        // updateCodeEditorContent();
+        changeContextsViewStatus(true);
     }
 
     private void covertJobscriptOnPageChange() {
@@ -1213,15 +1229,15 @@ public abstract class AbstractMultiPageTalendEditor extends MultiPageEditorPart 
         for (INode node : nodeList) {
             if (node instanceof Node) {
                 NodeContainer nc = ((Node) node).getNodeContainer();
-                if ((nc instanceof JobletContainer) && nc.getNode().isJoblet()) {
-                    if (((JobletContainer) nc).isCollapsed() && !state) {
+                if ((nc instanceof AbstractJobletContainer) && nc.getNode().isJoblet()) {
+                    if (((AbstractJobletContainer) nc).isCollapsed() && !state) {
                         if (map.get(nc.getNode().getUniqueName()) != null && !map.get(nc.getNode().getUniqueName())) {
-                            ((JobletContainer) nc).setCollapsed(state);
+                            ((AbstractJobletContainer) nc).setCollapsed(state);
                         }
 
-                    } else if (!((JobletContainer) nc).isCollapsed() && state) {
+                    } else if (!((AbstractJobletContainer) nc).isCollapsed() && state) {
                         map.put(nc.getNode().getUniqueName(), false);
-                        ((JobletContainer) nc).setCollapsed(state);
+                        ((AbstractJobletContainer) nc).setCollapsed(state);
                     }
                 }
             }
@@ -1501,11 +1517,12 @@ public abstract class AbstractMultiPageTalendEditor extends MultiPageEditorPart 
             return (Boolean) param.getValue() && param.isRequired(node.getElementParameters());
         }
 
-        if (node.getUniqueName().startsWith("tMap")) { //$NON-NLS-1$
+        final String componentName = node.getComponent().getName();
+        if (componentName.equals("tMap")) { //$NON-NLS-1$
             isVirtualNode = CorePlugin.getDefault().getMapperService().isVirtualComponent(node);
-        } else if (node.getUniqueName().startsWith("tXMLMap")) { //$NON-NLS-1$
+        } else if (componentName.equals("tXMLMap")) { //$NON-NLS-1$
             isVirtualNode = CorePlugin.getDefault().getXMLMapperService().isVirtualComponent(node);
-        } else if (node.getUniqueName().startsWith("tAvroMap")) { //$NON-NLS-1$
+        } else if (componentName.equals("tAvroMap")) { //$NON-NLS-1$
             isVirtualNode = CorePlugin.getDefault().getSparkMapperService().isVirtualComponent(node);
         } else {
             List<IMultipleComponentManager> multipleComponentManagers = node.getComponent().getMultipleComponentManagers();
@@ -1764,6 +1781,7 @@ public abstract class AbstractMultiPageTalendEditor extends MultiPageEditorPart 
      */
     @Override
     public void dispose() {
+        boolean isDirty = isDirty();
         getSite().setSelectionProvider(null);
         getSite().getWorkbenchWindow().getSelectionService().removeSelectionListener(this);
         /* after the release of eclipse3.6,this parameter can't be null */
@@ -1793,11 +1811,17 @@ public abstract class AbstractMultiPageTalendEditor extends MultiPageEditorPart 
 
                 JobletUtil jUtil = new JobletUtil();
                 jUtil.makeSureUnlockJoblet(getProcess());
+                if (isDirty) {
+                    // fix for TUP-17936
+                    jUtil.reloadJobletInCurrentProcess(getProcess());
+                }
+
                 Item item = getProcess().getProperty().getItem();
                 boolean keep = jUtil.keepLockJoblet(item);
                 if (keep) {
                     repFactory.unlock(property.getItem());
                 }
+
             } catch (PersistenceException e) {
                 ExceptionHandler.process(e);
             } catch (LoginException e) {

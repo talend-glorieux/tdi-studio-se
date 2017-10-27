@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -121,6 +121,8 @@ public class ExternalDataConverter {
                     outputTable = new OutputTable(this.mapperManager, table, persistentTable.getName(),
                             persistentTable.getTableName());
                     outputTable.initFromExternalData(persistentTable);
+                } else {
+                    outputTable = new OutputTable(this.mapperManager, table, table.getTableName(), table.getLabel());
                 }
             }
             if (outputTable != null) {

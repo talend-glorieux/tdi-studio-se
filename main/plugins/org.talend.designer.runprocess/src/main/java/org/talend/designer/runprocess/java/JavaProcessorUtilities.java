@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,11 +13,16 @@
 package org.talend.designer.runprocess.java;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.eclipse.core.resources.IFolder;
 import org.eclipse.core.resources.IProject;
@@ -43,6 +48,7 @@ import org.talend.core.GlobalServiceRegister;
 import org.talend.core.ILibraryManagerService;
 import org.talend.core.context.Context;
 import org.talend.core.context.RepositoryContext;
+import org.talend.core.hadoop.HadoopConstants;
 import org.talend.core.model.general.ModuleNeeded;
 import org.talend.core.model.general.Project;
 import org.talend.core.model.process.IProcess;
@@ -52,7 +58,6 @@ import org.talend.core.model.properties.ProcessItem;
 import org.talend.core.model.properties.PropertiesPackage;
 import org.talend.core.model.properties.Property;
 import org.talend.core.model.properties.RoutineItem;
-import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.model.repository.IRepositoryViewObject;
 import org.talend.core.runtime.CoreRuntimePlugin;
 import org.talend.core.runtime.process.ITalendProcessJavaProject;
@@ -69,6 +74,8 @@ import org.talend.designer.maven.tools.MavenPomSynchronizer;
 import org.talend.designer.maven.utils.PomUtil;
 import org.talend.designer.maven.utils.TalendCodeProjectUtil;
 import org.talend.designer.runprocess.IRunProcessService;
+import org.talend.designer.runprocess.ProcessorException;
+import org.talend.designer.runprocess.ProcessorUtilities;
 import org.talend.designer.runprocess.RunProcessPlugin;
 import org.talend.designer.runprocess.i18n.Messages;
 import org.talend.librariesmanager.model.ModulesNeededProvider;
@@ -132,13 +139,20 @@ public class JavaProcessorUtilities {
      * @param process
      * @return
      */
-    public static Set<String> extractLibNamesOnlyForMapperAndReducerWithoutRoutines(IProcess process) {
+    public static Set<String> extractLibNamesOnlyForMapperAndReducerWithoutRoutines(IProcess2 process) {
         Set<String> libNames = new HashSet<String>();
         Set<ModuleNeeded> libs = extractLibsOnlyForMapperAndReducer(process);
         if (libs != null) {
             Iterator<ModuleNeeded> itLibs = libs.iterator();
             while (itLibs.hasNext()) {
-                libNames.add(itLibs.next().getModuleName());
+                ModuleNeeded currentModule = itLibs.next();
+                if (ProcessorUtilities.hadoopConfJarCanBeLoadedDynamically(process.getProperty())) {
+                    Object obj = currentModule.getExtraAttributes().get(HadoopConstants.IS_DYNAMIC_JAR);
+                    if (Boolean.valueOf(String.valueOf(obj))) {
+                        continue;
+                    }
+                }
+                libNames.add(currentModule.getModuleName());
             }
         }
         return libNames;
@@ -150,14 +164,21 @@ public class JavaProcessorUtilities {
      * @param process
      * @return
      */
-    public static Set<String> extractLibNamesOnlyForMapperAndReducer(IProcess process) {
+    public static Set<String> extractLibNamesOnlyForMapperAndReducer(IProcess2 process) {
         Set<String> libNames = extractLibNamesOnlyForMapperAndReducerWithoutRoutines(process);
         libNames.addAll(PomUtil.getCodesExportJars(process));
         return libNames;
     }
 
     public static Set<ModuleNeeded> getNeededModulesForProcess(IProcess process) {
-        Set<ModuleNeeded> neededLibraries = new HashSet<ModuleNeeded>();
+        Set<ModuleNeeded> neededLibraries = new TreeSet<ModuleNeeded>(new Comparator<ModuleNeeded>() {
+
+            @Override
+            public int compare(ModuleNeeded m1, ModuleNeeded m2) {
+                return m1.toString().compareTo(m2.toString());
+            }
+        });
+
         Set<ModuleNeeded> neededModules = LastGenerationInfo.getInstance().getModulesNeededWithSubjobPerJob(process.getId(),
                 process.getVersion());
         neededLibraries.addAll(neededModules);
@@ -189,16 +210,8 @@ public class JavaProcessorUtilities {
             }
         } else {
             if (property != null && property.getItem() instanceof ProcessItem) {
-                List<ModuleNeeded> modulesNeededs = ModulesNeededProvider.getModulesNeededForRoutines(
-                        (ProcessItem) property.getItem(), ERepositoryObjectType.ROUTINES);
-                for (ModuleNeeded moduleNeeded : modulesNeededs) {
-                    neededLibraries.add(moduleNeeded);
-                }
-                List<ModuleNeeded> modulesForPigudf = ModulesNeededProvider.getModulesNeededForRoutines(
-                        (ProcessItem) property.getItem(), ERepositoryObjectType.PIG_UDF);
-                for (ModuleNeeded moduleNeeded : modulesForPigudf) {
-                    neededLibraries.add(moduleNeeded);
-                }
+                neededLibraries
+                        .addAll(ModulesNeededProvider.getModulesNeededForProcess((ProcessItem) property.getItem(), process));
 
             } else {
                 for (ModuleNeeded moduleNeeded : ModulesNeededProvider.getRunningModules()) {
@@ -232,6 +245,25 @@ public class JavaProcessorUtilities {
                 }
             }
         }
+        // move high priority modules to front.
+        Set<ModuleNeeded> highPriorityModuleNeeded = LastGenerationInfo.getInstance().getHighPriorityModuleNeeded();
+        if (!highPriorityModuleNeeded.isEmpty()) {
+            Iterator<ModuleNeeded> iterator = highPriorityModuleNeeded.iterator();
+            while (iterator.hasNext()) {
+                ModuleNeeded needed = iterator.next();
+                if (highPriorityModuleNeeded.contains(needed)) {
+                    neededLibraries.remove(needed);
+                }
+            }
+            // order should be main -> sub1 -> sub_sub1 -> normal modules
+            List<ModuleNeeded> tempList = new ArrayList<>(highPriorityModuleNeeded);
+            Collections.reverse(tempList);
+            Set<ModuleNeeded> orderedNeededLibraries = new LinkedHashSet<>();
+            orderedNeededLibraries.addAll(tempList);
+            orderedNeededLibraries.addAll(neededLibraries);
+            return orderedNeededLibraries;
+        }
+        
         return neededLibraries;
     }
 
@@ -266,7 +298,11 @@ public class JavaProcessorUtilities {
      * @see org.talend.designer.runprocess.IProcessor#computeLibrariesPath(Set<String>)
      */
     public static void computeLibrariesPath(Set<ModuleNeeded> jobModuleList, IProcess process) {
-        computeLibrariesPath(jobModuleList, process, new HashSet<ModuleNeeded>());
+        try {
+            computeLibrariesPath(jobModuleList, process, new HashSet<ModuleNeeded>());
+        } catch (ProcessorException e) {
+            ExceptionHandler.process(e);
+        }
     }
 
     /**
@@ -275,9 +311,10 @@ public class JavaProcessorUtilities {
      * @param hashSet
      * @param process
      * @param alreadyRetrievedModules
+     * @throws BusinessException
      */
     public static void computeLibrariesPath(Set<ModuleNeeded> jobModuleList, IProcess process,
-            Set<ModuleNeeded> alreadyRetrievedModules) {
+            Set<ModuleNeeded> alreadyRetrievedModules) throws ProcessorException {
         RepositoryContext repositoryContext = (RepositoryContext) CorePlugin.getContext().getProperty(
                 Context.REPOSITORY_CONTEXT_KEY);
         Project project = repositoryContext.getProject();
@@ -287,8 +324,6 @@ public class JavaProcessorUtilities {
         // use maven to update the class path.
         try {
             sortClasspath(jobModuleList, process, alreadyRetrievedModules);
-        } catch (BusinessException be1) {
-            ExceptionHandler.process(be1);
         } catch (CoreException e) {
             ExceptionHandler.process(e);
         }
@@ -302,7 +337,7 @@ public class JavaProcessorUtilities {
     // command
     // // line in run mode
     private static void sortClasspath(Set<ModuleNeeded> jobModuleList, IProcess process, Set<ModuleNeeded> alreadyRetrievedModules)
-            throws CoreException, BusinessException {
+            throws CoreException, ProcessorException {
         ITalendProcessJavaProject jProject = getTalendJavaProject();
         if (jProject == null) {
             return;
@@ -313,7 +348,7 @@ public class JavaProcessorUtilities {
         Set<ModuleNeeded> optionalJarsOnlyForRoutines = new HashSet<ModuleNeeded>();
 
         // only for wizards or additional jars only to make the java project compile without any error.
-        for (ModuleNeeded moduleNeeded : ModulesNeededProvider.getRunningModules()) {
+        for (ModuleNeeded moduleNeeded : ModulesNeededProvider.getSystemRunningModules()) {
             optionalJarsOnlyForRoutines.add(moduleNeeded);
         }
 
@@ -377,7 +412,7 @@ public class JavaProcessorUtilities {
                 }
             }
         }
-        repositoryBundleService.deployModules(listModulesReallyNeeded, null);
+        repositoryBundleService.installModules(listModulesReallyNeeded, null);
         if (missingJars != null) {
             handleMissingJarsForProcess(missingJarsForRoutinesOnly, missingJarsForProcessOnly, missingJars);
         }
@@ -411,7 +446,7 @@ public class JavaProcessorUtilities {
      * @throws BusinessException
      */
     private static void handleMissingJarsForProcess(Set<String> missingJarsForRoutines, final Set<String> missingJarsForProcess,
-            String missingJars) throws BusinessException {
+            String missingJars) throws ProcessorException {
         final StringBuffer sb = new StringBuffer(""); //$NON-NLS-1$
         if (missingJarsForProcess.size() > 0) {
             sb.append(Messages.getString("JavaProcessorUtilities.msg.missingjar.forProcess")); //$NON-NLS-1$
@@ -434,7 +469,7 @@ public class JavaProcessorUtilities {
             } else {
                 subForMsg(sb.toString());
             }
-            if (!CommonsPlugin.isHeadless()) {
+            if (!CommonsPlugin.isHeadless() && !CommonsPlugin.isJUnitTest()) {
                 Display display = DisplayUtils.getDisplay();
                 if (display != null) {
                     display.syncExec(new Runnable() {
@@ -461,8 +496,9 @@ public class JavaProcessorUtilities {
 
                     });
                 }
+            } else {
+                throw new ProcessorException(missingJars);
             }
-            throw new BusinessException(missingJars);
 
         } else {
             if (missingJarsForRoutines.size() > 0) {
@@ -548,6 +584,7 @@ public class JavaProcessorUtilities {
     public static boolean hasBatchOrStreamingSubProcess(Item item) throws PersistenceException {
         return hasBatchOrStreamingSubProcess(item, new HashSet<String>());
     }
+
     public static boolean hasBatchOrStreamingSubProcess(Item item, Set<String> testedItems) throws PersistenceException {
         if (testedItems.contains(item.getProperty().getId())) {
             return false;
@@ -582,9 +619,10 @@ public class JavaProcessorUtilities {
                                     IRepositoryViewObject lastVersion = RunProcessPlugin.getDefault().getRepositoryService()
                                             .getProxyRepositoryFactory().getLastVersion(value.toString());
                                     if (lastVersion != null) {
-                                        boolean hasBatchOrStreaming = hasBatchOrStreamingSubProcess(lastVersion.getProperty().getItem(), testedItems);
+                                        boolean hasBatchOrStreaming = hasBatchOrStreamingSubProcess(lastVersion.getProperty()
+                                                .getItem(), testedItems);
                                         if (hasBatchOrStreaming) {
-                                            // only stop the loop once we checked every child 
+                                            // only stop the loop once we checked every child
                                             return hasBatchOrStreaming;
                                         }
                                     }

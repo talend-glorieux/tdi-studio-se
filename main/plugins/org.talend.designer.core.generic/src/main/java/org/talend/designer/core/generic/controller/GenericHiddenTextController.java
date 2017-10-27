@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -24,12 +24,14 @@ import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.eclipse.swt.widgets.Text;
 import org.eclipse.ui.views.properties.tabbed.ITabbedPropertyConstants;
 import org.talend.commons.ui.runtime.image.ImageProvider;
 import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.utils.ContextParameterUtils;
 import org.talend.core.ui.CoreUIPlugin;
 import org.talend.core.ui.properties.tab.IDynamicProperty;
+import org.talend.core.utils.TalendQuoteUtils;
 import org.talend.designer.core.generic.i18n.Messages;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.ui.editor.cmd.PropertyChangeCommand;
@@ -49,10 +51,11 @@ public class GenericHiddenTextController extends TextController {
 
     @Override
     protected boolean isPasswordParam(IElementParameter parameter) {
-        if (ContextParameterUtils.containContextVariables(String.valueOf(parameter.getValue()))) {
+        String value = String.valueOf(parameter.getValue());
+        if (ContextParameterUtils.containContextVariables(value)) {
             return false;
         }
-        return true;
+        return TalendQuoteUtils.isCommonString(value) || isInWizard();
     }
 
     @Override
@@ -64,6 +67,7 @@ public class GenericHiddenTextController extends TextController {
     public Control createControl(Composite subComposite, IElementParameter param, int numInRow, int nbInRow, int top,
             Control lastControl) {
         Control lastControlUsed = super.createControl(subComposite, param, numInRow, nbInRow, top, lastControl);
+        Text labelText = (Text) hashCurControls.get(param.getName());
         if (labelText != null && param != null && isPasswordParam(param)) {
             labelText.setEchoChar('*');
         }
@@ -129,7 +133,7 @@ public class GenericHiddenTextController extends TextController {
                     Control control = super.createDialogArea(parent);
                     String paramName = (String) button.getData(PARAMETER_NAME);
                     getText().setData(PARAMETER_NAME, paramName);
-                    // editionControlHelper.register(paramName, getText());
+                    editionControlHelper.register(paramName, getText());
                     return control;
                 }
             };

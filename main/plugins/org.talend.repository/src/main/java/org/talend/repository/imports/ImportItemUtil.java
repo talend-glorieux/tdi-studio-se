@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -76,6 +76,7 @@ import org.talend.core.PluginChecker;
 import org.talend.core.context.Context;
 import org.talend.core.context.RepositoryContext;
 import org.talend.core.hadoop.IHadoopClusterService;
+import org.talend.core.hadoop.repository.HadoopRepositoryUtil;
 import org.talend.core.language.ECodeLanguage;
 import org.talend.core.model.general.ILibrariesService;
 import org.talend.core.model.metadata.builder.connection.Connection;
@@ -711,8 +712,11 @@ public class ImportItemUtil {
                             // TDI-19535 (check if exists, delete all items with same id)
                             List<IRepositoryViewObject> allVersionToDelete = repFactory.getAllVersion(ProjectManager
                                     .getInstance().getCurrentProject(), lastVersion.getId(), false);
+                            String importingLabel = itemRecord.getProperty().getLabel();
+                            String existLabel = lastVersion.getProperty().getLabel();
                             for (IRepositoryViewObject currentVersion : allVersionToDelete) {
-                                repFactory.forceDeleteObjectPhysical(lastVersion, currentVersion.getVersion());
+                                repFactory.forceDeleteObjectPhysical(lastVersion, currentVersion.getVersion(),
+                                        isNeedDeleteOnRemote(importingLabel, existLabel));
                             }
                             idDeletedBeforeImport.add(id);
                         }
@@ -918,6 +922,13 @@ public class ImportItemUtil {
 
         applyMigrationTasks(itemRecord, monitor);
         TimeMeasure.step("importItemRecords", "applyMigrationTasks: " + label);
+    }
+
+    private boolean isNeedDeleteOnRemote(String importingLabel, String existLabel) {
+        if (importingLabel != null && importingLabel.equalsIgnoreCase(importingLabel) && !importingLabel.equals(existLabel)) {
+            return true;
+        }
+        return false;
     }
 
     // added by dlin 2011-7-25 don't like .item and .property ,just copy .screenshot file will be ok
@@ -1313,11 +1324,7 @@ public class ImportItemUtil {
         if (item == null) {
             return false;
         }
-        IHadoopClusterService hadoopClusterService = null;
-        if (GlobalServiceRegister.getDefault().isServiceRegistered(IHadoopClusterService.class)) {
-            hadoopClusterService = (IHadoopClusterService) GlobalServiceRegister.getDefault().getService(
-                    IHadoopClusterService.class);
-        }
+        IHadoopClusterService hadoopClusterService = HadoopRepositoryUtil.getHadoopClusterService();
         if (hadoopClusterService != null && hadoopClusterService.isHadoopSubItem(item)) {
             new ImportItemUtil().resolveItem(manager, itemRecord);
             return hadoopClusterService.isValidHadoopSubItem(item);
@@ -1342,11 +1349,7 @@ public class ImportItemUtil {
         if (item == null) {
             return subnodes;
         }
-        IHadoopClusterService hadoopClusterService = null;
-        if (GlobalServiceRegister.getDefault().isServiceRegistered(IHadoopClusterService.class)) {
-            hadoopClusterService = (IHadoopClusterService) GlobalServiceRegister.getDefault().getService(
-                    IHadoopClusterService.class);
-        }
+        IHadoopClusterService hadoopClusterService = HadoopRepositoryUtil.getHadoopClusterService();
         if (hadoopClusterService != null && hadoopClusterService.isHadoopClusterItem(item)) {
             new ImportItemUtil().resolveItem(manager, itemRecord);
             List<String> subitemIds = hadoopClusterService.getSubitemIdsOfHadoopCluster(item);

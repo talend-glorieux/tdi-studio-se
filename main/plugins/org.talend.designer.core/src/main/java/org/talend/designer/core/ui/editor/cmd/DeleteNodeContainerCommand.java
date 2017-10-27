@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -28,7 +28,7 @@ import org.talend.core.model.process.INodeConnector;
 import org.talend.core.model.process.IProcess2;
 import org.talend.designer.core.i18n.Messages;
 import org.talend.designer.core.ui.editor.connections.Connection;
-import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainer;
+import org.talend.designer.core.ui.editor.jobletcontainer.AbstractJobletContainer;
 import org.talend.designer.core.ui.editor.nodecontainer.NodeContainer;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.editor.process.Process;
@@ -83,11 +83,11 @@ public class DeleteNodeContainerCommand extends Command {
                 INode prevNode = connection.getSource();
                 if ((prevNode instanceof Node) && ((Node) prevNode).getJobletNode() != null) {
                     Node jobletnode = (Node) prevNode.getJobletNode();
-                    ((JobletContainer) jobletnode.getNodeContainer()).getOutputs().remove(connection);
+                    ((AbstractJobletContainer) jobletnode.getNodeContainer()).getOutputs().remove(connection);
                     if (!nodeList.contains(jobletnode)) {
                         boolean builtInJobletNode = jobletnode.getConnectorFromType(EConnectionType.FLOW_MAIN).isMultiSchema()
                                 | node.getConnectorFromType(EConnectionType.TABLE).isMultiSchema();
-                        storeMetadata(connection, jobletnode);
+                        storeMetadata(connection, jobletnode, true);
                         jobletnode.removeOutput(connection);
                         if (!builtInJobletNode) {
                             process.removeUniqueConnectionName(connection.getUniqueName());
@@ -97,9 +97,13 @@ public class DeleteNodeContainerCommand extends Command {
                 if (!nodeList.contains(prevNode)) {
                     boolean builtInPrevNode = prevNode.getConnectorFromType(EConnectionType.FLOW_MAIN).isMultiSchema()
                             | node.getConnectorFromType(EConnectionType.TABLE).isMultiSchema();
-                    storeMetadata(connection, prevNode);
+                    boolean remove = true;
+                    if ((prevNode instanceof Node) && ((Node) prevNode).isELTMapComponent()) {
+                        remove = false;
+                    }
+                    storeMetadata(connection, prevNode, remove);
                     prevNode.removeOutput(connection);
-                    if (!builtInPrevNode) {
+                    if (!builtInPrevNode && remove) {
                         process.removeUniqueConnectionName(connection.getUniqueName());
                     }
                 }
@@ -108,7 +112,7 @@ public class DeleteNodeContainerCommand extends Command {
                 INode nextNode = connection.getTarget();
                 if ((nextNode instanceof Node) && ((Node) nextNode).getJobletNode() != null) {
                     Node jobletnode = (Node) nextNode.getJobletNode();
-                    ((JobletContainer) jobletnode.getNodeContainer()).getInputs().remove(connection);
+                    ((AbstractJobletContainer) jobletnode.getNodeContainer()).getInputs().remove(connection);
                     if (!nodeList.contains(jobletnode)) {
                         jobletnode.removeInput(connection);
                         boolean builtInJobletNode = jobletnode.getConnectorFromType(EConnectionType.FLOW_MAIN).isMultiSchema()
@@ -186,7 +190,7 @@ public class DeleteNodeContainerCommand extends Command {
                 INode prevNode = connection.getSource();
                 if ((prevNode instanceof Node) && ((Node) prevNode).getJobletNode() != null) {
                     Node jobletnode = (Node) prevNode.getJobletNode();
-                    ((JobletContainer) jobletnode.getNodeContainer()).getOutputs().add(connection);
+                    ((AbstractJobletContainer) jobletnode.getNodeContainer()).getOutputs().add(connection);
                     restoreMetadata(connection, jobletnode);
                 }
                 if (!nodeList.contains(prevNode)) {
@@ -216,7 +220,7 @@ public class DeleteNodeContainerCommand extends Command {
                 INode nextNode = connection.getTarget();
                 if ((nextNode instanceof Node) && ((Node) nextNode).getJobletNode() != null) {
                     Node jobletnode = (Node) nextNode.getJobletNode();
-                    ((JobletContainer) jobletnode.getNodeContainer()).getInputs().add(connection);
+                    ((AbstractJobletContainer) jobletnode.getNodeContainer()).getInputs().add(connection);
                 }
                 if (!nodeList.contains(nextNode)) {
                     if (!nextNode.getIncomingConnections().contains(connection)) {
@@ -263,12 +267,12 @@ public class DeleteNodeContainerCommand extends Command {
         this.execute();
     }
 
-    private void storeMetadata(IConnection connection, INode node) {
+    private void storeMetadata(IConnection connection, INode node, boolean remove) {
         ConnectionDeletedInfo deletedInfo = new ConnectionDeletedInfo();
         connectionDeletedInfosMap.put(connection, node, deletedInfo);
 
         INode source = connection.getSource();
-        if (source != null) {
+        if (source != null && remove) {
             deletedInfo.metadataTable = connection.getMetadataTable();
             List<IMetadataTable> metaList = source.getMetadataList();
             if (metaList != null && deletedInfo.metadataTable != null) {

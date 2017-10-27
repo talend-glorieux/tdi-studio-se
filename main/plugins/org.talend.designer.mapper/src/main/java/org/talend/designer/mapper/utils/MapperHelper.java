@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import org.talend.core.model.components.ComponentCategory;
 import org.talend.core.model.process.IConnection;
 import org.talend.core.model.process.INode;
 import org.talend.designer.mapper.external.data.ExternalMapperData;
@@ -45,6 +46,9 @@ public class MapperHelper {
      * @return
      */
     public static boolean isGeneratedAsVirtualComponent(final INode mapperNode) {
+        if (isMapperOnBigDataProcess(mapperNode.getComponent().getPaletteType())) {
+            return false;
+        }
 
         boolean hasPersistentSortedLookup = false;
 
@@ -85,6 +89,12 @@ public class MapperHelper {
             } // T_TM_M_241
         }
         return hasPersistentSortedLookup;
+    }
+
+    public static boolean isMapperOnBigDataProcess(String componentType) {
+        return ComponentCategory.CATEGORY_4_SPARK.getName().equals(componentType)
+                || ComponentCategory.CATEGORY_4_SPARKSTREAMING.getName().equals(componentType)
+                || ComponentCategory.CATEGORY_4_MAPREDUCE.getName().equals(componentType);
     }
 
     public static void saveDataToEmf(ExternalMapperData externalData, MapperData emfMapperData) {
@@ -151,7 +161,9 @@ public class MapperHelper {
     private static void setInOutPersistentTable(AbstractInOutTable persistentTable, ExternalMapperTable table) {
         persistentTable.setActivateCondensedTool(table.isActivateCondensedTool());
         persistentTable.setActivateExpressionFilter(table.isActivateExpressionFilter());
+        persistentTable.setActivateColumnNameFilter(table.isActivateColumnNameFilter());
         persistentTable.setExpressionFilter(table.getExpressionFilter());
+        persistentTable.setColumnNameFilter(table.getColumnNameFilter());
         persistentTable.setMinimized(table.isMinimized());
         persistentTable.setName(table.getName());
         persistentTable.setSizeState(getSizeState(table.getSizeState()));

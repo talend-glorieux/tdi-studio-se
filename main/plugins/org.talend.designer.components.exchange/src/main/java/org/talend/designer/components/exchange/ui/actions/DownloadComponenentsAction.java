@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -32,6 +32,7 @@ import org.eclipse.jface.action.IAction;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.IEditorPart;
 import org.eclipse.ui.IEditorReference;
 import org.eclipse.ui.IWorkbenchPage;
@@ -39,14 +40,16 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.intro.IIntroSite;
 import org.eclipse.ui.intro.config.IIntroAction;
-import org.talend.commons.ui.runtime.exception.ExceptionHandler;
+import org.talend.commons.exception.ExceptionHandler;
+import org.talend.commons.runtime.helper.LocalComponentInstallHelper;
+import org.talend.commons.runtime.service.ComponentsInstallComponent;
+import org.talend.commons.ui.gmf.util.DisplayUtils;
+import org.talend.commons.utils.resource.UpdatesHelper;
 import org.talend.core.CorePlugin;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.download.DownloadHelper;
 import org.talend.core.download.DownloadListener;
 import org.talend.core.download.IDownloadHelper;
-import org.talend.core.language.ECodeLanguage;
-import org.talend.core.language.LanguageManager;
 import org.talend.core.model.components.ComponentManager;
 import org.talend.core.model.components.IComponent;
 import org.talend.core.model.components.IComponentsFactory;
@@ -65,12 +68,15 @@ import org.talend.designer.components.exchange.util.ExchangeWebService;
 import org.talend.designer.components.exchange.util.WebserviceStatus;
 import org.talend.designer.core.ui.AbstractMultiPageTalendEditor;
 import org.talend.designer.core.ui.editor.AbstractTalendEditor;
+import org.talend.utils.io.FilesUtils;
 
 /**
  * 
  * DOC hcyi class global comment. Detailled comment
  */
 public class DownloadComponenentsAction extends Action implements IIntroAction {
+
+    private static final String FOLDER_DOWNLOAD = "downloaded"; //$NON-NLS-1$
 
     private int fExtensionDownloaded;
 
@@ -79,7 +85,8 @@ public class DownloadComponenentsAction extends Action implements IIntroAction {
     @Override
     public void run() {
         try {
-            Job job = new DownloadJob(ExchangeManager.getInstance().getSelectedExtension());
+            final ComponentExtension selectedExtension = ExchangeManager.getInstance().getSelectedExtension();
+            Job job = new DownloadJob(selectedExtension);
             fExtensionDownloaded = 0;
             fDownloadedComponents = new ArrayList<ComponentExtension>();
             job.addJobChangeListener(new JobChangeAdapter() {
@@ -133,55 +140,51 @@ public class DownloadComponenentsAction extends Action implements IIntroAction {
         }
     }
 
+    protected File getComponentsFolder() {
+        File componentFolder = ExchangeUtils.getComponentFolder(FOLDER_DOWNLOAD);
+        if (!componentFolder.exists()) {
+            componentFolder.mkdirs();
+        }
+        return componentFolder;
+    }
+
     private void confirmInstallation() {
+        IComponent emfcomponent = null;
         FileFilter propertiesFilter = new FileFilter() {
 
             // gcui:search xml file.
             @Override
             public boolean accept(File file) {
-                if (LanguageManager.getCurrentLanguage() == ECodeLanguage.JAVA) {
-                    return file.getName().endsWith("_java.xml"); //$NON-NLS-1$
-                } else {
-                    return file.getName().endsWith("_perl.xml"); //$NON-NLS-1$
-                }
+                return file.getName().endsWith("_java.xml"); //$NON-NLS-1$
             }
         };
+
+        String location = getComponentsFolder().getAbsolutePath();
+        File folder = ExchangeComponentsProvider.searchComponentFolder(new File(location));
+        File[] files = folder.listFiles(propertiesFilter);
+        if (files == null || files.length == 0) {
+            return;
+        }
+        IComponentsFactory componentsFactory = ComponentsFactoryProvider.getInstance();
+        emfcomponent = componentsFactory.get(files[0].getParentFile().getName());
+        if (emfcomponent == null) {
+            return;
+        }
+
         String componentName = null;
         StringBuilder message = new StringBuilder();
-        for (ComponentExtension component : fDownloadedComponents) {
-            File componentFolder = ExchangeUtils.getComponentFolder("downloaded");
-            if (!componentFolder.exists()) {
-                componentFolder.mkdirs();
-            }
-            String location = componentFolder.getAbsolutePath();
-            File folder = ExchangeComponentsProvider.searchComponentFolder(new File(location));
-            File[] files = folder.listFiles(propertiesFilter);
-            if (files == null || files.length == 0) {
-                continue;
-            }
-            // load property file
-            // Properties prop = new Properties();
-            try {
-                // prop.load(new FileInputStream(files[0]));
-                // gcui:get component name and family name from xml file.
-                IComponentsFactory componentsFactory = ComponentsFactoryProvider.getInstance();
-                final IComponent emfcomponent = componentsFactory.get(files[0].getParentFile().getName());
-                String name = null;
-                String family = null;
-                if (emfcomponent != null) {
-                    name = emfcomponent.getName();
-                    family = emfcomponent.getOriginalFamilyName();
-                }
-                // String name = component.getName();
-                //String name = prop.getProperty("NAME"); //$NON-NLS-1$
-                //String family = prop.getProperty("FAMILY"); //$NON-NLS-1$
-                if (StringUtils.isNotEmpty(name) && StringUtils.isNotEmpty(family)) {
-                    componentName = name;
-                    message.append("Component ").append(name).append(" installed at ").append(family).append(".\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                }
-            } catch (Exception e) {
-                ExceptionHandler.process(e);
-            }
+        String name = null;
+        String family = null;
+        if (emfcomponent != null) {
+            name = emfcomponent.getName();
+            family = emfcomponent.getOriginalFamilyName();
+        }
+        // String name = component.getName();
+        //String name = prop.getProperty("NAME"); //$NON-NLS-1$
+        //String family = prop.getProperty("FAMILY"); //$NON-NLS-1$
+        if (StringUtils.isNotEmpty(name) && StringUtils.isNotEmpty(family)) {
+            componentName = name;
+            message.append("Component ").append(name).append(" installed at ").append(family).append(".\n"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
         }
 
         if (componentName != null) {
@@ -191,7 +194,7 @@ public class DownloadComponenentsAction extends Action implements IIntroAction {
         MessageDialog
                 .openInformation(
                         null,
-                        Messages.getString("DownloadComponenentsAction.installExchange"), Messages.getString("ExchangeWebService.downloadingExtensionSuccessful")); //$NON-NLS-1$
+                        Messages.getString("DownloadComponenentsAction.installExchange"), Messages.getString("ExchangeWebService.downloadingExtensionSuccessful")); //$NON-NLS-1$ //$NON-NLS-2$
         ComponentManager.saveResource();
 
     }
@@ -269,7 +272,6 @@ public class DownloadComponenentsAction extends Action implements IIntroAction {
         }
 
         private void downloadExtension(ComponentExtension extension, IProgressMonitor monitor) {
-
             // get the url
             if (ExchangeUtils.checkUserAndPassword()) {
                 WebserviceStatus webserviceStatus = ExchangeWebService.downloadingExtensionService(extension.getIdExtension(),
@@ -278,16 +280,11 @@ public class DownloadComponenentsAction extends Action implements IIntroAction {
                     String downloadUrl = webserviceStatus.getValue();
                     if (downloadUrl != null && !downloadUrl.equals("")) { //$NON-NLS-1$
                         monitor.setTaskName(ExchangeConstants.getDownloadTaskNameLable() + downloadUrl);
-                        File componentFolder = ExchangeUtils.getComponentFolder("downloaded"); //$NON-NLS-1$
-                        if (!componentFolder.exists()) {
-                            componentFolder.mkdirs();
-                        }
-                        String targetFolder = componentFolder.getAbsolutePath();
+                        String targetFolder = getComponentsFolder().getAbsolutePath();
                         try {
-                            String fileName = extension.getLabel() + ".zip"; //$NON-NLS-1$
                             // if file name has special char ,replace it.
                             String regex = "[^a-zA-Z&&[^0-9]&&[^\\_]]"; //$NON-NLS-1$
-                            fileName = fileName.replaceAll(regex, "_"); //$NON-NLS-1$
+                            String fileName = extension.getLabel().replaceAll(regex, "_") + ".zip"; //$NON-NLS-1$ //$NON-NLS-2$
                             File localZipFile = new File(targetFolder, fileName);
 
                             monitor.done();
@@ -302,19 +299,7 @@ public class DownloadComponenentsAction extends Action implements IIntroAction {
 
                             // check if the job is cancelled
                             if (!monitor.isCanceled()) {
-                                File installedLocation = ComponentInstaller.unzip(localZipFile.getAbsolutePath(), targetFolder);
-                                if (installedLocation != null) {
-                                    // update extesion status
-                                    monitor.done();
-                                    extensionDownloadCompleted(extension);
-                                } else {
-                                    Display.getDefault().asyncExec(new Runnable() {
-
-                                        @Override
-                                        public void run() {
-                                        }
-                                    });
-                                }
+                                afterDownload(monitor, extension, localZipFile);
                             }
                             // the component zip file
                             // localZipFile.delete();
@@ -326,22 +311,77 @@ public class DownloadComponenentsAction extends Action implements IIntroAction {
             }
         }
 
-        /**
-         * Check if the component folder really exist, as the user may delete the folder from filesystem.
-         * 
-         * @param installedLocation
-         * @return
-         */
-        private boolean checkIfExisted(String installedLocation) {
-            try {
-                File dir = new File(installedLocation);
-                if (dir.exists()) {
-                    return true;
+        protected void afterDownload(IProgressMonitor monitor, ComponentExtension extension, File localZipFile) throws Exception {
+            if (UpdatesHelper.isComponentUpdateSite(localZipFile)) {
+                final File workFolder = org.talend.utils.files.FileUtils.createTmpFolder("downloadedComponents", ""); //$NON-NLS-1$  //$NON-NLS-2$
+
+                try {
+                    FilesUtils.copyFile(localZipFile, new File(workFolder, localZipFile.getName()));
+
+                    ComponentsInstallComponent component = LocalComponentInstallHelper.getComponent();
+                    if (component != null) {
+                        try {
+                            component.setComponentFolder(workFolder);
+                            if (component.install()) {
+
+                                if (component.needRelaunch()) {
+                                    askReboot();
+                                } else {
+                                    MessageDialog.openInformation(DisplayUtils.getDefaultShell(),
+                                            Messages.getString("DownloadComponenentsAction.installComponentsTitle"),
+                                            component.getInstalledMessages());
+                                }
+                            } else {// install failure
+                                MessageDialog.openWarning(DisplayUtils.getDefaultShell(),
+                                        Messages.getString("DownloadComponenentsAction_failureTitle"), //$NON-NLS-1$
+                                        Messages.getString("DownloadComponenentsAction_failureMessage", extension.getLabel())); //$NON-NLS-1$
+                            }
+                        } finally {
+                            // after install, clear the setting for service.
+                            component.setComponentFolder(null);
+                        }
+                    }
+                } catch (Exception e) {
+                    // Popup dialog to user to waring install failed.
+                    Display.getDefault().syncExec(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            MessageDialog.openError(new Shell(), Messages.getString("DownloadComponenentsAction_failureTitle"), //$NON-NLS-1$
+                                    Messages.getString("DownloadComponenentsAction_failureMessage", extension.getLabel())); //$NON-NLS-1$
+                        }
+                    });
+                    throw e;
+                } finally {
+                    FilesUtils.deleteFolder(workFolder, true);
                 }
-            } catch (Throwable e) {
-                // do nothing;
+                monitor.done();
+                ExchangeManager.getInstance().saveDownloadedExtensionsToFile(extension);
+            } else {
+                File installedLocation = ComponentInstaller.unzip(localZipFile.getAbsolutePath(), getComponentsFolder()
+                        .getAbsolutePath());
+                if (installedLocation != null) {
+                    // update extesion status
+                    monitor.done();
+                    extensionDownloadCompleted(extension);
+                }
             }
-            return false;
+        }
+
+        private void askReboot() {
+            DisplayUtils.getDisplay().syncExec(new Runnable() {
+
+                @Override
+                public void run() {
+                    boolean reboot = MessageDialog.openQuestion(DisplayUtils.getDefaultShell(),
+                            Messages.getString("DownloadComponenentsAction_restartTitle"), //$NON-NLS-1$
+                            Messages.getString("DownloadComponenentsAction_restartMessage")); //$NON-NLS-1$
+                    if (reboot) {
+                        PlatformUI.getWorkbench().restart();
+                    }
+                }
+
+            });
         }
 
         @Override

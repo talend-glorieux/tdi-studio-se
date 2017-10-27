@@ -2,12 +2,12 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Repository Generic Plugin Test
 Bundle-SymbolicName: org.talend.repository.generic.test
-Bundle-Version: 6.3.0.qualifier
+Bundle-Version: 7.0.1.qualifier
 Bundle-Vendor: .Talend SA.
 Fragment-Host: org.talend.repository.generic
 Require-Bundle: org.junit,
  org.talend.testutils,
  com.cedarsoftware.json-io,
  org.talend.components.common,
- org.talend.components.salesforce
+ org.talend.components.salesforce.definition
 Import-Package: org.talend.designer.core.ui.editor.update.cmd

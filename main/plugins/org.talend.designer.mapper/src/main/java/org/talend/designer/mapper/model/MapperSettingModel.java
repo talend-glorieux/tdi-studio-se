@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -24,9 +24,16 @@ public class MapperSettingModel implements Cloneable {
 
     private boolean isLookInParallel;
 
+    private boolean isEnableAutoConvertType;
+
     private String tempDataDir;
 
     private String rowBufferSize;
+
+    private int levenshteinWeight;
+
+    private int JaccardWeight;
+
 
     /**
      * @return the MapReduce lookup tables should be precalculated and distributed across nodes in the cluster.
@@ -79,6 +86,14 @@ public class MapperSettingModel implements Cloneable {
         this.isLookInParallel = isLookInParallel;
     }
 
+    public boolean isEnableAutoConvertType() {
+        return this.isEnableAutoConvertType;
+    }
+
+    public void setEnableAutoConvertType(boolean isEnableAutoConvertType) {
+        this.isEnableAutoConvertType = isEnableAutoConvertType;
+    }
+
     /**
      * Getter for tempDataDir.
      * 
@@ -129,6 +144,9 @@ public class MapperSettingModel implements Cloneable {
         if (this.isLookInParallel != other.isLookInParallel) {
             num++;
         }
+        if (this.isEnableAutoConvertType != other.isEnableAutoConvertType) {
+            num++;
+        }
         if (this.tempDataDir == null) {
             if (other.tempDataDir != null) {
                 num++;
@@ -168,6 +186,9 @@ public class MapperSettingModel implements Cloneable {
         if (this.isLookInParallel != other.isLookInParallel) {
             return false;
         }
+        if (this.isEnableAutoConvertType != other.isEnableAutoConvertType) {
+            return false;
+        }
         if (this.tempDataDir == null) {
             if (other.tempDataDir != null) {
                 return false;
@@ -200,6 +221,42 @@ public class MapperSettingModel implements Cloneable {
     @Override
     public MapperSettingModel clone() throws CloneNotSupportedException {
         return (MapperSettingModel) super.clone();
+    }
+
+    /**
+     * Getter for levenshteinWeight.
+     * 
+     * @return the levenshteinWeight
+     */
+    public int getLevenshteinWeight() {
+        return levenshteinWeight;
+    }
+
+    /**
+     * Sets the levenshteinWeight.
+     * 
+     * @param levenshteinWeight the levenshteinWeight to set
+     */
+    public void setLevenshteinWeight(int levenshteinWeight) {
+        this.levenshteinWeight = levenshteinWeight;
+    }
+
+    /**
+     * Getter for jaccardWeight.
+     * 
+     * @return the jaccardWeight
+     */
+    public int getJaccardWeight() {
+        return JaccardWeight;
+    }
+
+    /**
+     * Sets the jaccardWeight.
+     * 
+     * @param jaccardWeight the jaccardWeight to set
+     */
+    public void setJaccardWeight(int jaccardWeight) {
+        this.JaccardWeight = jaccardWeight;
     }
 
 }

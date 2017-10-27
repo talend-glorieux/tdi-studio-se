@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -28,7 +28,6 @@ import org.talend.core.model.repository.IRepositoryContentHandler;
 import org.talend.core.model.repository.IRepositoryViewObject;
 import org.talend.core.model.repository.RepositoryContentManager;
 import org.talend.core.repository.model.repositoryObject.MetadataTableRepositoryObject;
-import org.talend.core.repository.model.repositoryObject.SAPFunctionRepositoryObject;
 import org.talend.core.runtime.services.IGenericWizardService;
 import org.talend.core.ui.ICDCProviderService;
 import org.talend.repository.model.RepositoryNode;
@@ -110,7 +109,7 @@ public class SchemaTypeProcessor extends MultiTypesProcessor {
 
     @Override
     public boolean isSelectionValid(RepositoryNode node) {
-        if (node.getObject() instanceof MetadataTable || node.getObject() instanceof SAPFunctionRepositoryObject) {
+        if (node.getObject() instanceof MetadataTable) {
             return true;
         }
         return false;

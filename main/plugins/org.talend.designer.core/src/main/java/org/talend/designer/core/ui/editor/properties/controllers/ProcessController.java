@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -43,15 +43,12 @@ import org.talend.commons.ui.runtime.exception.ExceptionHandler;
 import org.talend.commons.ui.runtime.image.ImageProvider;
 import org.talend.commons.utils.VersionUtils;
 import org.talend.core.GlobalServiceRegister;
-import org.talend.core.language.ECodeLanguage;
-import org.talend.core.language.LanguageManager;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.properties.Item;
 import org.talend.core.model.properties.ProcessItem;
 import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.model.repository.IRepositoryViewObject;
-import org.talend.core.model.utils.PerlResourcesHelper;
 import org.talend.core.ui.CoreUIPlugin;
 import org.talend.core.ui.branding.IBrandingService;
 import org.talend.core.ui.properties.tab.IDynamicProperty;
@@ -64,7 +61,6 @@ import org.talend.designer.core.ui.editor.properties.controllers.creator.SelectA
 import org.talend.designer.runprocess.ItemCacheManager;
 import org.talend.designer.runprocess.ProcessorUtilities;
 import org.talend.repository.model.RepositoryNode;
-import org.talend.repository.model.RepositoryNodeUtilities;
 import org.talend.repository.ui.dialog.RepositoryReviewDialog;
 import org.talend.repository.ui.dialog.UseDynamicJobSelectionDialog;
 
@@ -173,10 +169,6 @@ public class ProcessController extends AbstractElementPropertySectionController 
 
         Point initialSize = dField.getLayoutControl().computeSize(SWT.DEFAULT, SWT.DEFAULT);
 
-        boolean addVersionCombo = true;
-        if (LanguageManager.getCurrentLanguage() == ECodeLanguage.PERL) {
-            addVersionCombo = PerlResourcesHelper.USE_VERSIONING;
-        }
         // feature 19312
         IElementParameter useDynamicJobParameter = param.getElement().getElementParameter(
                 EParameterName.USE_DYNAMIC_JOB.getName());
@@ -190,7 +182,7 @@ public class ProcessController extends AbstractElementPropertySectionController 
         IBrandingService brandingService = (IBrandingService) GlobalServiceRegister.getDefault().getService(
                 IBrandingService.class);
         boolean allowVerchange = brandingService.getBrandingConfiguration().isAllowChengeVersion();
-        if (addVersionCombo && allowVerchange) {
+        if (allowVerchange) {
             lastControlUsed = addJobVersionCombo(subComposite,
                     param.getChildParameters().get(EParameterName.PROCESS_TYPE_VERSION.getName()), lastControlUsed, numInRow + 1,
                     nbInRow, top);
@@ -526,9 +518,11 @@ public class ProcessController extends AbstractElementPropertySectionController 
                 if (StringUtils.isNotEmpty(jobId)) {
                     // if user have selected job
                     ProcessItem processItem = ItemCacheManager.getProcessItem(jobId);
-                    String jobName = processItem.getProperty().getLabel();
-                    // expand the tree node and reveal it
-                    dialog.setSelectedNodeName(jobName);
+                    if (processItem != null) {
+                        String jobName = processItem.getProperty().getLabel();
+                        // expand the tree node and reveal it
+                        dialog.setSelectedNodeName(jobName);
+                    }
                 }
             }
         } catch (Throwable e) {
@@ -547,20 +541,10 @@ public class ProcessController extends AbstractElementPropertySectionController 
             if (elem != null && elem instanceof Node) {
                 Node runJobNode = (Node) elem;
                 String paramName = (String) button.getData(PARAMETER_NAME);
-                String jobIds = (String) runJobNode.getPropertyValue(paramName); // .getElementParameter(name).getValue();
+                String jobIds = (String) runJobNode.getPropertyValue(paramName);
                 if (StringUtils.isNotEmpty(jobIds)) {
                     String[] jobsArr = jobIds.split(ProcessController.COMMA);
-                    List<RepositoryNode> repositoryNodeList = new ArrayList<RepositoryNode>();
-                    for (String id : jobsArr) {
-                        if (StringUtils.isNotEmpty(id)) {
-                            // if user have selected jobs
-                            RepositoryNode node = RepositoryNodeUtilities.getRepositoryNode(id);
-                            repositoryNodeList.add(node);
-                        }
-                    }
-                    if (repositoryNodeList != null || repositoryNodeList.size() != 0) {
-                        dialog.setRepositoryNodes(repositoryNodeList);
-                    }
+                    dialog.setNeedCheckedjobs(jobsArr);
                 }
             }
         } catch (Throwable e) {
@@ -748,11 +732,13 @@ public class ProcessController extends AbstractElementPropertySectionController 
                     // label = path.toString() + IPath.SEPARATOR + label;
                     // }
                 } else {
-                    final String parentName = processParam.getName() + ":"; //$NON-NLS-1$
-                    if (elem != null) {
-                        // can be called in multi-thread, dispose method may be already called before executing this method
-                        elem.setPropertyValue(parentName + jobNameParam.getName(), ""); //$NON-NLS-1$
-                    }
+                    // FIXME TUP-5524, don't set empty, keep the id value instead.
+                    // final String parentName = processParam.getName() + ":"; //$NON-NLS-1$
+                    // if (elem != null) {
+                    // // can be called in multi-thread, dispose method may be already called before executing this
+                    // method
+                    //elem.setPropertyValue(parentName + jobNameParam.getName(), ""); //$NON-NLS-1$
+                    // }
                 }
             }
         }

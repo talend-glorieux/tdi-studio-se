@@ -61,7 +61,7 @@
     	SHOW_IF="(DATA_ACTION == 'UPDATE') OR (DATA_ACTION == 'DELETE')">
       <DEFAULT>""</DEFAULT>
     </PARAMETER>
-
+    
 	<PARAMETER
       NAME="ELT_TABLE_NAME"
       FIELD="TEXT"
@@ -76,6 +76,14 @@
       NUM_ROW="20"
     >
       <DEFAULT>""</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="IS_TABLE_NAME_VARIABLE"
+      FIELD="CHECK"
+      NUM_ROW="25"
+      SHOW_IF="USE_DIFFERENT_TABLE=='false'">
+        <DEFAULT>false</DEFAULT>
     </PARAMETER>
 
     <PARAMETER
@@ -107,11 +115,8 @@
     </PARAMETER>
 
   </PARAMETERS>
-
+  
   <CODEGENERATION>
-    <IMPORTS>
-    	<IMPORT NAME="Driver-Sybase" MODULE="jconn3.jar" MVN="mvn:org.talend.libraries/jconn3/6.0.0"  REQUIRED="true" />
-    </IMPORTS>
   </CODEGENERATION>
 
   <RETURNS>

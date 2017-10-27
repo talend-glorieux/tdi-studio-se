@@ -25,8 +25,6 @@
 	String node_type = ElementParameterParser.getValue(node, "__NODE_TYPE__");
 	String node_count = ElementParameterParser.getValue(node, "__NODE_COUNT__");
 	
-	String accesskey = ElementParameterParser.getValue(node, "__ACCESS_KEY__");
-	
 	boolean isLog4jEnabled = "true".equals(ElementParameterParser.getValue(node.getProcess(), "__LOG4J_ACTIVATE__"));
 	
 	String parameter_group_name = ElementParameterParser.getValue(node, "__PARAMETER_GROUP_NAME__");
@@ -53,15 +51,12 @@
 	ParameterUtil parameterUtil = new ParameterUtil();
 %>
 	        
-	<%
-	String passwordFieldName = "__SECRET_KEY__";
-	%>
-	
-	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/password.javajet"%>
+	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/Amazon/CredentialsProvider.javajet"%>
    	
-   	com.amazonaws.auth.AWSCredentials credentials_<%=cid%> = new com.amazonaws.auth.BasicAWSCredentials(<%=accesskey%>,decryptedPassword_<%=cid%>);
-   	
-	com.amazonaws.services.redshift.AmazonRedshiftClient client_<%=cid%> = new com.amazonaws.services.redshift.AmazonRedshiftClient(credentials_<%=cid%>);
+	com.amazonaws.services.redshift.AmazonRedshiftClient client_<%=cid%> = new com.amazonaws.services.redshift.AmazonRedshiftClient(
+		credentialsProvider_<%=cid%>,
+		new com.amazonaws.ClientConfiguration().withUserAgent(routines.system.Constant.TALEND_USER_AGENT)
+	);
 
 	<%
 	if(region!=null && !region.isEmpty() && !"DEFAULT".equalsIgnoreCase(region)){

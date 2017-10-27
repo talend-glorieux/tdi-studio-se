@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -42,7 +42,6 @@ import org.talend.core.prefs.ITalendCorePrefConstants;
 import org.talend.core.ui.component.ComponentsFactoryProvider;
 import org.talend.core.utils.CsvArray;
 import org.talend.designer.core.i18n.Messages;
-import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainer;
 import org.talend.designer.core.ui.editor.nodecontainer.NodeContainer;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.editor.process.EDatabaseComponentName;
@@ -128,18 +127,13 @@ public class GuessSchemaProcess {
 
         // create the tLibraryLoad for the input node
 
-        if (node.getComponent().getModulesNeeded().size() > 0 && !node.getComponent().getName().equals("tRedshiftInput")) {//$NON-NLS-1$
-            for (ModuleNeeded module : node.getComponent().getModulesNeeded()) {
+        if (node.getModulesNeeded().size() > 0 && !node.getComponent().getName().equals("tRedshiftInput")) {//$NON-NLS-1$
+            for (ModuleNeeded module : node.getModulesNeeded()) {
                 if (module.isRequired(node.getElementParameters())) {
                     Node libNode1 = new Node(ComponentsFactoryProvider.getInstance().get(LIB_NODE,
                             ComponentCategory.CATEGORY_4_DI.getName()), process);
                     libNode1.setPropertyValue("LIBRARY", "\"" + module.getModuleName() + "\""); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                    NodeContainer nc = null;
-                    if (libNode1.isJoblet() || libNode1.isMapReduce()) {
-                        nc = new JobletContainer(libNode1);
-                    } else {
-                        nc = new NodeContainer(libNode1);
-                    }
+                    NodeContainer nc = process.loadNodeContainer(libNode1, false);
                     process.addNodeContainer(nc);
                 }
             }
@@ -167,8 +161,8 @@ public class GuessSchemaProcess {
             IElementParameter connector = node.getElementParameter("CONNECTION");
             if (connector != null) {
                 String connectorValue = connector.getValue().toString();
-                List<? extends INode> graphicalNodes = originalProcess.getGraphicalNodes();
-                for (INode node : graphicalNodes) {
+                List<? extends INode> generatingNodes = originalProcess.getGeneratingNodes();
+                for (INode node : generatingNodes) {
                     if (node.getUniqueName().equals(connectorValue)) {
                         connectionNode = node;
                         break;
@@ -241,40 +235,25 @@ public class GuessSchemaProcess {
         if (ConnectionUtils.isVertica(info.getUrl())) {
             createStatament = "conn.createStatement()";
         }
-        codeStart = systemProperty
-                + "java.lang.Class.forName(\"" + info.getDriverClassName() + "\");\r\n" + "String url = \"" + info.getUrl() //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                + "\";\r\n" + "java.sql.Connection conn = java.sql.DriverManager.getConnection(url, \"" + info.getUsername() //$NON-NLS-1$ //$NON-NLS-2$
-                + "\", \"" + info.getPwd() + "\");\r\n" + "java.sql.Statement stm = " + createStatament + ";\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                + "try {\r\nstm.setFetchSize(" + fetchSize + ");\r\n} catch (Exception e) {\r\n// Exception is thrown if db don't support, no need to catch exception here\r\n} \r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "java.sql.ResultSet rs = stm.executeQuery(" + memoSQL + ");\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "java.sql.ResultSetMetaData rsmd = rs.getMetaData();\r\n" + "int numbOfColumn = rsmd.getColumnCount();\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "\r\n" + "String fileName = (new java.io.File(\r\n" + "                    \"" + temppath //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                + "\")).getAbsolutePath().replace(\r\n" + "                    \"\\\\\", \"/\");\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "com.talend.csv.CSVWriter csvWriter = new com.talend.csv.CSVWriter(\r\n" //$NON-NLS-1$
-                + "                    new java.io.BufferedWriter(new java.io.OutputStreamWriter(\r\n" //$NON-NLS-1$
-                + "                            new java.io.FileOutputStream(\r\n" //$NON-NLS-1$
-                + "                                    fileName, false),\r\n" //$NON-NLS-1$
-                + "                            \"GBK\")));\r\n" + "                            \r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "csvWriter.setSeparator(';');\r\n" + "csvWriter.setQuoteStatus(com.talend.csv.CSVWriter.QuoteStatus.FORCE);\r\n" + "int nbRows = 0;\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
-                + "String[] columnNames = new String[numbOfColumn];\r\n" + "String[] nullables = new String[numbOfColumn];\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "String[] lengths = new String[numbOfColumn];\r\n" + "String[] precisions = new String[numbOfColumn];\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "String[] dbtypes = new String[numbOfColumn];\r\n" //$NON-NLS-1$
-                + "for(int i = 1;i<=numbOfColumn;i++){\r\n" + "columnNames[i-1] = rsmd.getColumnName(i);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "nullables[i-1] = rsmd.isNullable(i) == 0? \"false\" : \"true\";\r\n" //$NON-NLS-1$
-                + "lengths[i-1] = Integer.toString(rsmd.getScale(i));\r\n" //$NON-NLS-1$
-                + "precisions[i-1] = Integer.toString(rsmd.getPrecision(i));" //$NON-NLS-1$
-                + "dbtypes[i-1] = rsmd.getColumnTypeName(i);\r\n" + "}\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-
-                + "csvWriter.writeNext(columnNames);\r\n" + "csvWriter.writeNext(nullables);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "csvWriter.writeNext(lengths);\r\n" + "csvWriter.writeNext(precisions);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
-                + "csvWriter.writeNext(dbtypes);\r\n" + "while (rs.next()) {"; //$NON-NLS-1$ //$NON-NLS-2$ 
+        if (EDatabaseTypeName.GENERAL_JDBC.getXmlName().equals(info.getDbType())
+                && "com.sap.db.jdbc.Driver".equals(info.getDriverClassName())
+                || EDatabaseTypeName.SAPHana.getXmlName().equals(info.getDbType())) {
+            createStatament = "conn.createStatement()";
+        }
+        codeStart = systemProperty + getCodeStart(connectionNode, createStatament, fetchSize);
 
         codeMain = "String[] dataOneRow = new String[numbOfColumn];\r\n" + "for (int i = 1; i <= numbOfColumn; i++) {\r\n" //$NON-NLS-1$ //$NON-NLS-2$
                 + "    \r\n" + " try{\r\n" + "    String tempStr = rs.getString(i);\r\n" + "    dataOneRow[i-1] = tempStr;\r\n" + "      } catch (java.sql.SQLException e) {\r\n" + "}\r\n" + "}\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
                 + "csvWriter.writeNext(dataOneRow);"; //$NON-NLS-1$
-
-        codeEnd = "nbRows++;\r\n" + "    if (nbRows > " + maximumRowsToPreview + ") break;\r\n" + "}\r\n" + "stm.close();\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$
-                + "conn.close();\r\n" + "csvWriter.close();\r\n"; //$NON-NLS-1$ //$NON-NLS-2$
+        
+        
+        if(EDatabaseTypeName.REDSHIFT.getXmlName().equals(info.getDbType())){
+            codeEnd = "nbRows++;\r\n" + "    if (nbRows > " + maximumRowsToPreview + ") break;\r\n" + "}\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                    + "conn.close();\r\n" + "csvWriter.close();\r\n"; //$NON-NLS-1$ //$NON-NLS-2$
+        }else{
+            codeEnd = "nbRows++;\r\n" + "    if (nbRows > " + maximumRowsToPreview + ") break;\r\n" + "}\r\n"  //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                    + "conn.close();\r\n" + "csvWriter.close();\r\n"; //$NON-NLS-1$ //$NON-NLS-2$
+        }
 
         IComponent component = null;
         switch (LanguageManager.getCurrentLanguage()) {
@@ -294,6 +273,101 @@ public class GuessSchemaProcess {
         flexNode.setPropertyValue("CODE_END", codeEnd); //$NON-NLS-1$
 
         process.addNodeContainer(new NodeContainer(flexNode));
+    }
+    
+    private String getCodeStart(INode connectionNode, String createStatament, int fetchSize){
+        String codeStart = null;
+        if(EDatabaseTypeName.REDSHIFT.getXmlName().equals(info.getDbType())){
+            String tableName = (String) node.getElementParameter("TABLE").getValue();
+            String dbName = null;
+            String schema = null;
+            if(connectionNode!=null){
+                if(connectionNode.getElementParameter("DBNAME")!=null){
+                    dbName = (String) connectionNode.getElementParameter("DBNAME").getValue();
+                }
+                if(connectionNode.getElementParameter("SCHEMA_DB")!=null){
+                    schema = (String) connectionNode.getElementParameter("SCHEMA_DB").getValue();
+                }
+            }else{
+                if(node.getElementParameter("DBNAME")!=null){
+                    dbName = (String) node.getElementParameter("DBNAME").getValue();
+                }
+                if(node.getElementParameter("SCHEMA_DB")!=null){
+                    schema = (String) node.getElementParameter("SCHEMA_DB").getValue();
+                }
+            }
+            codeStart = "java.lang.Class.forName(\"" + info.getDriverClassName() + "\");\r\n" + "String url = \"" + info.getUrl() //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    + "\";\r\n" + "java.sql.Connection conn = java.sql.DriverManager.getConnection(url, \"" + info.getUsername() //$NON-NLS-1$ //$NON-NLS-2$
+                    + "\", \"" + info.getPwd() + "\");\r\n" + "java.sql.DatabaseMetaData metaData = conn.getMetaData();\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    + "java.sql.ResultSet rs = metaData.getColumns(" + dbName + "," + schema + "," + tableName + ",null);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                   
+                    + "\r\n" + "String fileName = (new java.io.File(\r\n" + "                    \"" + temppath //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    + "\")).getAbsolutePath().replace(\r\n" + "                    \"\\\\\", \"/\");\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "com.talend.csv.CSVWriter csvWriter = new com.talend.csv.CSVWriter(\r\n" //$NON-NLS-1$
+                    + "                    new java.io.BufferedWriter(new java.io.OutputStreamWriter(\r\n" //$NON-NLS-1$
+                    + "                            new java.io.FileOutputStream(\r\n" //$NON-NLS-1$
+                    + "                                    fileName, false),\r\n" //$NON-NLS-1$
+                    + "                            \"GBK\")));\r\n" + "                            \r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "csvWriter.setSeparator(';');\r\n" + "csvWriter.setQuoteStatus(com.talend.csv.CSVWriter.QuoteStatus.FORCE);\r\n" + "int nbRows = 0;\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    
+                    
+                    
+                    + "java.util.List<String> columnNameList= new java.util.ArrayList<String>();\r\n" + "java.util.List<String> nullableList= new java.util.ArrayList<String>();\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "java.util.List<String> lengthList= new java.util.ArrayList<String>();\r\n" + "java.util.List<String> precisionList= new java.util.ArrayList<String>();\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "java.util.List<String> dbtypeList= new java.util.ArrayList<String>();\r\n" //$NON-NLS-1$
+                    
+                    +"while (rs.next()) {\r\n" //$NON-NLS-1$
+                    +"columnNameList.add(rs.getString(\"COLUMN_NAME\"));\r\n" //$NON-NLS-1$
+                    +"nullableList.add(rs.getBoolean(\"NULLABLE\") ? \"true\" : \"false\");\r\n" //$NON-NLS-1$
+                    +"lengthList.add(Integer.toString(rs.getInt(\"COLUMN_SIZE\")));\r\n" //$NON-NLS-1$
+                    +"precisionList.add(Integer.toString(rs.getInt(\"NUM_PREC_RADIX\")));\r\n" //$NON-NLS-1$
+                    +"dbtypeList.add(rs.getString(\"TYPE_NAME\"));\r\n" //$NON-NLS-1$
+                    +"}\r\n" //$NON-NLS-1$
+                    
+                    +"int numbOfColumn = columnNameList.size();" //$NON-NLS-1$
+                    + "String[] columnNames = new String[numbOfColumn];\r\n" + "String[] nullables = new String[numbOfColumn];\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "String[] lengths = new String[numbOfColumn];\r\n" + "String[] precisions = new String[numbOfColumn];\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "String[] dbtypes = new String[numbOfColumn];\r\n" //$NON-NLS-1$
+                    
+                    
+                    + "for(int i = 0;i<=numbOfColumn-1;i++){\r\n" + "columnNames[i] = columnNameList.get(i);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "nullables[i] = nullableList.get(i);\r\n" //$NON-NLS-1$
+                    + "lengths[i] = lengthList.get(i);\r\n" //$NON-NLS-1$
+                    + "precisions[i] = precisionList.get(i);" //$NON-NLS-1$
+                    + "dbtypes[i] = dbtypeList.get(i);\r\n" + "}\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+
+                    + "csvWriter.writeNext(columnNames);\r\n" + "csvWriter.writeNext(nullables);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "csvWriter.writeNext(lengths);\r\n" + "csvWriter.writeNext(precisions);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "csvWriter.writeNext(dbtypes);\r\n" + "while (rs.next()) {"; //$NON-NLS-1$ //$NON-NLS-2$ 
+        }else{
+            codeStart = "java.lang.Class.forName(\"" + info.getDriverClassName() + "\");\r\n" + "String url = \"" + info.getUrl() //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    + "\";\r\n" + "java.sql.Connection conn = java.sql.DriverManager.getConnection(url, \"" + info.getUsername() //$NON-NLS-1$ //$NON-NLS-2$
+                    + "\", \"" + info.getPwd() + "\");\r\n" + "java.sql.Statement stm = " + createStatament + ";\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    + "try {\r\nstm.setFetchSize(" + fetchSize + ");\r\n} catch (Exception e) {\r\n// Exception is thrown if db don't support, no need to catch exception here\r\n} \r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "java.sql.ResultSet rs = stm.executeQuery(" + memoSQL + ");\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "java.sql.ResultSetMetaData rsmd = rs.getMetaData();\r\n" + "int numbOfColumn = rsmd.getColumnCount();\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "\r\n" + "String fileName = (new java.io.File(\r\n" + "                    \"" + temppath //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    + "\")).getAbsolutePath().replace(\r\n" + "                    \"\\\\\", \"/\");\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "com.talend.csv.CSVWriter csvWriter = new com.talend.csv.CSVWriter(\r\n" //$NON-NLS-1$
+                    + "                    new java.io.BufferedWriter(new java.io.OutputStreamWriter(\r\n" //$NON-NLS-1$
+                    + "                            new java.io.FileOutputStream(\r\n" //$NON-NLS-1$
+                    + "                                    fileName, false),\r\n" //$NON-NLS-1$
+                    + "                            \"GBK\")));\r\n" + "                            \r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "csvWriter.setSeparator(';');\r\n" + "csvWriter.setQuoteStatus(com.talend.csv.CSVWriter.QuoteStatus.FORCE);\r\n" + "int nbRows = 0;\r\n" //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    + "String[] columnNames = new String[numbOfColumn];\r\n" + "String[] nullables = new String[numbOfColumn];\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "String[] lengths = new String[numbOfColumn];\r\n" + "String[] precisions = new String[numbOfColumn];\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "String[] dbtypes = new String[numbOfColumn];\r\n" //$NON-NLS-1$
+                    + "for(int i = 1;i<=numbOfColumn;i++){\r\n" + "columnNames[i-1] = rsmd.getColumnName(i);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "nullables[i-1] = rsmd.isNullable(i) == 0? \"false\" : \"true\";\r\n" //$NON-NLS-1$
+                    + "lengths[i-1] = Integer.toString(rsmd.getScale(i));\r\n" //$NON-NLS-1$
+                    + "precisions[i-1] = Integer.toString(rsmd.getPrecision(i));" //$NON-NLS-1$
+                    + "dbtypes[i-1] = rsmd.getColumnTypeName(i);\r\n" + "}\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+
+                    + "csvWriter.writeNext(columnNames);\r\n" + "csvWriter.writeNext(nullables);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "csvWriter.writeNext(lengths);\r\n" + "csvWriter.writeNext(precisions);\r\n" //$NON-NLS-1$ //$NON-NLS-2$
+                    + "csvWriter.writeNext(dbtypes);\r\n" + "while (rs.next()) {"; //$NON-NLS-1$ //$NON-NLS-2$ 
+        }
+        return codeStart;
     }
 
     // write content to a temp .csv file

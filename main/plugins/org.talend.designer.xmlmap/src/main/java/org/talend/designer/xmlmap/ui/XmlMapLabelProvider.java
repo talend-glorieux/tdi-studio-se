@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -21,7 +21,6 @@ import org.talend.commons.ui.runtime.swt.tableviewer.behavior.DefaultTableLabelP
 import org.talend.commons.ui.runtime.swt.tableviewer.data.AccessorUtils;
 import org.talend.designer.xmlmap.model.emf.xmlmap.NodeType;
 import org.talend.designer.xmlmap.model.emf.xmlmap.TreeNode;
-import org.talend.designer.xmlmap.model.emf.xmlmap.impl.OutputTreeNodeImpl;
 import org.talend.utils.sql.TalendTypeConvert;
 
 /**
@@ -81,8 +80,8 @@ public class XmlMapLabelProvider extends DefaultTableLabelProvider {
                     }
                 }
                 if (cellEditor != null && retrieverValue != null && value != null) {
-                    if (element instanceof OutputTreeNodeImpl) {
-                        if ((((OutputTreeNodeImpl) element).getNodeType()).equals(NodeType.ELEMENT)) {
+                    if (element instanceof TreeNode) {
+                        if ((((TreeNode) element).getNodeType()).equals(NodeType.ELEMENT)) {
                             returnValue = retrieverValue.getColumnText(cellEditor, element, value);
                         }
                     }

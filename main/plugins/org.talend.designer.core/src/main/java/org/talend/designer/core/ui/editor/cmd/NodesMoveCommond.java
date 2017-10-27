@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -498,12 +498,7 @@ public class NodesMoveCommond extends Command {
                 }
             }
 
-            NodeContainer nc = null;
-            if (((Node) pastedNode).isJoblet() || ((Node) pastedNode).isMapReduce()) {
-                nc = new JobletContainer((Node) pastedNode);
-            } else {
-                nc = new NodeContainer((Node) pastedNode);
-            }
+            NodeContainer nc = ((Process)pastedNode.getProcess()).loadNodeContainer((Node)pastedNode, false);;
             nodeContainerList.add(nc);
         }
         ((Process) process).setCopyPasteSubjobMappings(mapping);

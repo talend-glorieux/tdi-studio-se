@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -210,7 +210,7 @@ public class ShadowProcess<T extends IProcessDescription> {
             // hywang add for excel 2007
             String versionCheck = "false";
             String afterRemoveQuotesPath = TalendTextUtils.removeQuotes(inPath);
-            if (afterRemoveQuotesPath.endsWith(".xlsx")) {
+            if (afterRemoveQuotesPath.toLowerCase().endsWith(".xlsx")) {
                 versionCheck = "true";
             }
 

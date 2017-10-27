@@ -75,6 +75,50 @@
       <DEFAULT>false</DEFAULT>
     </PARAMETER>
     
+    <PARAMETER
+      NAME="ASSUME_ROLE"
+      FIELD="CHECK"
+      NUM_ROW="22"
+      REQUIRED="true"
+      GROUP="CONNECTION_CONFIG"
+      SHOW_IF="(USE_EXISTING_CONNECTION == 'false')" 
+    >
+      <DEFAULT>false</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="ARN"
+      FIELD="TEXT"
+      NUM_ROW="23"
+      REQUIRED="true"
+      GROUP="CONNECTION_CONFIG"
+      SHOW_IF="isShow[ASSUME_ROLE] AND (ASSUME_ROLE == 'true')"
+    >
+      <DEFAULT>""</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="ROLE_SESSION_NAME"
+      FIELD="TEXT"
+      NUM_ROW="24"
+      REQUIRED="true"
+      GROUP="CONNECTION_CONFIG"
+      SHOW_IF="isShow[ASSUME_ROLE] AND (ASSUME_ROLE == 'true')"
+    >
+      <DEFAULT>""</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="SESSION_DURATION"
+      FIELD="TEXT"
+      NUM_ROW="25"
+      REQUIRED="true"
+      GROUP="CONNECTION_CONFIG"
+      SHOW_IF="isShow[ASSUME_ROLE] AND (ASSUME_ROLE == 'true')"
+    >
+      <DEFAULT>15</DEFAULT>
+    </PARAMETER>
+    
     <PARAMETER 
 	    NAME="REGION" 
 	    FIELD="OPENED_LIST" 
@@ -143,6 +187,23 @@
             <ITEM NAME="VALUE" />
           </ITEMS>
         </PARAMETER>
+        
+        <PARAMETER
+      	  NAME="SET_STS_ENDPOINT"
+      	  FIELD="CHECK"
+      	  NUM_ROW="35"
+      	  SHOW_IF="isShow[ASSUME_ROLE] AND (ASSUME_ROLE == 'true')"
+    	>
+    	</PARAMETER>
+		<PARAMETER
+      	  NAME="STS_ENDPOINT"
+      	  FIELD="TEXT"
+      	  NUM_ROW="35"
+      	  REQUIRED="true"
+      	  SHOW_IF="isShow[ASSUME_ROLE] AND (ASSUME_ROLE == 'true') AND (SET_STS_ENDPOINT == 'true')"
+    	>
+      	  <DEFAULT>""</DEFAULT>
+    	</PARAMETER>
 
     </ADVANCED_PARAMETERS>
 
@@ -163,13 +224,11 @@
 			MVN="mvn:org.talend.libraries/jackson-annotations-2.5.3/6.0.0"
 			UrlPath="platform:/plugin/org.talend.libraries.jackson/lib/jackson-annotations-2.5.3.jar"
 			REQUIRED_IF="USE_EXISTING_CONNECTION == 'false'" />
-		<IMPORT NAME="httpcore-4.3.3.jar" MODULE="httpcore-4.3.3.jar"
-			MVN="mvn:org.talend.libraries/httpcore-4.3.3/6.0.0"
-			UrlPath="platform:/plugin/org.talend.libraries.apache.http/lib/httpcore-4.3.3.jar"
+		<IMPORT NAME="httpcore-4.4.3.jar" MODULE="httpcore-4.4.3.jar"
+			MVN="mvn:org.talend.libraries/httpcore-4.4.3/6.3.0"
 			REQUIRED_IF="USE_EXISTING_CONNECTION == 'false'" />
-		<IMPORT NAME="httpclient-4.3.6.jar" MODULE="httpclient-4.3.6.jar"
-			MVN="mvn:org.talend.libraries/httpclient-4.3.6/6.0.0"
-			UrlPath="platform:/plugin/org.talend.libraries.apache.http/lib/httpclient-4.3.6.jar"
+		<IMPORT NAME="httpclient-4.5.1.jar" MODULE="httpclient-4.5.1.jar"
+			MVN="mvn:org.talend.libraries/httpclient-4.5.1/6.3.0"
 			REQUIRED_IF="USE_EXISTING_CONNECTION == 'false'" />
 		<IMPORT NAME="joda-time-2.8.1.jar" MODULE="joda-time-2.8.1.jar"
 			MVN="mvn:org.talend.libraries/joda-time-2.8.1/6.0.0"

@@ -66,7 +66,11 @@ imports="
 <%
                 String alias = ElementParameterParser.getValue(node, "__DATASOURCE_ALIAS__");
 %>
-                conn_<%=cid%> = dataSources_<%=cid%>.get(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>).getConnection();
+    			String dsAlias_<%=cid%> = <%=(null != alias && !("".equals(alias)))?alias:"\"\""%>;
+        		if (dataSources_<%=cid%>.get(dsAlias_<%=cid%>) == null) {
+           			throw new RuntimeException("No DataSource with alias: " + dsAlias_<%=cid%> + " available!");
+              	}
+        		conn_<%=cid%> = dataSources_<%=cid%>.get(dsAlias_<%=cid%>).getConnection();
             } else {
 <%
 		}

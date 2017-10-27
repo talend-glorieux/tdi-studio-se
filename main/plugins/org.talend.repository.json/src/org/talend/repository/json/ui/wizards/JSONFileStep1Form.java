@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -24,6 +24,7 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.text.MessageFormat;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -77,6 +78,7 @@ import org.talend.datatools.xml.utils.ATreeNode;
 import org.talend.designer.core.model.utils.emf.talendfile.ContextType;
 import org.talend.metadata.managment.ui.utils.ConnectionContextHelper;
 import org.talend.repository.ProjectManager;
+import org.talend.repository.json.i18n.Messages;
 import org.talend.repository.json.util.JSONUtil;
 import org.talend.repository.ui.wizards.metadata.connection.files.json.AbstractTreePopulator;
 import org.talend.repository.ui.wizards.metadata.connection.files.json.EJsonReadbyMode;
@@ -146,6 +148,8 @@ public class JSONFileStep1Form extends AbstractJSONFileStepForm {
     private int limit;
 
     private Text commonNodesLimitation;
+    
+    private Label labelLimitation;
 
     /**
      * Constructor to use by RCP Wizard.
@@ -339,12 +343,14 @@ public class JSONFileStep1Form extends AbstractJSONFileStepForm {
         Composite limitation = new Composite(compositeFileLocation, SWT.NONE);
         limitation.setLayout(new GridLayout(2, false));
 
-        Label labelLimitation = new Label(limitation, SWT.LEFT);
+        labelLimitation = new Label(limitation, SWT.LEFT);
         labelLimitation.setText("Limit"); //$NON-NLS-1$
         commonNodesLimitation = new Text(limitation, SWT.BORDER);
-        GridData gd = new GridData(18, 12);
+        GridData gd = new GridData(GridData.VERTICAL_ALIGN_FILL);
+        gd.widthHint = 18;
         commonNodesLimitation.setLayoutData(gd);
         commonNodesLimitation.setText(String.valueOf(TreePopulator.getLimit()));
+        labelLimitation.setToolTipText(MessageFormat.format(Messages.JSONLimitToolTip, commonNodesLimitation.getText()));
 
         commonNodesLimitation.addModifyListener(new ModifyListener() {
 
@@ -355,8 +361,10 @@ public class JSONFileStep1Form extends AbstractJSONFileStepForm {
 
                 if ((!str.matches("\\d+")) || (Integer.valueOf(str) < 0)) { //$NON-NLS-1$
                     commonNodesLimitation.setText(String.valueOf(treePopulator.getLimit()));
+                    labelLimitation.setToolTipText(MessageFormat.format(Messages.JSONLimitToolTip, commonNodesLimitation.getText()));;
                 } else {
                     limit = Integer.valueOf(str);
+                    labelLimitation.setToolTipText(MessageFormat.format(Messages.JSONLimitToolTip, limit));
                 }
 
                 String tempxml = null;
@@ -383,6 +391,7 @@ public class JSONFileStep1Form extends AbstractJSONFileStepForm {
             @Override
             public void focusLost(FocusEvent e) {
                 commonNodesLimitation.setText(String.valueOf(TreePopulator.getLimit()));
+                labelLimitation.setToolTipText(MessageFormat.format(Messages.JSONLimitToolTip, commonNodesLimitation.getText()));
             }
 
         });
@@ -539,6 +548,7 @@ public class JSONFileStep1Form extends AbstractJSONFileStepForm {
                 String limitString = commonNodesLimitation.getText();
                 try {
                     limit = Integer.valueOf(limitString);
+                    labelLimitation.setToolTipText(MessageFormat.format(Messages.JSONLimitToolTip, limit));
                 } catch (Exception excpt) {
                     // nothing need to do
                 }

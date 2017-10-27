@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -150,6 +150,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
 
         protected boolean locked = false;
 
+        @Override
         public void beginTask(String name, int totalWork) {
             if (progressIndicator == null) {
                 return;
@@ -164,6 +165,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
             }
         }
 
+        @Override
         public void done() {
             if (progressIndicator == null) {
                 return;
@@ -174,13 +176,16 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
             }
         }
 
+        @Override
         public void setTaskName(String name) {
         }
 
+        @Override
         public boolean isCanceled() {
             return fIsCanceled;
         }
 
+        @Override
         public void setCanceled(boolean b) {
             fIsCanceled = b;
             if (locked) {
@@ -188,13 +193,16 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
             }
         }
 
+        @Override
         public void subTask(String name) {
         }
 
+        @Override
         public void worked(int work) {
             internalWorked(work);
         }
 
+        @Override
         public void internalWorked(double work) {
             if (!progressIndicator.isDisposed()) {
                 progressIndicator.worked(work);
@@ -206,6 +214,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
          * 
          * @see org.eclipse.core.runtime.IProgressMonitorWithBlocking#clearBlocked()
          */
+        @Override
         public void clearBlocked() {
         }
 
@@ -214,6 +223,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
          * 
          * @see org.eclipse.core.runtime.IProgressMonitorWithBlocking#setBlocked(org.eclipse.core.runtime.IStatus)
          */
+        @Override
         public void setBlocked(IStatus reason) {
             locked = true;
         }
@@ -251,6 +261,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @see org.eclipse.jface.window.Window#configureShell(org.eclipse.swt.widgets.Shell)
      */
+    @Override
     public void configureShell(Shell shell) {
         super.configureShell(shell);
         // Set the title bar text
@@ -262,6 +273,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @param parent
      */
+    @Override
     protected Control createDialogArea(Composite parent) {
         container = (Composite) super.createDialogArea(parent);
         // container.setLayout(new GridLayout());
@@ -303,6 +315,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * @see org.talend.sqlbuilder.ui.ISQLBuilderDialog#openEditor(org.talend.repository.model.RepositoryNode,
      * java.util.List, org.talend.sqlbuilder.util.ConnectionParameters, boolean)
      */
+    @Override
     public void openEditor(RepositoryNode node, List<String> repositoryName, ConnectionParameters connParam,
             boolean isDefaultEditor) {
         this.nodeInEditor = node;
@@ -362,6 +375,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @param parent
      */
+    @Override
     protected void createButtonsForButtonBar(Composite parent) {
         GridData data = new GridData(GridData.FILL_HORIZONTAL);
         parent.setLayoutData(data);
@@ -394,6 +408,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
         button.setData(new Integer(id));
         button.addSelectionListener(new SelectionAdapter() {
 
+            @Override
             public void widgetSelected(SelectionEvent event) {
                 buttonPressed(((Integer) event.widget.getData()).intValue());
             }
@@ -415,6 +430,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
     /**
      * Return the initial size of the dialog.
      */
+    @Override
     protected Point getInitialSize() {
         return new Point(800, 600);
     }
@@ -425,8 +441,8 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
 
     @Override
     public boolean close() {
-        SqlBuilderPlugin.getDefault().getRepositoryService().removeRepositoryChangedListener(this);
         try {
+            SqlBuilderPlugin.getDefault().getRepositoryService().removeRepositoryChangedListener(this);
             if (this.nodeInEditor != null) {
                 RepositoryNode root = SQLBuilderRepositoryNodeManager.getRoot(this.nodeInEditor);
                 if (root != null) {
@@ -435,13 +451,14 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
                     shutDownDb(connection);
                 }
             }
+            clean();
+            SQLBuilderRepositoryNodeManager.removeAllRepositoryNodes();
         } catch (Exception e) {
             ExceptionHandler.process(e);
+        } finally {
+            super.close();
         }
-
-        clean();
-        SQLBuilderRepositoryNodeManager.removeAllRepositoryNodes();
-        return super.close();
+        return true;
     }
 
     private void clean() {
@@ -451,6 +468,9 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
 
     private void shutDownDb(DatabaseConnection databaseConnection) {
         IMetadataConnection iMetadataConnection = null;
+        if (selectedContext == null) {
+            selectedContext = databaseConnection.getContextName();
+        }
         iMetadataConnection = ConvertionHelper.convert(databaseConnection, false, selectedContext);
         String dbType = iMetadataConnection.getDbType();
         String driverClassName = iMetadataConnection.getDriverClass();
@@ -507,6 +527,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @return the progress monitor
      */
+    @Override
     public IProgressMonitor getProgressMonitor() {
         return progressMonitor;
     }
@@ -516,10 +537,12 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @param connParameters the connParameters to set
      */
+    @Override
     public void setConnParameters(ConnectionParameters connParameters) {
         this.connParameters = connParameters;
     }
 
+    @Override
     public ConnectionParameters getConnParameters() {
         return connParameters;
     }
@@ -540,13 +563,13 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @see org.eclipse.jface.dialogs.Dialog#okPressed()
      */
+    @Override
     public void okPressed() {
         // gain the contextmode from sqlbuilder,and set it in connParameters,add by hyWang
         MultiPageSqlBuilderEditor editor = null;
         CTabFolder folder = getEditorComposite().getTabFolder();
         CTabItem[] a = folder.getItems();
-        for (int i = 0; i < a.length; i++) {
-            CTabItem itm = a[i];
+        for (CTabItem itm : a) {
             Object obj = itm.getData("KEY"); //$NON-NLS-1$
             if (obj instanceof MultiPageSqlBuilderEditor) {
                 editor = (MultiPageSqlBuilderEditor) obj;
@@ -591,8 +614,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
                 final CTabFolder tabFolder = getEditorComposite().getTabFolder();
                 final CTabItem[] items = tabFolder.getItems();
 
-                for (int i = 0; i < items.length; i++) {
-                    CTabItem item = items[i];
+                for (CTabItem item : items) {
                     final String text = item.getText();
                     boolean isInfo2 = text.length() > 1 && text.substring(0, 1).equals("*"); //$NON-NLS-1$
                     if (isInfo2) {
@@ -681,6 +703,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @see org.talend.sqlbuilder.ui.ISQLBuilderDialog#refreshNode(org.talend.repository.model.RepositoryNode)
      */
+    @Override
     public void refreshNode(RepositoryNode node) {
         structureComposite.doRefresh(node);
     }
@@ -717,6 +740,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
          * org.eclipse.ui.actions.SelectionProviderAction#selectionChanged(org.eclipse.jface.viewers.IStructuredSelection
          * )
          */
+        @Override
         public void selectionChanged(final IStructuredSelection selection) {
             if (!selection.isEmpty() && selectedContext == null) {
                 RepositoryNode repositoryNode = (RepositoryNode) selection.getFirstElement();
@@ -739,12 +763,14 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
             }
             IRunnableWithProgress progress = new IRunnableWithProgress() {
 
+                @Override
                 public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
                     monitor.beginTask("", IProgressMonitor.UNKNOWN); //$NON-NLS-1$
 
                     try {
                         Display.getDefault().asyncExec(new Runnable() {
 
+                            @Override
                             public void run() {
                                 INode node = null;
                                 String msg = null;
@@ -805,6 +831,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
         this.isFromRepositoryView = isFromRepositoryView;
     }
 
+    @Override
     public void repositoryChanged(RepositoryChangedEvent event) {
         clean();
         if (structureComposite != null) {
@@ -813,6 +840,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
         manager.synchronizeAllSqlEditors(this);
     }
 
+    @Override
     public void notifySQLBuilder(IRepositoryViewObject o) {
         CorePlugin.getDefault().getRepositoryService().removeRepositoryChangedListener(this);
         CorePlugin.getDefault().getRepositoryService().repositoryChanged(new RepositoryElementDelta(o));
@@ -825,6 +853,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * @see org.talend.sqlbuilder.ui.ISQLBuilderDialog#openEditor(org.talend.repository.model.RepositoryNode,
      * java.util.List, org.talend.sqlbuilder.util.ConnectionParameters, boolean, java.util.List)
      */
+    @Override
     public void openEditor(RepositoryNode node, List<String> repositoryName, ConnectionParameters connParam,
             boolean isDefaultEditor, List<IRepositoryNode> nodeSel) {
         this.nodeInEditor = node;
@@ -846,6 +875,7 @@ public class SQLBuilderDialog extends Dialog implements ISQLBuilderDialog, IRepo
      * 
      * @see org.talend.sqlbuilder.ui.ISQLBuilderDialog#getSelectedContext()
      */
+    @Override
     public String getSelectedContext() {
         return this.selectedContext;
     }

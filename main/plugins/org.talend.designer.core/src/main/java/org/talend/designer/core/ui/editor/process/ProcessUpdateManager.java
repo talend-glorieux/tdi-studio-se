@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,6 +13,7 @@
 package org.talend.designer.core.ui.editor.process;
 
 import java.beans.PropertyChangeEvent;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.emf.ecore.util.EcoreUtil;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
@@ -34,6 +36,7 @@ import org.talend.commons.runtime.xml.XmlUtil;
 import org.talend.core.CorePlugin;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.IESBService;
+import org.talend.core.ITDQPatternService;
 import org.talend.core.PluginChecker;
 import org.talend.core.model.components.ComponentCategory;
 import org.talend.core.model.components.IComponent;
@@ -830,7 +833,8 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
 
                                     } else {
                                         // check the value
-                                        if (param.getName().equals("HADOOP_ADVANCED_PROPERTIES")) {
+                                        if (param.getName().equals(EParameterName.HADOOP_ADVANCED_PROPERTIES.getName())
+                                                || param.getName().equals(EParameterName.SPARK_ADVANCED_PROPERTIES.getName())) {
                                             if (param.getValue() instanceof List && repValue instanceof List) {
                                                 // TDI-29719: since the feature TDI-27468 added.we must check for the
                                                 // property/value for the list
@@ -1356,38 +1360,41 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
                                      * should ignore the db type column. because database component can use other
                                      * database schema.
                                      */
-                                    if (this.isAddColumn) {
-                                        Display.getDefault().syncExec(new Runnable() {
+                                    if (metadataTable != null) {
+                                        if (this.isAddColumn) {
+                                            Display.getDefault().syncExec(new Runnable() {
 
-                                            @Override
-                                            public void run() {
-                                                isColumnUsed = MessageDialog.openQuestion(Display.getDefault().getActiveShell(),
-                                                        Messages.getString("ProcessUpdateManager.Question"),
-                                                        Messages.getString("ProcessUpdateManager.QuestionString"));
+                                                @Override
+                                                public void run() {
+                                                    isColumnUsed = MessageDialog.openQuestion(Display.getDefault()
+                                                            .getActiveShell(), Messages
+                                                            .getString("ProcessUpdateManager.Question"), Messages
+                                                            .getString("ProcessUpdateManager.QuestionString"));
+                                                    copyUsefulAttribute(copyOfrepositoryMetadata, metadataTable, isColumnUsed);
+                                                }
+
+                                            });
+                                            this.isAddColumn = false;
+                                        } else {
+                                            if (node.getComponentProperties() != null) {
+                                                // always set columns as used for new component framework
+                                                copyUsefulAttribute(copyOfrepositoryMetadata, metadataTable, true);
+                                            } else {
                                                 copyUsefulAttribute(copyOfrepositoryMetadata, metadataTable, isColumnUsed);
                                             }
-
-                                        });
-                                        this.isAddColumn = false;
-                                    } else {
-                                        if (node.getComponentProperties() != null) {
-                                            // always set columns as used for new component framework
-                                            copyUsefulAttribute(copyOfrepositoryMetadata, metadataTable, true);
-                                        } else {
-                                            copyUsefulAttribute(copyOfrepositoryMetadata, metadataTable, isColumnUsed);
                                         }
-                                    }
 
-                                    if (onlySimpleShow
-                                            || !metadataTable.sameMetadataAs(copyOfrepositoryMetadata,
-                                                    IMetadataColumn.OPTIONS_IGNORE_DBTYPE)
-                                            || connectionItem instanceof GenericSchemaConnectionItem
-                                            && !metadataTable.sameMetadataAs(copyOfrepositoryMetadata,
-                                                    IMetadataColumn.OPTIONS_NONE)) {
-                                        result = new UpdateCheckResult(node);
-                                        result.setResult(EUpdateItemType.NODE_SCHEMA, EUpdateResult.UPDATE,
-                                                copyOfrepositoryMetadata, source);
-                                        result.setContextModeConnectionItem(connectionItem);
+                                        if (onlySimpleShow
+                                                || !metadataTable.sameMetadataAs(copyOfrepositoryMetadata,
+                                                        IMetadataColumn.OPTIONS_IGNORE_DBTYPE)
+                                                || connectionItem instanceof GenericSchemaConnectionItem
+                                                && !metadataTable.sameMetadataAs(copyOfrepositoryMetadata,
+                                                        IMetadataColumn.OPTIONS_NONE)) {
+                                            result = new UpdateCheckResult(node);
+                                            result.setResult(EUpdateItemType.NODE_SCHEMA, EUpdateResult.UPDATE,
+                                                    copyOfrepositoryMetadata, source);
+                                            result.setContextModeConnectionItem(connectionItem);
+                                        }
                                     }
                                     builtIn = false;
                                 }
@@ -1677,6 +1684,7 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
         }
         List<UpdateResult> propertiesResults = new ArrayList<UpdateResult>();
 
+
         for (IElementParameter curPropertyParam : node.getElementParametersFromField(EParameterFieldType.PROPERTY_TYPE)) {
             String propertyType = (String) curPropertyParam.getChildParameters().get(EParameterName.PROPERTY_TYPE.getName())
                     .getValue();
@@ -1863,13 +1871,17 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
                                                         Map<String, Object> objectMap = (Map<String, Object>) objectList.get(i);
                                                         if (oldMap.get("PATH").equals(objectMap.get("PATH")) //$NON-NLS-1$ //$NON-NLS-2$
                                                                 && oldMap.get("ATTRIBUTE").equals(objectMap.get("ATTRIBUTE")) //$NON-NLS-1$ //$NON-NLS-2$
-                                                                && ((oldMap.get("VALUE") == null && objectMap.get("VALUE") == null) || (oldMap //$NON-NLS-1$ //$NON-NLS-2$
-                                                                        .get("VALUE") != null //$NON-NLS-1$
-                                                                        && objectMap.get("VALUE") != null && oldMap.get("VALUE") //$NON-NLS-1$ //$NON-NLS-2$
+                                                                && ((oldMap.get("VALUE") == null //$NON-NLS-1$
+                                                                && objectMap.get("VALUE") == null) //$NON-NLS-1$
+                                                                || (oldMap.get("VALUE") != null //$NON-NLS-1$
+                                                                        && objectMap.get("VALUE") != null //$NON-NLS-1$
+                                                                && oldMap.get("VALUE") //$NON-NLS-1$
                                                                         .equals(objectMap.get("VALUE")))) //$NON-NLS-1$
-                                                                && ((oldMap.get("COLUMN") == null && objectMap.get("COLUMN") == null) || (oldMap //$NON-NLS-1$ //$NON-NLS-2$
-                                                                        .get("COLUMN") != null //$NON-NLS-1$
-                                                                        && oldMap.get("COLUMN") != null && oldMap.get("COLUMN") //$NON-NLS-1$ //$NON-NLS-2$
+                                                                && ((oldMap.get("COLUMN") == null //$NON-NLS-1$
+                                                                && objectMap.get("COLUMN") == null) //$NON-NLS-1$
+                                                                || (oldMap.get("COLUMN") != null //$NON-NLS-1$
+                                                                        && oldMap.get("COLUMN") != null //$NON-NLS-1$
+                                                                && oldMap.get("COLUMN") //$NON-NLS-1$
                                                                         .equals(objectMap.get("COLUMN"))))) { //$NON-NLS-1$
                                                             sameValues = true;
                                                         } else {
@@ -1976,8 +1988,9 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
                                             if (!value.equals("CustomModule") && !value.equals(objectValue)) {//$NON-NLS-1$
                                                 if (repositoryConnection instanceof XmlFileConnection) {
                                                     if ((((XmlFileConnection) repositoryConnection).getXmlFilePath().endsWith(
-                                                            "xsd") || ((XmlFileConnection) repositoryConnection) //$NON-NLS-1$
-                                                            .getXmlFilePath().endsWith("xsd\"")) //$NON-NLS-1$
+                                                            "xsd") //$NON-NLS-1$
+                                                    || ((XmlFileConnection) repositoryConnection).getXmlFilePath().endsWith(
+                                                            "xsd\"")) //$NON-NLS-1$
                                                             && repositoryValue.equals("FILE_PATH")) { //$NON-NLS-1$
                                                     } else {
                                                         sameValues = false;
@@ -2152,10 +2165,46 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
                         if (contextResults != null) {
                             propertiesResults.addAll(contextResults);
                         }
-
+                    } else if (item != null && "pattern".equalsIgnoreCase(item.getFileExtension())) {
+                        // Added TDQ-11688, check pattern update
+                        ITDQPatternService service = null;
+                        if (GlobalServiceRegister.getDefault().isServiceRegistered(ITDQPatternService.class)) {
+                            service = (ITDQPatternService) GlobalServiceRegister.getDefault()
+                                    .getService(ITDQPatternService.class);
+                        }
+                        // for single pattern component
+                        if (service != null && node.getComponent().getName().startsWith("tPattern")) {
+                            // check pattern name
+                            IElementParameter nameParam = node.getElementParameter(ITDQPatternService.PATTERN_NAME);
+                            if (!service.isSameName(item, (String) nameParam.getValue())) {
+                                String newVlaue = getItemNewName(item);
+                                ElementParameter newValueParameter = new ElementParameter(nameParam.getElement());
+                                newValueParameter.setName(nameParam.getName());
+                                newValueParameter.setValue(newVlaue);
+                                createUpdateCheckResult(node, propertiesResults, newValueParameter, openedProcesses);
+                            }
+                            // check pattern regex
+                            String regex = service.getRegex(node, item);
+                            IElementParameter reParam = node.getElementParameter(ITDQPatternService.PATTERN_REGEX);
+                            if (!StringUtils.equals(regex, (String) reParam.getValue())) {
+                                ElementParameter newValueParameter = new ElementParameter(reParam.getElement());
+                                newValueParameter.setName(reParam.getName());
+                                newValueParameter.setValue(regex);
+                                if (result != null) {
+                                    propertiesResults.add(result);
+                                }
+                                createUpdateCheckResult(node, propertiesResults, newValueParameter, openedProcesses);
+                            }
+                        }
                     } else {
                         result = new UpdateCheckResult(node);
                         result.setResult(EUpdateItemType.NODE_PROPERTY, EUpdateResult.BUIL_IN, repositoryPropertyParam);
+                    }
+
+                    // TDQ-13685 check for multi patterns : when used patterns in table is changed or deleted
+                    if (node.getComponent().getName().startsWith("tMultiPattern")) {
+                        // go through every pattern to check if it is deleted or not.
+                        checkMultiPattern(node, propertiesResults, openedProcesses);
                     }
 
                     // add the check result to resultList, hold the value.
@@ -2171,6 +2220,61 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
             }
         }
         return propertiesResults;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void checkMultiPattern(final Node node, List<UpdateResult> propertiesResults, List<IProcess2> openedProcesses) {
+        ITDQPatternService service = null;
+        if (GlobalServiceRegister.getDefault().isServiceRegistered(ITDQPatternService.class)) {
+            service = (ITDQPatternService) GlobalServiceRegister.getDefault().getService(ITDQPatternService.class);
+        }
+        if (service != null) {
+            IElementParameter schemasTableParam = node.getElementParameter("SCHEMA_PATTERN_CHECK");
+            if (schemasTableParam != null) {
+                boolean isChanged = false;
+                for (Map onePattern : (List<Map>) schemasTableParam.getValue()) {
+                    IRepositoryViewObject lastVersion = UpdateRepositoryUtils.getRepositoryObjectById((String) onePattern
+                            .get(ITDQPatternService.PATTERN_ID));
+                    if (lastVersion == null) {// this pattern is deleted, change this pattern to builtin
+                        onePattern.put("PATTERN_PROPERTY", EmfComponent.BUILTIN);
+                    } else {
+                        Item item = lastVersion.getProperty().getItem();
+                        if (item != null) {
+                            if (!service.isSameName(item, (String) onePattern.get(ITDQPatternService.PATTERN_NAME))) {
+                                String name = getItemNewName(item);
+                                onePattern.put(ITDQPatternService.PATTERN_NAME, name);
+                                isChanged = true;
+                            }
+                            String regex = service.getRegex(node, item);
+                            if (!StringUtils.equals(regex, (String) onePattern.get(ITDQPatternService.PATTERN_REGEX))) {
+                                onePattern.put(ITDQPatternService.PATTERN_REGEX, regex);
+                                isChanged = true;
+                            }
+                        }
+                    }
+                }
+                if (isChanged) {
+                    createUpdateCheckResult(node, propertiesResults, schemasTableParam, openedProcesses);
+                }
+            }
+        }
+    }
+
+    private String getItemNewName(Item item) {
+        return item.getState().getPath().replaceFirst("Regex", "") + File.separator + item.getProperty().getDisplayName();
+    }
+
+    private UpdateCheckResult createUpdateCheckResult(final Node node, List<UpdateResult> propertiesResults,
+            IElementParameter schemasTableParam, List<IProcess2> openedProcesses) {
+        UpdateCheckResult result = new UpdateCheckResult(node);
+        result.setResult(EUpdateItemType.NODE_PROPERTY, EUpdateResult.UPDATE, schemasTableParam);
+        if (!openedProcesses.contains(getProcess())) {
+            result.setFromItem(true);
+        }
+        result.setJob(getProcess());
+        setConfigrationForReadOnlyJob(result);
+        propertiesResults.add(result);
+        return result;
     }
 
     /**
@@ -2408,8 +2512,7 @@ public class ProcessUpdateManager extends AbstractUpdateManager {
         if (newJobletName == null) {
             newJobletName = oldjobletName;
         }
-        IComponent newComponent = ComponentsFactoryProvider.getInstance().get(newJobletName,
-                ComponentCategory.CATEGORY_4_DI.getName());
+        IComponent newComponent = ComponentsFactoryProvider.getInstance().get(newJobletName, process.getComponentsType());
         if (newComponent == null) {
             return Collections.EMPTY_LIST;
         }

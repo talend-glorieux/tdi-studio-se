@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -31,7 +31,6 @@ import org.eclipse.swt.widgets.Table;
 import org.eclipse.swt.widgets.TableColumn;
 import org.eclipse.swt.widgets.TableItem;
 import org.talend.commons.ui.runtime.image.ImageProvider;
-import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.ui.images.CoreImageProvider;
 import org.talend.repository.i18n.Messages;
 import org.talend.repository.model.ItemVersionObject;
@@ -42,12 +41,15 @@ import org.talend.repository.model.ItemVersionObject;
 public class ItemsVersionConfirmDialog extends Dialog {
 
     private static final String TITLE = Messages.getString("ItemsVersionChangedDialog.Title"); //$NON-NLS-1$
+    
+    private boolean showSnapshot;
 
     private List<ItemVersionObject> modifiedVersionItems;
 
-    public ItemsVersionConfirmDialog(Shell parentShell, List<ItemVersionObject> modifiedVersionItems) {
+    public ItemsVersionConfirmDialog(Shell parentShell, List<ItemVersionObject> modifiedVersionItems, boolean showSnapshot) {
         super(parentShell);
         this.modifiedVersionItems = modifiedVersionItems;
+        this.showSnapshot = showSnapshot;
     }
 
     @Override
@@ -63,8 +65,8 @@ public class ItemsVersionConfirmDialog extends Dialog {
         GridData data = new GridData(GridData.FILL_BOTH);
         data.minimumHeight = 200;
         data.heightHint = 200;
-        data.minimumWidth = 350;
-        data.widthHint = 350;
+        data.minimumWidth = 450;
+        data.widthHint = 450;
         viewer.getControl().setLayoutData(data);
         final Table table = viewer.getTable();
         table.setHeaderVisible(true);
@@ -82,13 +84,19 @@ public class ItemsVersionConfirmDialog extends Dialog {
         column.setText(Messages.getString("VersionManagementDialog.NewVersion")); //$NON-NLS-1$
         column.setWidth(90);
 
+        if (showSnapshot) {
+            column = new TableColumn(table, SWT.NONE);
+            column.setText(Messages.getString("VersionManagementDialog.snapshot")); //$NON-NLS-1$
+            column.setWidth(80);
+        }
+
         viewer.setContentProvider(ArrayContentProvider.getInstance());
         viewer.setLabelProvider(new ITableLabelProvider() {
 
             public Image getColumnImage(Object element, int columnIndex) {
                 ItemVersionObject object = (ItemVersionObject) element;
                 if (columnIndex == 0) {
-                    return ImageProvider.getImage(CoreImageProvider.getIcon(ERepositoryObjectType.getItemType(object.getItem())));
+                    return ImageProvider.getImage(CoreImageProvider.getIcon(object.getItem()));
                 }
                 return null;
             }
@@ -105,6 +113,11 @@ public class ItemsVersionConfirmDialog extends Dialog {
                         return "-"; //$NON-NLS-1$
                     }
                     return object.getNewVersion();
+                case 3:
+                    if (object.isUseSnapshotOld() == object.isUseSnapshotNew()) {
+                        return "-"; //$NON-NLS-1$
+                    }
+                    return Boolean.toString(object.isUseSnapshotNew());
                 default:
                 }
                 return null;
@@ -131,6 +144,11 @@ public class ItemsVersionConfirmDialog extends Dialog {
             ItemVersionObject object = (ItemVersionObject) item.getData();
             if (!object.getOldVersion().equals(object.getNewVersion())) {
                 item.setForeground(2, Display.getDefault().getSystemColor(SWT.COLOR_RED));
+            }
+            if (showSnapshot) {
+                if (object.isUseSnapshotOld() != object.isUseSnapshotNew()) {
+                    item.setForeground(3, Display.getDefault().getSystemColor(SWT.COLOR_RED));
+                }
             }
         }
         return composite;

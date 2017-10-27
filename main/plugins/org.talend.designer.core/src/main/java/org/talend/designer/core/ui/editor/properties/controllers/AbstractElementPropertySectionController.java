@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -117,6 +117,7 @@ import org.talend.core.ui.process.IGraphicalNode;
 import org.talend.core.ui.properties.tab.IDynamicProperty;
 import org.talend.core.ui.proposal.TalendProposalUtils;
 import org.talend.core.ui.services.ISQLBuilderService;
+import org.talend.core.utils.TalendQuoteUtils;
 import org.talend.cwm.helper.ConnectionHelper;
 import org.talend.designer.core.DesignerPlugin;
 import org.talend.designer.core.IMultiPageTalendEditor;
@@ -151,9 +152,9 @@ import org.talend.repository.model.IProxyRepositoryFactory;
 
 /**
  * DOC yzhang class global comment. Detailled comment <br/>
- * 
+ *
  * $Id: talend-code-templates.xml 1 2006-09-29 17:06:40 +0000 (鏄熸湡浜�, 29 涔濇湀 2006) yzhang $
- * 
+ *
  */
 
 public abstract class AbstractElementPropertySectionController implements PropertyChangeListener {
@@ -228,9 +229,9 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC yzhang Comment method "createControl".
-     * 
+     *
      * Create control within the tabbed property setcion.
-     * 
+     *
      * @param subComposite. The composite selected in the editor or view, transfered from super class of tabbed
      * properties framwork.
      * @param param. The paramenter from EMF.
@@ -238,9 +239,8 @@ public abstract class AbstractElementPropertySectionController implements Proper
      * @param nbInRow. The total quantity of the control in a row.
      * @param top
      * @param rowSize height that can take the control (0 if default size)
-     * @param lastControl. The latest control created beside current being created.
-     * @return. The control created by this method will be the paramenter of next be called createControl method for
-     * position calculate.
+     * @param lastControl. The latest control created beside current being created. @return. The control created by this
+     * method will be the paramenter of next be called createControl method for position calculate.
      */
     public abstract Control createControl(final Composite subComposite, final IElementParameter param, final int numInRow,
             final int nbInRow, final int top, final Control lastControl);
@@ -264,7 +264,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Will return true of false depends if the control has dynamic size or not.
-     * 
+     *
      * @return
      */
     public boolean hasDynamicRowSize() {
@@ -273,7 +273,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Used only to force the rowSize if the size is dynamic.
-     * 
+     *
      * @param height
      */
     public void setAdditionalHeightSize(int height) {
@@ -282,7 +282,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Used only to force the rowSize if the size is dynamic.
-     * 
+     *
      * @return the height
      */
     public int getAdditionalHeightSize() {
@@ -303,7 +303,8 @@ public abstract class AbstractElementPropertySectionController implements Proper
         for (int i = 0; i < valuesList.length; i++) {
             if (valuesList[i].equals(value)) {
                 if ("DB_VERSION".equals(repositoryName) || HiveConstant.DISTRIBUTION_PARAMETER.equals(repositoryName)
-                        || HiveConstant.VERSION_PARAMETER.equals(repositoryName) || ImpalaConstant.DISTRIBUTION_PARAMETER.equals(repositoryName)
+                        || HiveConstant.VERSION_PARAMETER.equals(repositoryName)
+                        || ImpalaConstant.DISTRIBUTION_PARAMETER.equals(repositoryName)
                         || ImpalaConstant.VERSION_PARAMETER.equals(repositoryName)) {
                     return valuesList[i].toString();
                 }
@@ -372,6 +373,8 @@ public abstract class AbstractElementPropertySectionController implements Proper
                     }
                     if (param.getValue() instanceof String) {
                         return (String) param.getValue();
+                    } else if (param.getValue() instanceof Boolean) {
+                        return String.valueOf(param.getValue());
                     } else if (param.getValue() instanceof List) {
                         // for jdbc parm driver jar
                         String value = "";
@@ -400,7 +403,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC zli Comment method "getValueFromRepositoryName".
-     * 
+     *
      * @param elem2
      * @param repositoryName
      * @param parameterName
@@ -469,7 +472,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC yzhang Comment method "init".
-     * 
+     *
      * Configuration for necessay parameters from class DynamicTabbedPropertiesSection.
      */
     public void init(IDynamicProperty dp) {
@@ -491,7 +494,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Getter for dynamicTabbedPropertySection.
-     * 
+     *
      * @return the dynamicTabbedPropertySection
      */
     public IDynamicProperty getDynamicProperty() {
@@ -502,9 +505,9 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC yzhang Comment method "getWidgetFactory".
-     * 
+     *
      * Get the TabbedPropertySheetWidgetFactory for control creating.
-     * 
+     *
      * @return
      */
     protected WidgetFactory getWidgetFactory() {
@@ -515,12 +518,12 @@ public abstract class AbstractElementPropertySectionController implements Proper
     }
 
     /**
-     * 
+     *
      * DOC amaumont DynamicTabbedPropertySection class global comment. Detailled comment <br/>
-     * 
+     *
      * @author amaumont $Id: DynamicTabbedPropertySection.java 344 2006-11-08 14:29:42 +0000 (mer., 08 nov. 2006)
      * smallet $
-     * 
+     *
      */
     public class EditionControlHelper {
 
@@ -534,14 +537,17 @@ public abstract class AbstractElementPropertySectionController implements Proper
          * DOC amaumont EditionListenerManager constructor comment.
          */
         public EditionControlHelper() {
-            super();
-            this.checkErrorsHelper = new CheckErrorsHelper();
-            this.undoRedoHelper = new UndoRedoHelper();
+            this(new CheckErrorsHelper(), new UndoRedoHelper());
+        }
+
+        public EditionControlHelper(CheckErrorsHelper checkErrorsHelper, UndoRedoHelper undoRedoHelper) {
+            this.checkErrorsHelper = checkErrorsHelper;
+            this.undoRedoHelper = undoRedoHelper;
         }
 
         /**
          * DOC amaumont Comment method "checkErrors".
-         * 
+         *
          * @param t
          * @param b
          */
@@ -551,7 +557,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         /**
          * DOC amaumont Comment method "register".
-         * 
+         *
          * @param parameterName
          * @param control
          * @param checkSyntax
@@ -598,7 +604,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         /**
          * DOC amaumont Comment method "register".
-         * 
+         *
          * @param control
          */
         public void unregister(Control control) {
@@ -611,14 +617,14 @@ public abstract class AbstractElementPropertySectionController implements Proper
     private static Map<Control, ControlProperties> controlToProp = new HashMap<Control, ControlProperties>();
 
     /**
-     * 
+     *
      * DOC amaumont DynamicTabbedPropertySection class global comment. Detailled comment <br/>
-     * 
+     *
      * @author amaumont $Id: DynamicTabbedPropertySection.java 344 2006-11-08 14:29:42 +0000 (mer., 08 nov. 2006)
      * smallet $
-     * 
+     *
      */
-    class CheckErrorsHelper {
+    public class CheckErrorsHelper {
 
         /**
          * DOC amaumont CheckSyntaxHelper constructor comment.
@@ -717,7 +723,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         /**
          * DOC amaumont Comment method "unregister".
-         * 
+         *
          * @param control
          */
         public void unregister(Control control) {
@@ -754,7 +760,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         /**
          * DOC amaumont Comment method "checkSyntax".
-         * 
+         *
          * @param control
          * @param modifying
          */
@@ -990,7 +996,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         /**
          * DOC amaumont Comment method "resetErrorState".
-         * 
+         *
          * @param control
          * @param previousProblem
          */
@@ -1006,11 +1012,11 @@ public abstract class AbstractElementPropertySectionController implements Proper
     }
 
     /**
-     * 
+     *
      * Container of original properties of Control. <br/>
-     * 
+     *
      * $Id: DynamicTabbedPropertySection.java 865 2006-12-06 06:14:57 +0000 (鏄熸湡涓�, 06 鍗佷簩鏈� 2006) bqian $
-     * 
+     *
      */
     class ControlProperties {
 
@@ -1033,21 +1039,21 @@ public abstract class AbstractElementPropertySectionController implements Proper
     }
 
     /**
-     * 
+     *
      * DOC amaumont DynamicTabbedPropertySection class global comment. Detailled comment <br/>
-     * 
+     *
      * @author amaumont
-     * 
+     *
      * $Id: DynamicTabbedPropertySection.java 865 2006-12-06 06:14:57 +0000 (鏄熸湡涓�, 06 鍗佷簩鏈� 2006) bqian $
-     * 
+     *
      */
-    class UndoRedoHelper {
+    public class UndoRedoHelper {
 
         protected TypedTextCommandExecutor typedTextCommandExecutor;
 
         /**
          * DOC amaumont Comment method "unregister".
-         * 
+         *
          * @param control
          */
         public void unregister(Control control) {
@@ -1103,7 +1109,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         /**
          * DOC amaumont Comment method "register".
-         * 
+         *
          * @param control
          */
         public void register(Control control) {
@@ -1114,7 +1120,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC amaumont Comment method "getParameterName".
-     * 
+     *
      * @param control
      * @return
      */
@@ -1134,7 +1140,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Get the command stack of the Gef editor.
-     * 
+     *
      * @return
      */
     protected CommandStack getCommandStack() {
@@ -1173,7 +1179,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Accept Text and StyledText control.
-     * 
+     *
      * @param labelText
      */
     public void addDragAndDropTarget(final Control textControl) {
@@ -1240,7 +1246,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Sets the elem.
-     * 
+     *
      * @param elem the elem to set
      */
     protected void setElem(Element elem) {
@@ -1249,7 +1255,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Sets the hashCurControls.
-     * 
+     *
      * @param hashCurControls the hashCurControls to set
      */
     protected void setHashCurControls(BidiMap hashCurControls) {
@@ -1258,7 +1264,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Sets the part.
-     * 
+     *
      * @param part the part to set
      */
     protected void setPart(AbstractMultiPageTalendEditor part) {
@@ -1267,7 +1273,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * Sets the section.
-     * 
+     *
      * @param section the section to set
      */
     protected void setSection(EComponentCategory section) {
@@ -1276,7 +1282,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC amaumont Comment method "checkErrors".
-     * 
+     *
      * @param control must be or extends <code>Text</code> or <code>StyledText</code>
      */
     protected void checkErrorsForPropertiesOnly(Control control) {
@@ -1289,7 +1295,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * qzhang Comment method "fixedCursorPosition".
-     * 
+     *
      * @param param
      * @param labelText
      * @param value
@@ -1304,7 +1310,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
             Object control = editionControlHelper.undoRedoHelper.typedTextCommandExecutor.getActiveControl();
             if (param.getName().equals(control) && valueChanged && !param.isRepositoryValueUsed()) {
                 String previousText = editionControlHelper.undoRedoHelper.typedTextCommandExecutor.getPreviousText2();
-                String currentText = (String) value;
+                String currentText = String.valueOf(value);
                 labelText.setFocus();
                 ControlUtils.setCursorPosition(labelText, getcursorPosition(previousText, currentText));
             }
@@ -1313,7 +1319,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * qzhang Comment method "getcursorPosition".
-     * 
+     *
      * @param previousText
      * @param currentText
      * @return
@@ -1329,7 +1335,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * qzhang Comment method "getLeftCharPosition".
-     * 
+     *
      * @param previousText
      * @param currentText
      * @return
@@ -1441,6 +1447,8 @@ public abstract class AbstractElementPropertySectionController implements Proper
                 dbName = dbName.replace("\\\"", "");
             }
             dbName = TextUtil.removeQuots(dbName);
+        } else if (EDatabaseTypeName.GENERAL_JDBC.getDisplayName().equals(connParameters.getDbType())) {
+            dbName = ""; //$NON-NLS-1$
         }
         connParameters.setDbName(dbName);
         if (connParameters.getDbType().equals(EDatabaseTypeName.SQLITE.getXmlName())
@@ -1475,12 +1483,16 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         String driverClass = getValueFromRepositoryName(element, EConnectionParameterName.DRIVER_CLASS.getName(),
                 basePropertyParameter);
-        String dbVersion = getValueFromRepositoryName(element, "DB_VERSION", basePropertyParameter);
-        if (EDatabaseVersion4Drivers.VERTICA_5_1.getVersionValue().equals(dbVersion)
-                || EDatabaseVersion4Drivers.VERTICA_6.getVersionValue().equals(dbVersion)
-                || EDatabaseVersion4Drivers.VERTICA_6_1_X.getVersionValue().equals(dbVersion)
-                || EDatabaseVersion4Drivers.VERTICA_7.getVersionValue().equals(dbVersion)) {
-            connParameters.setDbVersion(dbVersion);
+        String driverName = getValueFromRepositoryName(element, "DB_VERSION", basePropertyParameter); //$NON-NLS-1$
+        if (StringUtils.isBlank(driverName) && EDatabaseTypeName.MSSQL.getDisplayName().equals(connParameters.getDbType())) {
+            driverName = getValueFromRepositoryName(element, "DRIVER", basePropertyParameter); //$NON-NLS-1$
+        }
+        String dbVersionName = EDatabaseVersion4Drivers.getDbVersionName(type, driverName);
+        connParameters.setDbVersion(dbVersionName);
+        if (EDatabaseVersion4Drivers.VERTICA_5_1.getVersionValue().equals(dbVersionName)
+                || EDatabaseVersion4Drivers.VERTICA_6.getVersionValue().equals(dbVersionName)
+                || EDatabaseVersion4Drivers.VERTICA_6_1_X.getVersionValue().equals(dbVersionName)
+                || EDatabaseVersion4Drivers.VERTICA_7.getVersionValue().equals(dbVersionName)) {
             driverClass = EDatabase4DriverClassName.VERTICA2.getDriverClass();
         }
 
@@ -1597,6 +1609,8 @@ public abstract class AbstractElementPropertySectionController implements Proper
                 dbName = dbName.replace("\\\"", "");
             }
             dbName = TextUtil.removeQuots(dbName);
+        } else if (EDatabaseTypeName.GENERAL_JDBC.getDisplayName().equals(connParameters.getDbType())) {
+            dbName = ""; //$NON-NLS-1$
         }
         connParameters.setDbName(dbName);
         connParameters.setPassword(getParameterValueWithContext(element, EConnectionParameterName.PASSWORD.getName(), context,
@@ -1691,7 +1705,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC yexiaowei Comment method "fetchElementParameterValude".
-     * 
+     *
      * @param elem
      * @param context
      * @param actualKey
@@ -1732,7 +1746,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC zli Comment method "getImplicitRepositoryId".
-     * 
+     *
      * @return
      */
     protected String getImplicitRepositoryId() {
@@ -1760,7 +1774,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC zli Comment method "getStatsLogRepositoryId".
-     * 
+     *
      * @return
      */
     protected String getStatsLogRepositoryId() {
@@ -1784,13 +1798,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
         return null;
     }
 
-    /**
-     * Sets the parameters, name node uri and job tracker uri, for connection parameters. Added by Marvin Wang on Jan 8,
-     * 2013.
-     * 
-     * @param element
-     */
-    private void setSpecialParamsForHiveEmbedded(IElement element) {
+    private void setHiveRelatedParams(IElement element) {
         // hive embedded model, all parameters below should not be null
         String distroKey = getValueFromRepositoryName(elem, "DISTRIBUTION");
         connParameters.getParameters().put(ConnParameterKeys.CONN_PARA_KEY_HIVE_DISTRIBUTION, distroKey);
@@ -1809,6 +1817,22 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
         String jobTrackerURI = getValueFromRepositoryName(element, EParameterNameForComponent.PARA_NAME_MAPRED_JT.getName());
         connParameters.getParameters().put(ConnParameterKeys.CONN_PARA_KEY_JOB_TRACKER_URL, jobTrackerURI);
+
+        // for ssl
+        String useSSL = getValueFromRepositoryName(elem, "USE_SSL"); //$NON-NLS-1$
+        connParameters.getParameters().put(ConnParameterKeys.CONN_PARA_KEY_USE_SSL, useSSL);
+
+        String trustStorePath = TalendQuoteUtils.removeQuotes(getValueFromRepositoryName(elem, "SSL_TRUST_STORE")); //$NON-NLS-1$
+        connParameters.getParameters().put(ConnParameterKeys.CONN_PARA_KEY_SSL_TRUST_STORE_PATH, trustStorePath);
+
+        String trustStorePassword = TalendQuoteUtils.removeQuotes(getValueFromRepositoryName(elem, "SSL_TRUST_STORE_PASSWORD")); //$NON-NLS-1$
+        connParameters.getParameters().put(ConnParameterKeys.CONN_PARA_KEY_SSL_TRUST_STORE_PASSWORD, trustStorePassword);
+
+        String additionalJDBCSetting = TalendQuoteUtils.removeQuotes(getValueFromRepositoryName(elem, "HIVE_ADDITIONAL_JDBC")); //$NON-NLS-1$
+        if (StringUtils.isNotEmpty(additionalJDBCSetting)) {
+            connParameters.getParameters().put(ConnParameterKeys.CONN_PARA_KEY_HIVE_ADDITIONAL_JDBC_SETTINGS,
+                    additionalJDBCSetting);
+        }
     }
 
     protected void initConnectionParameters() {
@@ -1841,9 +1865,9 @@ public abstract class AbstractElementPropertySectionController implements Proper
         } else if (EDatabaseTypeName.HIVE.getProduct().equalsIgnoreCase(type)) {
             // if (EDatabaseVersion4Drivers.HIVE_EMBEDDED.getVersionValue().equals(
             // elem.getElementParameter("CONNECTION_MODE").getValue())) {
-            setSpecialParamsForHiveEmbedded(elem);
+            setHiveRelatedParams(elem);
             // }
-        }else if (EDatabaseTypeName.IMPALA.getProduct().equalsIgnoreCase(type)) {
+        } else if (EDatabaseTypeName.IMPALA.getProduct().equalsIgnoreCase(type)) {
             String distroKey = getValueFromRepositoryName(elem, "DISTRIBUTION");
             connParameters.getParameters().put(ConnParameterKeys.CONN_PARA_KEY_IMPALA_DISTRIBUTION, distroKey);
 
@@ -1858,10 +1882,14 @@ public abstract class AbstractElementPropertySectionController implements Proper
         connParameters.setDbType(type);
 
         String driverName = getValueFromRepositoryName(elem, "DB_VERSION", basePropertyParameter); //$NON-NLS-1$
+        if (StringUtils.isBlank(driverName) && EDatabaseTypeName.MSSQL.getDisplayName().equals(connParameters.getDbType())) {
+            driverName = getValueFromRepositoryName(elem, "DRIVER", basePropertyParameter); //$NON-NLS-1$
+        }
         String dbVersionName = EDatabaseVersion4Drivers.getDbVersionName(type, driverName);
         if (EDatabaseTypeName.HIVE.getProduct().equalsIgnoreCase(type)) {
-            if (EDatabaseVersion4Drivers.HIVE_EMBEDDED.getVersionValue().equals(
-                    elem.getElementParameter("CONNECTION_MODE").getValue())) {
+            IElementParameter connectionMode = elem.getElementParameter("CONNECTION_MODE");
+            if (connectionMode != null
+                    && EDatabaseVersion4Drivers.HIVE_EMBEDDED.getVersionValue().equals(connectionMode.getValue())) {
                 connParameters.setDbVersion(EDatabaseVersion4Drivers.HIVE_EMBEDDED.getVersionValue());
             } else {
                 connParameters.setDbVersion(EDatabaseVersion4Drivers.HIVE.getVersionValue());
@@ -1898,7 +1926,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
         Object value = elem.getPropertyValue("USE_EXISTING_CONNECTION"); //$NON-NLS-1$
 
         IElementParameter compList = elem.getElementParameterFromField(EParameterFieldType.COMPONENT_LIST);
-        if (value != null && (value instanceof Boolean) && ((Boolean) value) && compList != null && !isConnectionExist()) {
+        if (value != null && (value instanceof Boolean) && ((Boolean) value) && compList != null) {
             Object compValue = compList.getValue();
 
             if (compValue != null && !compValue.equals("")) { //$NON-NLS-1$
@@ -1907,6 +1935,15 @@ public abstract class AbstractElementPropertySectionController implements Proper
                     if (node.getUniqueName().equals(compValue) && (node instanceof Node)) {
                         connectionNode = node;
                         break;
+                    }
+                }
+                if (connectionNode == null) {
+                    nodes = part.getProcess().getGeneratingNodes();
+                    for (INode node : nodes) {
+                        if (node.getUniqueName().equals(compValue) && (node instanceof INode)) {
+                            connectionNode = node;
+                            break;
+                        }
                     }
                 }
                 if (connectionNode != null) {
@@ -1956,7 +1993,6 @@ public abstract class AbstractElementPropertySectionController implements Proper
     }
 
     protected boolean isConnectionExist() {
-        setAllConnectionParameters(null, elem);
 
         ISQLBuilderService service = null;
         if (GlobalServiceRegister.getDefault().isServiceRegistered(ISQLBuilderService.class)) {
@@ -2019,9 +2055,9 @@ public abstract class AbstractElementPropertySectionController implements Proper
     }
 
     /**
-     * 
+     *
      * DOC ggu Comment method "isExtra".
-     * 
+     *
      * for extra db setting.
      */
     private boolean sameExtraParameter(IElementParameter param) {
@@ -2045,7 +2081,7 @@ public abstract class AbstractElementPropertySectionController implements Proper
 
     /**
      * DOC qzhang Comment method "openSQLBuilder".
-     * 
+     *
      * @param repositoryType
      * @param propertyName
      * @param query
@@ -2079,8 +2115,11 @@ public abstract class AbstractElementPropertySectionController implements Proper
             for (IElementParameter param : elem.getElementParameters()) {
                 if (param.getFieldType() == EParameterFieldType.PROPERTY_TYPE
                         && param.getRepositoryValue().startsWith("DATABASE")) {
-                    repositoryParam = param;
-                    break;
+                    if (memoParam != null && param.getCategory().equals(memoParam.getCategory())) {
+                        repositoryParam = param;
+                        break;
+                    }
+
                 }
             }
             // in case no database property found, take the first property (to keep compatibility with old code)
@@ -2325,9 +2364,9 @@ public abstract class AbstractElementPropertySectionController implements Proper
     }
 
     /**
-     * 
+     *
      * cli Comment method "addResourceDisposeListener".
-     * 
+     *
      * When dispose the control, dispose resource at the same time. (bug 6916)
      */
     protected void addResourceDisposeListener(final Control parent, final Resource res) {

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -273,6 +273,9 @@ public abstract class PersistentRowSorterIterator<V extends IPersistableRow> imp
         // System.out.println("Writing ordered buffer in file...");
 
         File file = new File(buildFilePath());
+        
+        file.deleteOnExit();
+        
         count++;
         // ObjectOutputStream rw = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
         ObjectOutputStream rw = new JBossObjectOutputStream(new BufferedOutputStream(new FileOutputStream(file)));

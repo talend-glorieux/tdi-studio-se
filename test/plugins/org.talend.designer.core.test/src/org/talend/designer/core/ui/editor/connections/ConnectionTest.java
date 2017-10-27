@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -41,6 +41,8 @@ import org.talend.designer.core.ui.editor.process.Process;
  */
 public class ConnectionTest {
 
+    private IProcess2 process;
+
     private Connection connection = null;
 
     private INode source;
@@ -57,7 +59,7 @@ public class ConnectionTest {
     @Before
     public void setUp() throws Exception {
         Property property = PropertiesFactory.eINSTANCE.createProperty();
-        IProcess2 process = new Process(property);
+        process = new Process(property);
         IComponent sourceCom = ComponentsFactoryProvider.getInstance().get("tMysqlInput",
                 ComponentCategory.CATEGORY_4_DI.getName());
         IComponent targetCom = ComponentsFactoryProvider.getInstance().get("tMysqlOutput",
@@ -124,7 +126,7 @@ public class ConnectionTest {
         connection.setTraceData(null);
         assertNull(connection.getTraceData());
     }
-    
+
     @Test
     public void testCreateParallelizeParameters() {
         IComponent componentPar = ComponentsFactoryProvider.getInstance().get("tPartitioner",
@@ -133,7 +135,7 @@ public class ConnectionTest {
         assertEquals(node.getPropertyValue("NUM_PARTITIONS").toString(), connection.getPropertyValue("NUM_PARTITIONS").toString());
         assertEquals(node.getPropertyValue("HASH_PARTITION").toString(), connection.getPropertyValue("HASH_PARTITION").toString());
         assertEquals(node.getPropertyValue("HASH_KEYS").toString(), connection.getPropertyValue("HASH_KEYS").toString());
-        
+
         IComponent componentCol = ComponentsFactoryProvider.getInstance().get("tRecollector",
                 ComponentCategory.CATEGORY_4_DI.getName());
         node = new Node(componentCol, (Process) source.getProcess());

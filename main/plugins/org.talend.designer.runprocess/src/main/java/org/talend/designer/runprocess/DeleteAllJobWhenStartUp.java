@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -30,9 +30,7 @@ import org.eclipse.core.runtime.jobs.ISchedulingRule;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.ui.IStartup;
 import org.talend.commons.exception.ExceptionHandler;
-import org.talend.commons.exception.PersistenceException;
 import org.talend.commons.utils.generation.JavaUtils;
-import org.talend.core.CorePlugin;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.runtime.process.ITalendProcessJavaProject;
 import org.talend.designer.maven.model.TalendMavenConstants;
@@ -49,11 +47,13 @@ public class DeleteAllJobWhenStartUp implements IStartup {
 
     public static boolean executed;
 
-    private boolean startUnderPluginModel;
-
-    public void startup(boolean pluginModel) {
-        startUnderPluginModel = pluginModel;
+    public void startup() {
         earlyStartup();
+    }
+    
+    @Deprecated
+    public void startup(boolean pluginModel) {
+        startup();
     }
 
     /*
@@ -63,10 +63,6 @@ public class DeleteAllJobWhenStartUp implements IStartup {
      */
     @Override
     public void earlyStartup() {
-
-        if (!startUnderPluginModel && !CorePlugin.getDefault().getRepositoryService().isRCPMode()) {
-            return;
-        }
         if (!GlobalServiceRegister.getDefault().isServiceRegistered(IRunProcessService.class)) {
             return;
         }

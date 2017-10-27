@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -487,7 +487,7 @@ public class DbTableController extends AbstractElementPropertySectionController 
         contextManager = manager;
         initConnectionParameters();
         if (this.connParameters != null) {
-            if (isUseExistingConnection() && !isConnectionExist()) {
+            if (isUseExistingConnection()) {
                 initConnectionParametersWithContext(connectionNode, manager.getDefaultContext());
             } else {
                 initConnectionParametersWithContext(elem, manager.getDefaultContext());

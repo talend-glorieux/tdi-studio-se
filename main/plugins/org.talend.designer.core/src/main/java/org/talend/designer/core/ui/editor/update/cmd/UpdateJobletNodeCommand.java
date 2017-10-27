@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -49,7 +49,7 @@ import org.talend.core.ui.component.ComponentsFactoryProvider;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.process.AbstractProcessProvider;
 import org.talend.designer.core.ui.editor.cmd.ChangeMetadataCommand;
-import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainer;
+import org.talend.designer.core.ui.editor.jobletcontainer.AbstractJobletContainer;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.editor.process.Process;
 import org.talend.designer.core.ui.editor.update.UpdateManagerUtils;
@@ -110,7 +110,7 @@ public class UpdateJobletNodeCommand extends Command {
                         if (jobletNodes != null && !jobletNodes.isEmpty()) {
                             for (Node node : jobletNodes) {
                                 IComponent newComponent = ComponentsFactoryProvider.getInstance().get(
-                                        node.getComponent().getName(), ComponentCategory.CATEGORY_4_DI.getName());
+                                        node.getComponent().getName(), process.getComponentsType());
                                 if (newComponent == null) {
                                     continue;
                                 }
@@ -121,11 +121,18 @@ public class UpdateJobletNodeCommand extends Command {
                                 Node currentNode = getOriginalNodeFromProcess(node);
                                 boolean neesPro = needPropagate(currentNode);
                                 if (currentNode.isJoblet() || currentNode.isMapReduce()) {// maybe no need modify
+                                    List<IElementParameter> tempList = new ArrayList<IElementParameter>(currentNode.getElementParameters());
                                     if (result.isNeedReloadJoblet()) {
                                         reloadNode(currentNode, newComponent);
                                     }
-                                    if (currentNode.getNodeContainer() instanceof JobletContainer) {
-                                        ((JobletContainer) currentNode.getNodeContainer()).updateJobletNodes(true);
+                                    if (currentNode.getNodeContainer() instanceof AbstractJobletContainer) {
+                                        for(IElementParameter tempParam : tempList) {
+                                            IElementParameter param = currentNode.getElementParameter(tempParam.getName());
+                                            if (param != null) {
+                                                param.setValue(tempParam.getValue());
+                                            }
+                                        }
+                                        ((AbstractJobletContainer) currentNode.getNodeContainer()).updateJobletNodes(true);
                                     }
                                 } else {
                                     reloadNode(currentNode, newComponent);
@@ -163,7 +170,7 @@ public class UpdateJobletNodeCommand extends Command {
         if (process == null || oldName == null || newName == null) {
             return;
         }
-        IComponent newComponent = ComponentsFactoryProvider.getInstance().get(newName, ComponentCategory.CATEGORY_4_DI.getName());
+        IComponent newComponent = ComponentsFactoryProvider.getInstance().get(newName, process.getComponentsType());
         if (newComponent == null) {
             return;
         }
@@ -187,7 +194,7 @@ public class UpdateJobletNodeCommand extends Command {
 
         String componentName = currentNode.getComponent().getName();
         IComponent newComponent = ComponentsFactoryProvider.getInstance().get(componentName,
-                ComponentCategory.CATEGORY_4_DI.getName());
+                process.getComponentsType());
         if (newComponent == null) {
             return;
         }
@@ -269,7 +276,7 @@ public class UpdateJobletNodeCommand extends Command {
                 }
 
                 IComponent newComponent = ComponentsFactoryProvider.getInstance().get(node.getComponent().getName(),
-                        ComponentCategory.CATEGORY_4_DI.getName());
+                        process.getComponentsType());
                 if (newComponent == null) {
                     continue;
                 }
@@ -295,7 +302,7 @@ public class UpdateJobletNodeCommand extends Command {
 
         String componentName = sourceNode.getComponent().getName();
         IComponent newComponent = ComponentsFactoryProvider.getInstance().get(componentName,
-                ComponentCategory.CATEGORY_4_DI.getName());
+                process.getComponentsType());
         if (newComponent == null) {
             return;
         }
@@ -323,12 +330,14 @@ public class UpdateJobletNodeCommand extends Command {
                         IConnection connection = incomingConnections.get(i);
                         Node source = (Node) connection.getSource();
                         IMetadataTable metadataTable = connection.getMetadataTable();
-                        IMetadataTable newInputMetadataTable = UpdateManagerUtils.getNewInputTableForConnection(
-                                newInputTableList, metadataTable.getAttachedConnector());
-                        if (newInputMetadataTable != null && !metadataTable.sameMetadataAs(newInputMetadataTable)) {
-                            IElementParameter elementParam = source.getElementParameterFromField(EParameterFieldType.SCHEMA_TYPE);
-                            command = new ChangeMetadataCommand(source, elementParam, metadataTable, newInputMetadataTable);
-                            command.execute(Boolean.FALSE);
+                        if (metadataTable != null) {
+                            IMetadataTable newInputMetadataTable = UpdateManagerUtils.getNewInputTableForConnection(
+                                    newInputTableList, metadataTable.getAttachedConnector());
+                            if (newInputMetadataTable != null && !metadataTable.sameMetadataAs(newInputMetadataTable)) {
+                                IElementParameter elementParam = source.getElementParameterFromField(EParameterFieldType.SCHEMA_TYPE);
+                                command = new ChangeMetadataCommand(source, elementParam, metadataTable, newInputMetadataTable);
+                                command.execute(Boolean.FALSE);
+                            }
                         }
                     }
                 } else {

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,6 +13,7 @@
 package org.talend.designer.core.ui.action;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +44,12 @@ import org.talend.core.ui.IJobletProviderService;
 import org.talend.designer.core.i18n.Messages;
 import org.talend.designer.core.model.process.AbstractProcessProvider;
 import org.talend.designer.core.ui.editor.AbstractTalendEditor;
+import org.talend.designer.core.ui.editor.PartFactory;
 import org.talend.designer.core.ui.editor.cmd.MultiplePasteCommand;
 import org.talend.designer.core.ui.editor.cmd.NodesPasteCommand;
 import org.talend.designer.core.ui.editor.cmd.NotesPasteCommand;
 import org.talend.designer.core.ui.editor.connections.ConnLabelEditPart;
-import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainer;
+import org.talend.designer.core.ui.editor.jobletcontainer.AbstractJobletContainer;
 import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainerPart;
 import org.talend.designer.core.ui.editor.nodecontainer.NodeContainer;
 import org.talend.designer.core.ui.editor.nodecontainer.NodeContainerPart;
@@ -154,7 +156,7 @@ public class GEFPasteAction extends SelectionAction {
     }
 
     @Override
-    @SuppressWarnings("unchecked")//$NON-NLS-1$
+    @SuppressWarnings("unchecked")
     public void run() {
         Object clipBoardContent;
         try {
@@ -162,7 +164,7 @@ public class GEFPasteAction extends SelectionAction {
         } catch (RuntimeException e) {
             return;
         }
-
+        AbstractTalendEditor editor = (AbstractTalendEditor) this.getWorkbenchPart();
         org.eclipse.swt.dnd.Clipboard systemClipboard = new org.eclipse.swt.dnd.Clipboard(Display.getCurrent());
         Object systemObject = systemClipboard.getContents(TextTransfer.getInstance());
 
@@ -206,7 +208,47 @@ public class GEFPasteAction extends SelectionAction {
                     }
                 }
             }
-            AbstractTalendEditor editor = (AbstractTalendEditor) this.getWorkbenchPart();
+
+            Map<JobletContainerPart, List<NodePart>> jobletMap = new HashMap<JobletContainerPart, List<NodePart>>();
+            for (NodePart nodePart : nodeParts) {
+                boolean isCollapsedNode = false;
+                if (editor.getProcess().getGraphicalNodes().contains(nodePart.getModel())) {
+                    isCollapsedNode = true;
+                }
+                if (!isCollapsedNode && nodePart.getParent() instanceof JobletContainerPart) {
+                    JobletContainerPart jobletContainer = (JobletContainerPart) nodePart.getParent();
+                    List<NodePart> jobletNodeParts = jobletMap.get(jobletContainer);
+                    if (jobletNodeParts == null) {
+                        jobletNodeParts = new ArrayList<NodePart>();
+                        jobletMap.put(jobletContainer, jobletNodeParts);
+                    }
+                    jobletNodeParts.add(nodePart);
+                }
+            }
+            List<NodePart> expandedJobletNodes = new ArrayList<NodePart>();
+            for (JobletContainerPart jobletContainer : jobletMap.keySet()) {
+                boolean copyJobletNode = true;
+                List<NodePart> list = jobletMap.get(jobletContainer);
+                for (Object obj : jobletContainer.getChildren()) {
+                    if (obj instanceof NodePart) {
+                        if (!list.contains(obj)) {
+                            copyJobletNode = false;
+                            break;
+                        }
+
+                    }
+                }
+                if (copyJobletNode) {
+                    nodeParts.removeAll(list);
+                    PartFactory factory = new PartFactory();
+                    NodePart createEditPart = (NodePart) factory.createEditPart(jobletContainer,
+                            ((NodeContainer) jobletContainer.getModel()).getNode());
+                    createEditPart.setParent(jobletContainer);
+                    nodeParts.add(createEditPart);
+                    expandedJobletNodes.add(createEditPart);
+                }
+            }
+
             org.eclipse.draw2d.geometry.Point gefPoint = getCursorLocation();
 
             // qli comment
@@ -269,11 +311,12 @@ public class GEFPasteAction extends SelectionAction {
                 MultiplePasteCommand mpc = new MultiplePasteCommand(nodeParts, noteParts,
                         (org.talend.designer.core.ui.editor.process.Process) editor.getProcess(), gefPoint);
                 mpc.setSelectedSubjobs(subjobParts);
+                mpc.setSelectedExpandedJoblet(expandedJobletNodes);
                 execute(mpc);
             } else if (nodeParts.size() != 0) {
-                NodesPasteCommand cmd = new NodesPasteCommand(nodeParts,
-                        (org.talend.designer.core.ui.editor.process.Process) editor.getProcess(), gefPoint);
+                NodesPasteCommand cmd = new NodesPasteCommand(nodeParts, editor.getProcess(), gefPoint);
                 cmd.setSelectedSubjobs(subjobParts);
+                cmd.setSelectedExpandedJoblet(expandedJobletNodes);
                 execute(cmd);
             } else if (noteParts.size() != 0) {
                 NotesPasteCommand cmd = new NotesPasteCommand(noteParts,
@@ -354,7 +397,7 @@ public class GEFPasteAction extends SelectionAction {
             }
         }
         Node jobletNode = (Node) copiedNode.getJobletNode();
-        JobletContainer jnc = (JobletContainer) jobletNode.getNodeContainer();
+        AbstractJobletContainer jnc = (AbstractJobletContainer) jobletNode.getNodeContainer();
         List<NodeContainer> ncs = jnc.getNodeContainers();
         if (ncs != null) {
             for (NodeContainer nc : ncs) {

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -32,6 +32,7 @@ import org.talend.core.repository.model.ProxyRepositoryFactory;
 import org.talend.core.ui.properties.tab.IDynamicProperty;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.components.EmfComponent;
+import org.talend.designer.core.model.metadata.RepositoryObjectHelper;
 import org.talend.designer.core.ui.editor.cmd.ChangeValuesFromRepository;
 import org.talend.designer.core.ui.editor.cmd.PropertyChangeCommand;
 import org.talend.designer.core.utils.ValidationRulesUtil;
@@ -46,6 +47,7 @@ public class ValidationRuleTypeController extends AbstractRepositoryController {
 
     public ValidationRuleTypeController(IDynamicProperty dp) {
         super(dp);
+        repositoryValueHander = new ValidationRuleValueHander();
     }
 
     @Override
@@ -127,42 +129,6 @@ public class ValidationRuleTypeController extends AbstractRepositoryController {
 
     }
 
-    @Override
-    protected void fastInitializeRepositoryNames(IElementParameter param) {
-        super.fastInitializeRepositoryNames(param);
-
-        if (param.getName().equals(EParameterName.REPOSITORY_VALIDATION_RULE_TYPE.getName())) {
-            fastRepositoryUpdateValidationRule(param);
-        }
-    }
-
-    private void fastRepositoryUpdateValidationRule(IElementParameter param) {
-        if (param != null && param.getValue() != null) {
-            IProxyRepositoryFactory factory = ProxyRepositoryFactory.getInstance();
-            String linkedRepository = (String) param.getValue();
-            Item item;
-            String displayName = "";
-            try {
-                IRepositoryViewObject object = factory.getLastVersion(linkedRepository);
-                if (object == null) {
-                    return;
-                }
-                item = object.getProperty().getItem();
-                if (item instanceof ConnectionItem) {
-                    lastItemUsed = (ConnectionItem) item;
-                    displayName = dynamicProperty.getRepositoryAliasName(lastItemUsed) + ":" //$NON-NLS-1$
-                            + lastItemUsed.getProperty().getLabel();
-                }
-            } catch (PersistenceException e) {
-                ExceptionHandler.process(e);
-            }
-
-            param.setListItemsDisplayName(new String[] { displayName });
-            param.setListItemsValue(new String[] { (String) param.getValue() });
-        }
-
-    }
-
     /*
      * (non-Javadoc)
      * 
@@ -209,4 +175,41 @@ public class ValidationRuleTypeController extends AbstractRepositoryController {
         }
     }
 
+    private class ValidationRuleValueHander extends ControllerRepositoryValueHander {
+
+        @Override
+        protected void fastInitializeRepositoryNames(IElementParameter param) {
+            if (param.getName().equals(EParameterName.REPOSITORY_VALIDATION_RULE_TYPE.getName())) {
+                fastRepositoryUpdateValidationRule(param);
+            }
+        }
+
+        private void fastRepositoryUpdateValidationRule(IElementParameter param) {
+            if (param != null && param.getValue() != null) {
+                IProxyRepositoryFactory factory = ProxyRepositoryFactory.getInstance();
+                String linkedRepository = (String) param.getValue();
+                Item item;
+                String displayName = "";
+                try {
+                    IRepositoryViewObject object = factory.getLastVersion(linkedRepository);
+                    if (object == null) {
+                        return;
+                    }
+                    item = object.getProperty().getItem();
+                    if (item instanceof ConnectionItem) {
+                        lastItemUsed = (ConnectionItem) item;
+                        displayName = RepositoryObjectHelper.getRepositoryAliasName(lastItemUsed) + ":" //$NON-NLS-1$
+                                + lastItemUsed.getProperty().getLabel();
+                    }
+                } catch (PersistenceException e) {
+                    ExceptionHandler.process(e);
+                }
+
+                param.setListItemsDisplayName(new String[] { displayName });
+                param.setListItemsValue(new String[] { (String) param.getValue() });
+            }
+
+        }
+
+    }
 }

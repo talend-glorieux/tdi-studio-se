@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -42,7 +42,12 @@ public class HiveGenerationManager extends DbGenerationManager {
             if (inputTableName != null && inputTableName.contains(".")) {
                 String[] inputTableNames = inputTableName.split("\\.");
                 if (inputTableNames.length > 1) {
-                    query = query.replaceAll(inputTableName + "\\.", inputTableNames[1] + ".");
+                    query = query.replaceAll(inputTableName + "\\.", inputTableNames[1] + "."); //$NON-NLS-1$ //$NON-NLS-2$ 
+                    for (int i = 0; i < querySegments.size(); i++) {
+                        String segment = querySegments.get(i);
+                        segment = segment.replaceAll(inputTableName + "\\.", inputTableNames[1] + "."); //$NON-NLS-1$ //$NON-NLS-2$
+                        querySegments.set(i, segment);
+                    }
                 }
             }
         }

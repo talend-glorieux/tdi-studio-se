@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -124,7 +124,15 @@ public class NodeConnector implements INodeConnector {
 
     @Override
     public void setCurLinkNbInput(int curLinkNbInput) {
-        this.curLinkNbInput = curLinkNbInput;
+        // TUP-17421 incase more than one flow main
+        for (INodeConnector connector : parentNode.getListConnector()) {
+            if (connector instanceof NodeConnector) {
+                if (this.getDefaultConnectionType().equals(connector.getDefaultConnectionType())
+                        && this.getName().equals(connector.getName())) {
+                    ((NodeConnector) connector).setLinkNbInput(curLinkNbInput);
+                }
+            }
+        }
     }
 
     @Override
@@ -134,7 +142,23 @@ public class NodeConnector implements INodeConnector {
 
     @Override
     public void setCurLinkNbOutput(int curLinkNbOutput) {
+        // TUP-17421 incase more than one flow main
+        for (INodeConnector connector : parentNode.getListConnector()) {
+            if (connector instanceof NodeConnector) {
+                if (this.getDefaultConnectionType().equals(connector.getDefaultConnectionType())
+                        && this.getName().equals(connector.getName())) {
+                    ((NodeConnector) connector).setLinkNbOutput(curLinkNbOutput);
+                }
+            }
+        }
+    }
+
+    private void setLinkNbOutput(int curLinkNbOutput) {
         this.curLinkNbOutput = curLinkNbOutput;
+    }
+
+    private void setLinkNbInput(int curLinkNbInput) {
+        this.curLinkNbInput = curLinkNbInput;
     }
 
     @Override
@@ -457,9 +481,9 @@ public class NodeConnector implements INodeConnector {
         this.showIf = showIf;
     }
 
-    
     /**
      * Getter for parentNode.
+     * 
      * @return the parentNode
      */
     protected INode getParentNode() {

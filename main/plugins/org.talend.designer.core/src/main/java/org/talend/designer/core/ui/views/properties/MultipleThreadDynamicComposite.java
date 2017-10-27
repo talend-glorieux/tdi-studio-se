@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -125,6 +125,8 @@ public class MultipleThreadDynamicComposite extends ScrolledComposite implements
     private Process process;
 
     private boolean propertyResized;
+
+    protected int minHeight;
 
     protected Composite composite;
 
@@ -472,7 +474,9 @@ public class MultipleThreadDynamicComposite extends ScrolledComposite implements
                         subComposite = composite;
                         curTop = DEFAULT_GROUP_HEIGHT * (groupPosition.size() > 0 ? 1 : 0) + heightSize;
                     }
-
+                    if(!isShouldCreateControl(curParam)){
+                        continue;
+                    }
                     lastControl = controller.createControl(subComposite, curParam, curNumInRow, curNbInRow, curTop,
                             cutLastControl);
 
@@ -487,8 +491,12 @@ public class MultipleThreadDynamicComposite extends ScrolledComposite implements
         if (synchronizeSchemaParam != null) {
             synchronizeSchemaParam.setShow(false);
         }
-
+        minHeight = heightSize;
         resizeScrolledComposite();
+    }
+    
+    protected boolean isShouldCreateControl(IElementParameter curParam){
+        return true;
     }
 
     /**
@@ -635,7 +643,7 @@ public class MultipleThreadDynamicComposite extends ScrolledComposite implements
     // refactore to be synchonized with the dispose() method because of TDI-24184
     // the synchronized methodis a quick fix but not the ideal one because this method is accessing many attributes
     // of the current class that may be modified by other thread (just like "elem" modified by the dispose() method.
-    synchronized private void operationInThread() {
+    synchronized protected void operationInThread() {
         if (elem == null) {
             return;
         }
@@ -776,6 +784,7 @@ public class MultipleThreadDynamicComposite extends ScrolledComposite implements
     public MultipleThreadDynamicComposite(Composite parentComposite, int styles, final EComponentCategory section,
             Element element, boolean isCompactView, Color backgroundColor) {
         super(parentComposite, styles);
+        this.setMinSize(700, 450);
         setCompactView(isCompactView);
         updataComponentParamName = EParameterName.UPDATE_COMPONENTS.getName();
         FormData d = new FormData();

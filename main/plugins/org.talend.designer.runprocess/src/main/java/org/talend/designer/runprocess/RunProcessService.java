@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -12,6 +12,7 @@
 // ============================================================================
 package org.talend.designer.runprocess;
 
+import java.io.File;
 import java.util.Set;
 
 import org.apache.log4j.Level;
@@ -37,9 +38,9 @@ import org.talend.designer.runprocess.ui.actions.RunProcessAction;
 
 /**
  * DOC qian class global comment. An implementation of the IRunProcessService. <br/>
- * 
+ *
  * $Id: talend-code-templates.xml 1 2006-09-29 17:06:40 +0000 (星期五, 29 九月 2006) nrousseau $
- * 
+ *
  */
 
 public class RunProcessService implements IRunProcessService {
@@ -189,13 +190,19 @@ public class RunProcessService implements IRunProcessService {
      * org.talend.core.model.process.IProcess, java.util.Set)
      */
     @Override
-    public void updateLibraries(Set<ModuleNeeded> jobModuleList, IProcess process, Set<ModuleNeeded> alreadyRetrievedModules) {
+    public void updateLibraries(Set<ModuleNeeded> jobModuleList, IProcess process, Set<ModuleNeeded> alreadyRetrievedModules)
+            throws ProcessorException {
         delegateService.updateLibraries(jobModuleList, process, alreadyRetrievedModules);
     }
 
     @Override
     public void refreshView() {
         delegateService.refreshView();
+    }
+
+    @Override
+    public void switchToCurProcessView() {
+        delegateService.switchToCurProcessView();
     }
 
     /*
@@ -364,6 +371,21 @@ public class RunProcessService implements IRunProcessService {
     @Override
     public Set<String> getLibJarsForBD(IProcess process) {
         return delegateService.getLibJarsForBD(process);
+    }
+
+    @Override
+    public File getJavaProjectLibFolder() {
+        return delegateService.getJavaProjectLibFolder();
+    }
+
+    @Override
+    public void updateProjectPomWithTemplate() {
+        delegateService.updateProjectPomWithTemplate();
+    }
+
+    @Override
+    public void storeProjectPreferences(IPreferenceStore preferenceStore) {
+        delegateService.storeProjectPreferences(preferenceStore);
     }
 
 }

@@ -16,9 +16,20 @@ imports="
         org.talend.core.model.process.EConnectionType
         org.talend.designer.codegen.config.CodeGeneratorArgument
         org.talend.core.model.utils.TalendTextUtils
+        org.talend.core.model.utils.NodeUtil
+        org.talend.designer.core.generic.model.Component
+        java.util.ArrayList
+        java.util.HashMap
+        java.util.Map
+        org.talend.components.api.properties.ComponentProperties
+        org.talend.daikon.NamedThing
+        org.talend.daikon.properties.property.Property
+        org.talend.designer.core.generic.constants.IGenericConstants
+        org.talend.core.model.utils.ContextParameterUtils
         "
 %>
 <%@include file="@{org.talend.designer.codegen}/jet_stub/generic/component_util_indexedrecord_to_rowstruct.javajet"%>
+<%@include file="@{org.talend.designer.codegen}/jet_stub/generic/component_util_process_properties.javajet"%>
 <%
 CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
 INode node = (INode)codeGenArgument.getArgument();
@@ -26,7 +37,9 @@ String cid = node.getUniqueName();
 Component component = (Component)node.getComponent();
 ComponentDefinition def = component.getComponentDefinition();
 
-if(def instanceof org.talend.components.api.component.OutputComponentDefinition){
+boolean hasInput = !NodeUtil.getIncomingConnections(node, IConnectionCategory.DATA).isEmpty();
+
+if(hasInput){
     // These will be initialized if there are outgoing connections and will be
     // null if there isn't a corresponding outgoing connection.
     IndexedRecordToRowStructGenerator mainIrToRow = null;
@@ -87,33 +100,35 @@ if(def instanceof org.talend.components.api.component.OutputComponentDefinition)
 
             if (dynamicPos != -1)  {
                 %>
-                if (current_<%=cid%>.needsInitDynamicColumns()) {
+                if (!incomingEnforcer_<%=cid%>.areDynamicFieldsInitialized()) {
                     // Initialize the dynamic columns when they are first encountered.
                     for (routines.system.DynamicMetadata dm_<%=cid%> : <%=inputConn.getName()%>.<%=input_columnList.get(dynamicPos).getLabel()%>.metadatas) {
-                        current_<%=cid%>.initDynamicColumn(
-                                dm_<%=cid%>.getName(), dm_<%=cid%>.getDbName(),
-                                dm_<%=cid%>.getType(), dm_<%=cid%>.getDbType(),
-                                dm_<%=cid%>.getDbTypeId(), dm_<%=cid%>.getLength(),
-                                dm_<%=cid%>.getPrecision(), dm_<%=cid%>.getFormat(),
-                                dm_<%=cid%>.getDescription(), dm_<%=cid%>.isKey(),
-                                dm_<%=cid%>.isNullable(),
-                                dm_<%=cid%>.getRefFieldName(), dm_<%=cid%>.getRefModuleName());
+                        incomingEnforcer_<%=cid%>.addDynamicField(
+                                dm_<%=cid%>.getName(),
+                                dm_<%=cid%>.getType(),
+                                dm_<%=cid%>.getLogicalType(),
+                                dm_<%=cid%>.getFormat(),
+                                dm_<%=cid%>.getDescription(),
+                                dm_<%=cid%>.isNullable());
                     }
-                    current_<%=cid%>.initDynamicColumnsFinished();
+                    incomingEnforcer_<%=cid%>.createRuntimeSchema();
                 }
                 <%
             }
 
+            %>
+            incomingEnforcer_<%=cid%>.createNewRecord();
+            <%
             for (int i = 0; i < input_columnList.size(); i++) { // column
                 IMetadataColumn column = input_columnList.get(i);
                 if (dynamicPos != i) {
                     %>
-                    current_<%=cid%>.put("<%=column.getLabel()%>", <%=inputConn.getName()%>.<%=column.getLabel()%>);
+                    incomingEnforcer_<%=cid%>.put("<%=column.getLabel()%>", <%=inputConn.getName()%>.<%=column.getLabel()%>);
                     <%
                 } else {
                     %>
                     for (int i = 0; i < <%=inputConn.getName()%>.<%=column.getLabel()%>.getColumnCount(); i++) {
-                        current_<%=cid%>.put(<%=inputConn.getName()%>.<%=column.getLabel()%>.getColumnMetadata(i).getName(),
+                        incomingEnforcer_<%=cid%>.put(<%=inputConn.getName()%>.<%=column.getLabel()%>.getColumnMetadata(i).getName(),
                                 <%=inputConn.getName()%>.<%=column.getLabel()%>.getColumnValue(i));
                     }
                     <%
@@ -129,9 +144,26 @@ if(def instanceof org.talend.components.api.component.OutputComponentDefinition)
             // There will be a ClassCastException if the output component does
             // not implement WriterWithFeedback, but permits outgoing
             // connections.
-
+            
+            ComponentProperties componentProps = node.getComponentProperties();
+			ProcessPropertiesGenerator generator = new ProcessPropertiesGenerator(cid, component);
+            List<Component.CodegenPropInfo> propsToProcess = component.getCodegenPropInfos(componentProps);
+            for (Component.CodegenPropInfo propInfo : propsToProcess) { // propInfo
+    			List<NamedThing> properties = propInfo.props.getProperties();
+    			for (NamedThing prop : properties) { // property
+        			if (prop instanceof Property) { // if, only deal with valued Properties
+            			Property property = (Property)prop;
+            			if (property.getFlags() != null && (property.getFlags().contains(Property.Flags.DESIGN_TIME_ONLY) || property.getFlags().contains(Property.Flags.HIDDEN)))
+ 		                	continue;
+            			if(property.getTaggedValue(IGenericConstants.DYNAMIC_PROPERTY_VALUE)!=null && Boolean.valueOf(String.valueOf(property.getTaggedValue(IGenericConstants.DYNAMIC_PROPERTY_VALUE)))) {
+            				generator.setPropertyValues(property, propInfo, null, false, false);
+            			}
+        			}
+    			} // property
+			} // propInfo
+            
             %>
-            Object data_<%=cid%> = current_<%=cid%>.createIndexedRecord();
+            org.apache.avro.generic.IndexedRecord data_<%=cid%> = incomingEnforcer_<%=cid%>.getCurrentRecord();
 
             writer_<%=cid%>.write(data_<%=cid%>);
             
@@ -139,44 +171,58 @@ if(def instanceof org.talend.components.api.component.OutputComponentDefinition)
             <%
             if (mainIrToRow != null) {
                 %>
-                java.util.Iterator<?> outgoingMainRecords_<%=cid%> = ((org.talend.components.api.component.runtime.WriterWithFeedback<?, ?, ?>)writer_<%=cid%>).getSuccessfulWrites().iterator();
-                Object outgoingMain_<%=cid%> = null;
-                if (outgoingMainRecords_<%=cid%>.hasNext()) {
-                    outgoingMain_<%=cid%> = outgoingMainRecords_<%=cid%>.next();
-                    if(outgoingMainRecords_<%=cid%>.hasNext()){
-                    	outgoingMain_<%=cid%> = data_<%=cid%>;
+            	if (writer_<%=cid%> instanceof org.talend.components.api.component.runtime.WriterWithFeedback) {
+					org.talend.components.api.component.runtime.WriterWithFeedback writerWithFeedbackMain_<%=cid%> = (org.talend.components.api.component.runtime.WriterWithFeedback) writer_<%=cid%>;
+					writerWithFeedbackMain_<%=cid%> = new org.talend.codegen.flowvariables.runtime.FlowVariablesWriter(writerWithFeedbackMain_<%=cid%>, container_<%=cid%>);
+                    java.util.Iterator outgoingMainRecords_<%=cid%> = writerWithFeedbackMain_<%=cid%>.getSuccessfulWrites().iterator();
+                    Object outgoingMain_<%=cid%> = null;
+                    if (outgoingMainRecords_<%=cid%>.hasNext()) {
+                        outgoingMain_<%=cid%> = outgoingMainRecords_<%=cid%>.next();
+                        if(outgoingMainRecords_<%=cid%>.hasNext()){
+                        	outgoingMain_<%=cid%> = data_<%=cid%>;
+                        }
                     }
-                }
-                <%
-                if (rejectIrToRow == null) {
-                %>
-                else{
-                	if (!((org.talend.components.api.component.runtime.WriterWithFeedback<?, ?, ?>)writer_<%=cid%>).getRejectedWrites().iterator().hasNext()) {
-                		outgoingMain_<%=cid%> = data_<%=cid%>;
-                	}
-                }
-                <%
-                }
-                %>
-                if(outgoingMain_<%=cid%>!=null){
-                	<%=mainIrToRow.getConnection().getName()%> = new <%=mainIrToRow.getConnection().getName() %>Struct();
-                	<%
-                    mainIrToRow.generateConvertRecord("outgoingMain_" + cid, mainIrToRow.getConnection().getName());
+                    <%
+                    if (rejectIrToRow == null) {
                     %>
-                }
+                    else {
+                    	if (!writerWithFeedbackMain_<%=cid%>.getRejectedWrites().iterator().hasNext()) {
+                    		outgoingMain_<%=cid%> = data_<%=cid%>;
+                    	}
+                    }
+                    <%
+                    }
+                    %>
+                    if (outgoingMain_<%=cid%>!=null) {
+                    	<%=mainIrToRow.getConnection().getName()%> = new <%=mainIrToRow.getConnection().getName() %>Struct();
+                    	<%
+                        mainIrToRow.generateConvertRecord("outgoingMain_" + cid, mainIrToRow.getConnection().getName());
+                        %>
+                    }
+              	} else {
+              		// For no feedback writer,just pass the input record to the output
+              		if (data_<%=cid%>!=null) {
+                  		<%=mainIrToRow.getConnection().getName()%> = new <%=mainIrToRow.getConnection().getName() %>Struct();
+                		<%
+                        mainIrToRow.generateConvertRecord("data_" + cid, mainIrToRow.getConnection().getName());
+                        %>
+                  	}
+            	}
             <%
             }
             if (rejectIrToRow != null) {
-                %>
-                java.util.Iterator<?> outgoingRejectRecords_<%=cid%> = ((org.talend.components.api.component.runtime.WriterWithFeedback<?, ?, ?>)writer_<%=cid%>).getRejectedWrites().iterator();
-                if (outgoingRejectRecords_<%=cid%>.hasNext()) {
-                    <%=rejectIrToRow.getConnection().getName()%> = new <%=rejectIrToRow.getConnection().getName() %>Struct();
-                    Object outgoingReject_<%=cid%> = outgoingRejectRecords_<%=cid%>.next();
-                    <%
-                    rejectIrToRow.generateConvertRecord("outgoingReject_" + cid, rejectIrToRow.getConnection().getName());
-                    %>
-                }
-                <%
+            %>
+					org.talend.components.api.component.runtime.WriterWithFeedback writerWithFeedbackReject_<%=cid%> = (org.talend.components.api.component.runtime.WriterWithFeedback) writer_<%=cid%>;
+					writerWithFeedbackReject_<%=cid%> = new org.talend.codegen.flowvariables.runtime.FlowVariablesWriter(writerWithFeedbackReject_<%=cid%>, container_<%=cid%>);
+                    java.util.Iterator outgoingRejectRecords_<%=cid%> = writerWithFeedbackReject_<%=cid%>.getRejectedWrites().iterator();
+                    if (outgoingRejectRecords_<%=cid%>.hasNext()) {
+                        <%=rejectIrToRow.getConnection().getName()%> = new <%=rejectIrToRow.getConnection().getName() %>Struct();
+                        Object outgoingReject_<%=cid%> = outgoingRejectRecords_<%=cid%>.next();
+                        <%
+                        rejectIrToRow.generateConvertRecord("outgoingReject_" + cid, rejectIrToRow.getConnection().getName());
+                        %>
+                    }
+            <%
             }
         }
     }

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -137,6 +137,8 @@ public class JobJavaScriptOSGIForESBManager extends JobJavaScriptsManager {
         // setup for an export mode, and not
         // editor mode.
         ProcessorUtilities.setExportConfig(JAVA, "", ""); //$NON-NLS-1$
+        // set export type as osgi
+        ProcessorUtilities.setExportAsOSGI(true);
 
         try {
             ProcessItem processItem = null;
@@ -455,6 +457,25 @@ public class JobJavaScriptOSGIForESBManager extends JobJavaScriptsManager {
         if (!endpointUri.isEmpty() && !endpointUri.contains("://") && !endpointUri.startsWith("/")) { //$NON-NLS-1$ //$NON-NLS-2$
             endpointUri = '/' + endpointUri;
         }
+
+        endpointInfo.put("originalAddress", endpointUri); //$NON-NLS-1$  Needed by Swagger
+
+        String endpointDescription = "";
+        if (EmfModelUtils.computeCheckElementValue("INCLUDE_DOC_INTO_SWAGGER_SPEC", restRequestComponent)) {
+            endpointDescription = EmfModelUtils.computeTextElementValue("COMMENT", restRequestComponent);
+            if (endpointDescription == null) {
+                endpointDescription = "";
+            }
+            if (endpointDescription.contains("\r\n")) {
+                endpointDescription = endpointDescription.replace("\r\n", "&#10;");
+            } else {
+                endpointDescription = endpointDescription.replace("\n", "&#10;");
+            }
+        }
+
+        endpointInfo.put("description", endpointDescription); //$NON-NLS-1$  Needed by Swagger
+
+
         // TESB-5916: Rest service can't be deployed in the Runtime on the port said in the studio
         // if (endpointUri.contains("://")) {
         // endpointUri = new URL(endpointUri).getPath();
@@ -507,6 +528,12 @@ public class JobJavaScriptOSGIForESBManager extends JobJavaScriptsManager {
             endpointInfo.put("useAuthorization", false); //$NON-NLS-1$
         }
 
+
+        // expose Swagger specification
+        endpointInfo.put("exposeSwaggerSpecification", //$NON-NLS-1$
+                EmfModelUtils.computeCheckElementValue("EXPOSE_SWAGGER_SPEC", restRequestComponent)); //$NON-NLS-1$
+
+
         // Service Locator custom properties
         Map<String, String> slCustomProperties = new HashMap<String, String>();
         ElementParameterType customPropsType = EmfModelUtils.findElementParameterByName(
@@ -527,7 +554,29 @@ public class JobJavaScriptOSGIForESBManager extends JobJavaScriptsManager {
                 }
             }
         }
+
+        Map<String, String> samCustomProperties = new HashMap<String, String>();
+        customPropsType = EmfModelUtils.findElementParameterByName("SERVICE_ACTIVITY_MONITOR_CUSTOM_PROPERTIES", //$NON-NLS-1$
+                restRequestComponent);
+        if (null != customPropsType) {
+            List<?> elementValues = customPropsType.getElementValue();
+            final int size = elementValues.size();
+            for (int i = 0; i < size; i += 2) {
+                if (size <= i + 1) {
+                    break;
+                }
+                ElementValueType name = (ElementValueType) elementValues.get(i);
+                ElementValueType value = (ElementValueType) elementValues.get(i + 1);
+                if (null != name && null != value) {
+                    if (null != name.getValue() && null != value.getValue()) {
+                        samCustomProperties.put(unquote(name.getValue()), unquote(value.getValue()));
+                    }
+                }
+            }
+        }
+
         endpointInfo.put("slCustomProps", slCustomProperties); //$NON-NLS-1$
+        endpointInfo.put("samCustomProps", samCustomProperties); //$NON-NLS-1$
 
         // service name & namespace
         endpointInfo.put("serviceName", //$NON-NLS-1$
@@ -579,7 +628,7 @@ public class JobJavaScriptOSGIForESBManager extends JobJavaScriptsManager {
         contextParams.put("job", collectJobInfo(processItem, process)); //$NON-NLS-1$
 
         TemplateProcessor.processTemplate("REST_JOB_BLUEPRINT_CONFIG", //$NON-NLS-1$
-                contextParams, targetFile, getClass().getResourceAsStream(TEMPLATE_BLUEPRINT_JOB_REST));
+                contextParams, targetFile, JobJavaScriptOSGIForESBManager.class.getResourceAsStream(TEMPLATE_BLUEPRINT_JOB_REST));
     }
 
     private static final String TEMPLATE_BLUEPRINT_JOB = "/resources/job-template.xml"; //$NON-NLS-1$
@@ -694,6 +743,10 @@ public class JobJavaScriptOSGIForESBManager extends JobJavaScriptsManager {
         NodeType restRequestComponent = getRESTRequestComponent(processItem);
         if (null != restRequestComponent) {
             importPackages.add("org.apache.cxf.metrics");
+            if (EmfModelUtils.computeCheckElementValue("EXPOSE_SWAGGER_SPEC", restRequestComponent)) {
+                importPackages.add("org.apache.cxf.jaxrs.swagger");
+            }
+
 
             if (EmfModelUtils.computeCheckElementValue("NEED_AUTH", restRequestComponent)) { //$NON-NLS-1$
                 String authType = EmfModelUtils.computeTextElementValue("AUTH_TYPE", restRequestComponent); //$NON-NLS-1$
@@ -718,6 +771,12 @@ public class JobJavaScriptOSGIForESBManager extends JobJavaScriptsManager {
             importPackages.add("org.talend.cloud"); //$NON-NLS-1$
         }
 
+
+        if (requireBundle != null && !requireBundle.isEmpty()) {
+            requireBundle += (", org.ops4j.pax.logging.pax-logging-api");
+        } else {
+            requireBundle = "org.ops4j.pax.logging.pax-logging-api";
+        }
 
         if (requireBundle != null) {
             analyzer.setProperty(Analyzer.REQUIRE_BUNDLE, requireBundle);

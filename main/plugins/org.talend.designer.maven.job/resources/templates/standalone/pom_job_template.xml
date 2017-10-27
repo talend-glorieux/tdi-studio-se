@@ -24,7 +24,7 @@
 		<talend.project.id>@ProjectId@</talend.project.id>
 		<talend.project.branch>@ProjectBranch@</talend.project.branch>
 		<talend.job.name>@JobName@</talend.job.name>
-		<talend.job.version>@JobVersion@</talend.job.version>
+		<talend.job.version>@TalendJobVersion@</talend.job.version>
 		<talend.job.date>@JobDate@</talend.job.date>
 		<talend.job.context>@JobContext@</talend.job.context>
 		<talend.job.id>@JobId@</talend.job.id>
@@ -111,6 +111,12 @@
 										<include>contexts/*.properties</include>
 									</includes>
 								</resource>
+								<resource>
+									<directory>${current.resources.dir}/metadata/survivorship/</directory>
+									<includes>
+										<include>**/*.*</include>
+									</includes>
+								</resource>
 							</resources>
 						</configuration>
 					</execution>
@@ -131,6 +137,7 @@
                       <!-- only package the job classes -->
                       <include>${talend.job.path}/*.class</include>
                       <include>${talend.job.path}/**/*.wsdl</include>
+                      <include>/metadata/survivorship/**/*.*</include>
                     </includes>
                   </configuration>
                 </execution>
@@ -309,5 +316,29 @@
 				<pigudfs.binaries.includes.set>org.talend.pigudf.${talend.project.name.lowercase}:*</pigudfs.binaries.includes.set>
 			</properties>
 		</profile>
+		
+		<profile>
+            <id>include-microservice-configs</id>
+            <properties>
+                <microservice.configs.dir>${current.resources.dir}/</microservice.configs.dir>
+            </properties>
+        </profile>
+        
+        <profile>
+            <id>include-microservice-running-configs</id>
+            <properties>
+                <microservice.running.configs.dir>${current.resources.dir}/</microservice.running.configs.dir>
+            </properties>
+        </profile>
+	    <profile>
+			<id>include-survivorship-rules</id>
+			<activation>
+				<activeByDefault>true</activeByDefault>
+			</activation>
+			<properties>
+				<survivorship.rules.dir>${current.resources.dir}/metadata/survivorship/</survivorship.rules.dir>
+			</properties>
+	    </profile>
+
 	</profiles>
 </project>

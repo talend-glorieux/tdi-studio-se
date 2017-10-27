@@ -13,7 +13,7 @@ imports="
 		java.util.HashSet
 "
 %>
-<%@ include file="../../Log4j/Log4jDBConnUtil.javajet"%>
+<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/Log4j/Log4jDBConnUtil.javajet"%>
 <%
 CodeGeneratorArgument codeGenArgument = (CodeGeneratorArgument) argument;
 INode node = (INode)codeGenArgument.getArgument();
@@ -93,11 +93,7 @@ if(("true").equals(propagateRecordset)){
 try {
 <%
 	if (usePrepareStatement) {
-		if(prepareStatementParameters.size()>0){
-			log4jCodeGenerateUtil.logInfo(node,"debug","| Prameter Index | Prameter Type | Parameter Value |");
-		}
 		for (Map<String, String> param : prepareStatementParameters) {
-			log4jCodeGenerateUtil.logInfo(node,"debug",cid+" - | "+param.get("PARAMETER_INDEX")+" | "+param.get("PARAMETER_TYPE")+" | \"+"+param.get("PARAMETER_VALUE")+"+\" |");
 			if ("Date".equals(param.get("PARAMETER_TYPE"))) {
 %>
 			pstmt_<%=cid %>.setTimestamp(<%=param.get("PARAMETER_INDEX")%>,new java.sql.Timestamp(<%=param.get("PARAMETER_VALUE")%>.getTime()));
@@ -128,35 +124,41 @@ try {
 		<%
 		}
 	}
-	log4jCodeGenerateUtil.logInfo(node,"info",cid+" - Execute the query: '\" + "+dbquery +" + \"' has finished.");
+	log4jCodeGenerateUtil.logInfo(node,"debug",cid+" - Execute the query: '\" + "+dbquery +" + \"' has finished.");
 %>
 <%
 	if(usePrepareStatement){
 		if ("NB_LINE_INSERTED".equals(use_NB_Line)) {
 %>
 		nb_line_inserted_<%=cid%> += pstmt_<%=cid %>.getUpdateCount();
+		globalMap.put("<%=cid%>_NB_LINE_INSERTED", nb_line_inserted_<%=cid%>);
 <%
 		} else if ("NB_LINE_UPDATED".equals(use_NB_Line)) {
 %>
 		nb_line_update_<%=cid%> += pstmt_<%=cid %>.getUpdateCount();
+		globalMap.put("<%=cid%>_NB_LINE_UPDATED", nb_line_update_<%=cid%>);
 <%
 		} else if ("NB_LINE_DELETED".equals(use_NB_Line)) {
 %>
 		nb_line_deleted_<%=cid%> += pstmt_<%=cid %>.getUpdateCount();
+		globalMap.put("<%=cid%>_NB_LINE_DELETED", nb_line_deleted_<%=cid%>);
 <%
 		}
 	} else {
 		if ("NB_LINE_INSERTED".equals(use_NB_Line)) {
 %>
 		nb_line_inserted_<%=cid%> += stmt_<%=cid %>.getUpdateCount();
+		globalMap.put("<%=cid%>_NB_LINE_INSERTED", nb_line_inserted_<%=cid%>);
 <%
 		} else if ("NB_LINE_UPDATED".equals(use_NB_Line)) {
 %>
 		nb_line_update_<%=cid%> += stmt_<%=cid %>.getUpdateCount();
+		globalMap.put("<%=cid%>_NB_LINE_UPDATED", nb_line_update_<%=cid%>);
 <%
 		} else if ("NB_LINE_DELETED".equals(use_NB_Line)) {
 %>
 		nb_line_deleted_<%=cid%> += stmt_<%=cid %>.getUpdateCount();
+		globalMap.put("<%=cid%>_NB_LINE_DELETED", nb_line_deleted_<%=cid%>);
 <%
 		}
 	}

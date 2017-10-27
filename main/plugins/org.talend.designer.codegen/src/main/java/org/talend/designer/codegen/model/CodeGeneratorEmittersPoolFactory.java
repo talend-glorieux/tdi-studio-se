@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,17 +13,17 @@
 package org.talend.designer.codegen.model;
 
 import java.beans.PropertyChangeEvent;
-import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.log4j.Logger;
+import org.eclipse.core.resources.IFile;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IWorkspace;
@@ -32,6 +32,7 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.NullProgressMonitor;
+import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.SubProgressMonitor;
@@ -154,12 +155,12 @@ public final class CodeGeneratorEmittersPoolFactory {
 
                 long startTime = System.currentTimeMillis();
 
-                defaultTemplate = TemplateUtil.RESOURCES_DIRECTORY + TemplateUtil.DIR_SEP + EInternalTemplate.DEFAULT_TEMPLATE
-                        + TemplateUtil.EXT_SEP + codeLanguage.getExtension() + TemplateUtil.TEMPLATE_EXT;
+                
+                defaultTemplate = templatesFactory.getTemplatesFromType(EInternalTemplate.DEFAULT_TEMPLATE).get(0).getTemplateRelativeUri();
 
                 List<JetBean> jetBeans = new ArrayList<JetBean>();
                 List<TemplateUtil> templates = templatesFactory.getTemplates();
-                Set<IComponent> components = componentsFactory.getComponents();
+                Collection<IComponent> components = componentsFactory.readComponents();
                 List<IComponent> genericComponents = new ArrayList<IComponent>();// generic components
                 TimeMeasure.step("initialize Jet Emitters", "getComponents"); //$NON-NLS-1$ //$NON-NLS-2$
 
@@ -180,7 +181,7 @@ public final class CodeGeneratorEmittersPoolFactory {
 
                 if (components != null) {
                     ECodePart codePart = ECodePart.MAIN;
-                    for (IComponent component : new ArrayList<IComponent>(components)) {
+                    for (IComponent component : components) {
                         // don't do anything for generic component?
                         if (EComponentType.GENERIC.equals(component.getComponentType())) {
                             genericComponents.add(component);
@@ -293,8 +294,7 @@ public final class CodeGeneratorEmittersPoolFactory {
             IProject project = workspace.getRoot().getProject(JET_PROJECT);
             progressMonitor.subTask(CodeGenPlugin.getPlugin().getString("_UI_JETPreparingProject_message", //$NON-NLS-1$
                     new Object[] { project.getName() }));
-            File file = new File(workspace.getRoot().getLocation().append(JET_PROJECT).toPortableString());
-            if (file.exists() && !project.isAccessible()) {
+            if (project.exists() && !project.isAccessible()) {
                 // .metadata missing, so need to reimport project to add it in the metadata.
                 progressMonitor.subTask("Reinitilializing project " + project.getName()); //$NON-NLS-1$
                 project.create(new SubProgressMonitor(progressMonitor, 1));
@@ -388,9 +388,8 @@ public final class CodeGeneratorEmittersPoolFactory {
      * @return
      */
     private static JetBean initializeUtilTemplate(TemplateUtil template, ECodeLanguage codeLanguage) {
-        JetBean jetBean = new JetBean(CodeGeneratorActivator.PLUGIN_ID,
-                TemplateUtil.RESOURCES_DIRECTORY + TemplateUtil.DIR_SEP + template.getResourceName() + TemplateUtil.EXT_SEP
-                        + codeLanguage.getExtension() + TemplateUtil.TEMPLATE_EXT,
+        JetBean jetBean = new JetBean(template.getJetPluginRepository(),
+                template.getTemplateRelativeUri(),
                 template.getResourceName(), template.getVersion(), codeLanguage.getName(), ""); //$NON-NLS-1$
         jetBean.addClassPath("CORERUNTIME_LIBRARIES", "org.talend.core.runtime"); //$NON-NLS-1$ //$NON-NLS-2$
         jetBean.addClassPath("MANAGEMENT_LIBRARIES", "org.talend.metadata.managment"); //$NON-NLS-1$ //$NON-NLS-2$
@@ -723,9 +722,10 @@ public final class CodeGeneratorEmittersPoolFactory {
         List<JetBean> toReturn = new ArrayList<JetBean>();
         IWorkspace workspace = ResourcesPlugin.getWorkspace();
         IProject project = workspace.getRoot().getProject(".JETEmitters"); //$NON-NLS-1$
-        URL url;
+        URL url = null;
         try {
-            url = new File(project.getLocation() + "/runtime").toURL(); //$NON-NLS-1$
+            IFile file = project.getFile(Path.fromOSString("runtime"));
+            url = file.getLocationURI().toURL();
             int lightBeanIndex = 0;
             LightJetBean lightBean = null;
             LightJetBean myLightJetBean = null;

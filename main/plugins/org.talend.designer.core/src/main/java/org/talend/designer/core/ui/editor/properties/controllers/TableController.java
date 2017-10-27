@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -16,6 +16,7 @@ import java.beans.PropertyChangeEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -46,6 +47,7 @@ import org.talend.core.model.process.EConnectionType;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.IConnection;
 import org.talend.core.model.process.IContext;
+import org.talend.core.model.process.IContextManager;
 import org.talend.core.model.process.IContextParameter;
 import org.talend.core.model.process.IElement;
 import org.talend.core.model.process.IElementParameter;
@@ -56,7 +58,6 @@ import org.talend.designer.core.IDesignerCoreService;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.ui.editor.connections.Connection;
 import org.talend.designer.core.ui.editor.nodes.Node;
-import org.talend.designer.core.ui.editor.process.Process;
 import org.talend.designer.core.ui.editor.properties.macrowidgets.tableeditor.PropertiesTableEditorModel;
 import org.talend.designer.core.ui.editor.properties.macrowidgets.tableeditor.PropertiesTableEditorView;
 import org.talend.designer.core.ui.editor.properties.macrowidgets.tableeditor.PropertiesTableToolbarEditorView;
@@ -196,8 +197,24 @@ public class TableController extends AbstractElementPropertySectionController {
 
         this.dynamicProperty.setCurRowSize(ySize2 + ITabbedPropertyConstants.VSPACE);
 
-        top += this.dynamicProperty.getCurRowSize();
-        return null;
+        if (isInWizard()) {
+            labelLabel2.setAlignment(SWT.RIGHT);
+            if (lastControlPrm != null) {
+                formData.right = new FormAttachment(lastControlPrm, 0);
+            } else {
+                formData.right = new FormAttachment(100, -ITabbedPropertyConstants.HSPACE);
+            }
+            formData.left = new FormAttachment((((nbInRow - numInRow) * MAX_PERCENT) / nbInRow), currentLabelWidth2
+                    + ITabbedPropertyConstants.HSPACE);
+
+            formData = (FormData) labelLabel2.getLayoutData();
+            formData.right = new FormAttachment(mainComposite, 0);
+            formData.left = new FormAttachment((((nbInRow - numInRow) * MAX_PERCENT) / nbInRow), 0);
+
+            return labelLabel2;
+        }
+
+        return mainComposite;
     }
 
     /*
@@ -339,16 +356,45 @@ public class TableController extends AbstractElementPropertySectionController {
                 String[] customizedShowIfs = param.getListItemsShowIf();
                 dqPatternService.overridePatternList(typeParam, param);
                 // Add the customized value:
-                param.setListItemsValue(ArrayUtils.addAll(param.getListItemsValue(), customizedValue));
-                param.setListItemsDisplayCodeName((String[]) ArrayUtils.addAll(param.getListItemsDisplayCodeName(),
+                param.setListItemsValue(mergeWithoutDuplicate(param.getListItemsValue(), customizedValue));
+                param.setListItemsDisplayCodeName((String[]) mergeWithoutDuplicate(param.getListItemsDisplayCodeName(),
                         customizedDisplayCodeName));
-                param.setListItemsDisplayName((String[]) ArrayUtils.addAll(param.getListItemsDisplayName(), customizedDisplayName));
-                param.setListItemsNotShowIf((String[]) ArrayUtils.addAll(new String[param.getListItemsShowIf().length],
+                param.setListItemsDisplayName((String[]) mergeWithoutDuplicate(param.getListItemsDisplayName(),
+                        customizedDisplayName));
+                param.setListItemsNotShowIf(mergeWithDuplicate(new String[param.getListItemsShowIf().length],
                         customizedNotShowIfs));
-                param.setListItemsShowIf((String[]) ArrayUtils.addAll(new String[param.getListItemsShowIf().length],
-                        customizedShowIfs));
+                param.setListItemsShowIf(mergeWithDuplicate(new String[param.getListItemsShowIf().length], customizedShowIfs));
             }
         }
+    }
+
+    /**
+     * Adds all the elements of "b" arrays into "a" array without the duplicate one in "a", and return "a".
+     * 
+     * @param a
+     * @param b
+     * @return
+     */
+    private Object[] mergeWithoutDuplicate(Object[] a, Object[] b) {
+        if (b == null || b.length == 0) {
+            return a;
+        }
+        for (Object valueB : b) {
+            if (!ArrayUtils.contains(a, valueB)) {
+                a = ArrayUtils.add(a, valueB);
+            }
+        }
+        return a;
+    }
+
+    private String[] mergeWithDuplicate(String[] a, String[] b) {
+        if (b == null || b.length == 0) {
+            return a;
+        }
+        for (String valueB : b) {
+            a = (String[]) ArrayUtils.add(a, valueB);
+        }
+        return a;
     }
 
     private boolean isDQPatternList(IElementParameter param) {
@@ -638,18 +684,19 @@ public class TableController extends AbstractElementPropertySectionController {
         }
 
         ProcessItem processItem = ItemCacheManager.getProcessItem(processId, (String) jobVersionParam.getValue());
-        Process process = null;
         String[] contextParameterNames = null;
         if (processItem != null) {
             // achen modify to fix bug 0006107
             IDesignerCoreService service = CorePlugin.getDefault().getDesignerCoreService();
-            process = (Process) service.getProcessFromItem(processItem);
             // process = new Process(processItem.getProperty());
             // process.loadXmlFile();
-            IContext context = process.getContextManager().getContext(contextName);
+            IContextManager contextManager = service.getProcessContextFromItem(processItem);
+            if (contextManager != null) {
+                IContext context = contextManager.getContext(contextName);
 
-            for (IContextParameter contextParam : context.getContextParameterList()) {
-                contextParameterNamesList.add(contextParam.getName());
+                for (IContextParameter contextParam : context.getContextParameterList()) {
+                    contextParameterNamesList.add(contextParam.getName());
+                }
             }
 
             contextParameterNames = contextParameterNamesList.toArray(new String[0]);
@@ -727,7 +774,7 @@ public class TableController extends AbstractElementPropertySectionController {
     }
 
     public static Map<String, Object> createNewLine(IElementParameter param) {
-        Map<String, Object> line = new HashMap<String, Object>();
+        Map<String, Object> line = new LinkedHashMap<String, Object>();
         String[] items = param.getListItemsDisplayCodeName();
         Object[] itemsValue = param.getListItemsValue();
         IElementParameter tmpParam;

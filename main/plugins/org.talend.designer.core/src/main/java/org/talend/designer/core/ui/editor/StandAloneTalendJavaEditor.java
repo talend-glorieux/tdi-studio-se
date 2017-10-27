@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -333,16 +333,19 @@ public class StandAloneTalendJavaEditor extends CompilationUnitEditor implements
      */
     @Override
     public String getPartName() {
+        String title = null;
         if (item != null) {
             IRepositoryView viewPart = RepositoryManagerHelper.findRepositoryView();
             if (viewPart != null) {
                 RepositoryNode repositoryNode = rEditorInput.getRepositoryNode();
                 if (repositoryNode != null) {
                     return getTitleText(repositoryNode.getObject());
+                } else {
+                    title = super.getPartName() + " " + rEditorInput.getItem().getProperty().getVersion();
                 }
             }
         }
-        return super.getPartName();
+        return title;
     }
 
     @SuppressWarnings("restriction")

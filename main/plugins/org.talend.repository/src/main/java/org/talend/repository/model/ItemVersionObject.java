@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -28,13 +28,23 @@ public class ItemVersionObject {
     private String oldVersion;
 
     private String newVersion;
+    
+    private boolean useSnapshotOld;
 
+    private boolean useSnapshotNew;
+    
     public ItemVersionObject(Property property, RepositoryNode repositoryNode, String oldVersion) {
+        this(property, repositoryNode, oldVersion, false);
+    }
+
+    public ItemVersionObject(Property property, RepositoryNode repositoryNode, String oldVersion, boolean useSnapshotOld) {
         super();
         this.repositoryNode = repositoryNode;
         this.property = property;
         this.oldVersion = oldVersion;
         this.newVersion = oldVersion; // init
+        this.useSnapshotOld = useSnapshotOld;
+        this.useSnapshotNew = useSnapshotOld;
     }
 
     public String getNewVersion() {
@@ -56,6 +66,27 @@ public class ItemVersionObject {
     public String getOldVersion() {
         return this.oldVersion;
     }
+    
+    /**
+     * @return the useSnapshotNew
+     */
+    public boolean isUseSnapshotNew() {
+        return useSnapshotNew;
+    }
+    
+    /**
+     * @param useSnapshotNew the useSnapshotNew to set
+     */
+    public void setUseSnapshotNew(boolean useSnapshotNew) {
+        this.useSnapshotNew = useSnapshotNew;
+    }
+
+    /**
+     * @return the useSnapshotOld
+     */
+    public boolean isUseSnapshotOld() {
+        return useSnapshotOld;
+    }
 
     @SuppressWarnings("restriction")
     @Override
@@ -71,7 +102,7 @@ public class ItemVersionObject {
         if (obj instanceof ItemVersionObject) {
             ItemVersionObject tObj = (ItemVersionObject) obj;
             if (tObj.getRepositoryNode().getId().equals(getRepositoryNode().getId())
-                    && tObj.getOldVersion().equals(getOldVersion())) {
+                    && tObj.getItem().getProperty().getVersion().equals(property.getVersion())) {
                 return true;
             }
         }

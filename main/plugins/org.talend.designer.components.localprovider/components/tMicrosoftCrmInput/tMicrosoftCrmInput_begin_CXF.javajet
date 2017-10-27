@@ -52,7 +52,6 @@ class CrmClass2JavaClassHelper{
 
 CrmClass2JavaClassHelper crmClazzHelper_<%= cid %> = new CrmClass2JavaClassHelper();
 
-int nb_line_<%=cid%> = 0;
 <%
    List<IMetadataTable> metadataTableList = node.getMetadataList();
    if((metadataTableList != null) && (metadataTableList.size() > 0)){
@@ -173,8 +172,21 @@ int nb_line_<%=cid%> = 0;
                 IConnection outgoingConn = outgoingConns.get(0);
                 if(outgoingConn.getLineStyle().hasConnectionCategory(IConnectionCategory.DATA)){
                 %>
+                	com.microsoft.schemas.xrm._2011.contracts.PagingInfo pagingInfo_<%=cid%> = new com.microsoft.schemas.xrm._2011.contracts.PagingInfo();
+                	int pageNumber_<%=cid%> = 1;
+                	pagingInfo_<%=cid%>.setPageNumber(pageNumber_<%=cid%>);
+
+                	queryExp_<%=cid%>.setPageInfo(pagingInfo_<%=cid%>);
+                	
+                	boolean fetchMore_<%=cid%> = true;
+                	while (fetchMore_<%=cid%>) {
+                	
                     com.microsoft.schemas.xrm._2011.contracts.EntityCollection
                                   entityCollection_<%= cid %> = iorgService_<%= cid %>.retrieveMultiple(queryExp_<%= cid %>);
+                                  
+                    String pagingCookie_<%=cid%> = entityCollection_<%=cid%>.getPagingCookie();
+                    fetchMore_<%=cid%> = entityCollection_<%=cid%>.isMoreRecords() != null
+                            ? entityCollection_<%=cid%>.isMoreRecords() : false;
                     List<com.microsoft.schemas.xrm._2011.contracts.Entity>
                                   entityList_<%= cid %> = entityCollection_<%= cid %>.getEntities().getEntities();
                     java.util.Map<String,Object> map_<%= cid %> = new java.util.HashMap<String,Object>();

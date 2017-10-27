@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -13,8 +13,10 @@
 package org.talend.designer.runprocess;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.core.resources.IFile;
@@ -88,6 +90,24 @@ public class JobErrorsChecker {
 
                 // Property property = process.getProperty();
                 Problems.addJobRoutineFile(sourceFile, ProblemType.JOB, item, true);
+            }
+            if (!CommonsPlugin.isHeadless()) {
+                List<IRepositoryViewObject> routinesObjects = proxyRepositoryFactory.getAll(ERepositoryObjectType.ROUTINES, false);
+                Set<String> dependentRoutines = LastGenerationInfo.getInstance().getRoutinesNeededWithSubjobPerJob(
+                        LastGenerationInfo.getInstance().getLastMainJob().getJobId(),
+                        LastGenerationInfo.getInstance().getLastMainJob().getJobVersion());
+                if (routinesObjects != null) {
+                    for (IRepositoryViewObject obj : routinesObjects) {
+                        Property property = obj.getProperty();
+                        if (dependentRoutines.contains(property.getLabel())) {
+                            Item routinesitem = property.getItem();
+                            IFile routineFile = synchronizer.getFile(routinesitem);
+                            Problems.addJobRoutineFile(routineFile, ProblemType.ROUTINE, routinesitem, true);
+                        } else {
+                        	Problems.clearAllComliationError(property.getLabel());
+                        }
+                    }
+                }
             }
             Problems.refreshProblemTreeView();
 
@@ -319,21 +339,23 @@ public class JobErrorsChecker {
             }
         }
 
-        /*
-         * ignore the routine errors.
-         */
         // if no error for job, check codes.
-        // checkRoutinesCompilationError();
-
+        checkRoutinesCompilationError();
+        
+        checkSubJobMultipleVersionsError();
     }
 
     private static void checkRoutinesCompilationError() throws ProcessorException {
+        Set<String> dependentRoutines = LastGenerationInfo.getInstance().getRoutinesNeededWithSubjobPerJob(
+                LastGenerationInfo.getInstance().getLastMainJob().getJobId(),
+                LastGenerationInfo.getInstance().getLastMainJob().getJobVersion());
+    	
         // from Problems
         List<Problem> errors = Problems.getProblemList().getProblemsBySeverity(ProblemStatus.ERROR);
         for (Problem p : errors) {
             if (p instanceof TalendProblem) {
                 TalendProblem talendProblem = (TalendProblem) p;
-                if (talendProblem.getType() == ProblemType.ROUTINE) {
+                if (talendProblem.getType() == ProblemType.ROUTINE && dependentRoutines.contains(talendProblem.getJavaUnitName())) {
                     int line = talendProblem.getLineNumber();
                     String errorMessage = talendProblem.getDescription();
                     throw new ProcessorException(Messages.getString(
@@ -341,6 +363,10 @@ public class JobErrorsChecker {
                             + Messages.getString("JobErrorsChecker_compile_error_line") + ':' + ' ' + line + '\n' //$NON-NLS-1$
                             + Messages.getString("JobErrorsChecker_compile_error_detailmessage") + ':' + ' ' + errorMessage); //$NON-NLS-1$
                 }
+            } else {
+                // for now not to check components errors when building jobs in studio/commandline
+                // throw new ProcessorException(Messages.getString("JobErrorsChecker_jobDesign_errors", p.getType().getTypeName(), //$NON-NLS-1$
+                //      p.getJobInfo().getJobName(), p.getComponentName(), p.getDescription()));
             }
         }
 
@@ -353,6 +379,9 @@ public class JobErrorsChecker {
             if (routinesObjects != null) {
                 for (IRepositoryViewObject obj : routinesObjects) {
                     Property property = obj.getProperty();
+                    if (!dependentRoutines.contains(property.getLabel())) {
+                    	continue;
+                    }
                     Item routinesitem = property.getItem();
                     IFile routinesFile = synchronizer.getFile(routinesitem);
                     IMarker[] markers = routinesFile.findMarkers(IMarker.PROBLEM, true, IResource.DEPTH_ONE);
@@ -384,6 +413,33 @@ public class JobErrorsChecker {
             ExceptionHandler.process(e);
         }
 
+    }
+    
+    protected static void checkSubJobMultipleVersionsError() throws ProcessorException {
+        Set<JobInfo> jobInfos = LastGenerationInfo.getInstance().getLastGeneratedjobs();
+        Map<String, Set<String>> jobInfoMap = new HashMap<>();
+        for (JobInfo jobInfo : jobInfos) {
+            String key = jobInfo.getJobId() + ":" + jobInfo.getJobName(); //$NON-NLS-1$
+            if (!jobInfoMap.containsKey(key)) {
+                Set<String> existVersions = new HashSet<>();
+                existVersions.add(jobInfo.getJobVersion());
+                jobInfoMap.put(key, existVersions);
+            } else {
+                jobInfoMap.get(key).add(jobInfo.getJobVersion());
+            }
+        }
+        for (Map.Entry<String, Set<String>> me : jobInfoMap.entrySet()) {
+            Set<String> existVersions = me.getValue();
+            if (existVersions.size() > 1) {
+                String[] keys = me.getKey().split(":"); //$NON-NLS-1$
+                String jobName = keys[1];
+                String errorMsg = Messages.getString("JobErrorsChecker_subjob_multiple_version_errors", jobName); //$NON-NLS-1$
+                for (String version : existVersions) {
+                    errorMsg += " [" + version + "]"; //$NON-NLS-1$ //$NON-NLS-2$
+                }
+                throw new ProcessorException(errorMsg);
+            }
+        }
     }
 
 }

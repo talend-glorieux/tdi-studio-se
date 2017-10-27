@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -233,14 +233,21 @@ public class UIManager {
         List<IMetadataColumn> exts = new ArrayList<IMetadataColumn>();
         for (int j = 0; j < outputMetaTable2.getListColumns().size(); j++) {
             IMetadataColumn column = outputMetaTable2.getListColumns().get(j);
+            MetadataColumnExt ext = null;
             if (column instanceof MetadataColumnExt) {
-                exts.add(column.clone());
+                ext = (MetadataColumnExt) column.clone();
             } else if (column instanceof MetadataColumn) {
-                MetadataColumnExt ext = new MetadataColumnExt((MetadataColumn) column);
+                ext = new MetadataColumnExt((MetadataColumn) column);
+            }
+            if (ext != null) {
                 List<Function> funs = functionManager.getFunctionsByType(ext.getTalendType());
                 ext.setArrayFunctions(functionManager.getFunctionArrays(funs));
                 if (!funs.isEmpty()) {
-                    ext.setFunction(functionManager.getFuntionFromArray(ext, externalNode, j));
+                    Function funtion = functionManager.getFunctionFromColumn(ext);
+                    if (funtion == null) {
+                        funtion = functionManager.getFuntionFromArray(ext, externalNode, j);
+                    }
+                    ext.setFunction(funtion);
                 }
                 exts.add(ext);
             }

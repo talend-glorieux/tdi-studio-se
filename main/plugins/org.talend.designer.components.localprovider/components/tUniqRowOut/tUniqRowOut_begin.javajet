@@ -35,6 +35,7 @@ if (("").equals(directory)) {
 	directory=ElementParameterParser.getValue(node.getProcess(), "__COMP_DEFAULT_FILE_DIR__") + "/temp"; 
 } 
 String cid = ElementParameterParser.getValue(node, "__CID__");
+boolean ignoreTrailingZerosForBigDecimal = "true".equalsIgnoreCase(ElementParameterParser.getValue(node, "__IGNORE_TRAILING_ZEROS_FOR_BIGDECIMAL__"));
 
 String connName = "";
 if (node.getIncomingConnections().size()==1) {
@@ -60,25 +61,25 @@ if ((metadatas!=null)&&(metadatas.size()>0) && !("").equals(connName)) {//HSS___
 %>
 
 //////////////////////////
-int nb_<%=cid %> = 0;
+long nb_<%=cid %> = 0;
 
 int bufferSize_<%=cid %> = <%=bufferSize %>;
 <%
 if (isLog4jEnabled) {
 %>
-	log.info("<%=cid%> - Start to process the data from datasource.");
+	log.debug("<%=cid%> - Start to process the data from datasource.");
 <%
 }
 %>
 class rowStruct_<%=cid %> extends <%=connName %>Struct {
 
-    int id_<%=cid %>;
+    long id_<%=cid %>;
 
     @Override
     public void readData(ObjectInputStream dis) {
         super.readData(dis);
         try {
-			this.id_<%=cid %> = dis.readInt();
+			this.id_<%=cid %> = dis.readLong();
         } catch (IOException e) {
 			throw new RuntimeException(e);
         }
@@ -94,7 +95,7 @@ class rowStruct_<%=cid %> extends <%=connName %>Struct {
         super.writeData(dos);
         try {
 			// Integer
-			dos.writeInt(this.id_<%=cid %>);
+			dos.writeLong(this.id_<%=cid %>);
 
         } catch (IOException e) {
 			throw new RuntimeException(e);
@@ -234,9 +235,21 @@ class rowStruct_<%=cid %> extends <%=connName %>Struct {
 			if (other.<%=keyColumn.getLabel() %> == null) {
 			    return false;
 			} else {
+			<%
+			if (ignoreTrailingZerosForBigDecimal) {
+			%>
+			    if (!this.<%=keyColumn.getLabel() %>.stripTrailingZeros().equals(other.<%=keyColumn.getLabel() %>.stripTrailingZeros())) {
+			        return false;
+			    }
+			<%
+			} else {
+			%>
 			    if (!this.<%=keyColumn.getLabel() %>.equals(other.<%=keyColumn.getLabel() %>)) {
 			        return false;
 			    }
+			<%
+			}
+			%>
 			}
         }
 			<%
@@ -453,7 +466,17 @@ class Comparator_1_<%=cid %> implements Comparator<rowStruct_<%=cid %>> {
 			if (arg1.<%=keyColumn.getLabel() %> == null) {
 			    return 1;
 			} else {
+				<%
+				if (ignoreTrailingZerosForBigDecimal) {
+				%>
+			    compare = arg0.<%=keyColumn.getLabel() %>.stripTrailingZeros().compareTo(arg1.<%=keyColumn.getLabel() %>.stripTrailingZeros());
+				<%
+				} else {
+				%>
 			    compare = arg0.<%=keyColumn.getLabel() %>.compareTo(arg1.<%=keyColumn.getLabel() %>);
+				<%
+				}
+				%>
 			    if (compare != 0) {
 			        return compare;
 			    }
@@ -522,8 +545,7 @@ class Comparator_1_<%=cid %> implements Comparator<rowStruct_<%=cid %>> {
 	}//HSS_____0_____3
 	
 %>
-
-        return arg0.id_<%=cid %> - arg1.id_<%=cid %>;
+        return Long.compare(arg0.id_<%=cid %>, arg1.id_<%=cid %>);
     }
 
 }
@@ -542,7 +564,7 @@ Comparator<rowStruct_<%=cid %>> comparator_1_<%=cid %> = new Comparator_1_<%=cid
 
 java.util.ArrayList<java.io.File> files_1_<%=cid %> = new java.util.ArrayList<java.io.File>();
 
-String workDirectory_<%=cid %> = <%=directory %>;
+String temp_file_path_prefix_<%=cid %> = <%=directory %> + "/" + jobName + "_<%=cid %>_" + Thread.currentThread().getId() + "_" + pid  + "_";
 
 <%
 }//HSS_____0

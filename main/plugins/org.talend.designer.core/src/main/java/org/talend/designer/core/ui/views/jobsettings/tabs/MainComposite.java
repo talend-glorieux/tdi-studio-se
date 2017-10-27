@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -24,8 +24,10 @@ import org.eclipse.core.resources.IWorkspaceRunnable;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.jobs.ISchedulingRule;
-import org.eclipse.jface.dialogs.MessageDialogWithToggle;
+import org.eclipse.jdt.core.JavaConventions;
+import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jface.fieldassist.ControlDecoration;
 import org.eclipse.jface.fieldassist.FieldDecoration;
 import org.eclipse.jface.fieldassist.FieldDecorationRegistry;
@@ -63,28 +65,35 @@ import org.talend.core.GlobalServiceRegister;
 import org.talend.core.PluginChecker;
 import org.talend.core.model.process.IProcess2;
 import org.talend.core.model.properties.Item;
+import org.talend.core.model.properties.JobletProcessItem;
 import org.talend.core.model.properties.Property;
 import org.talend.core.model.properties.User;
 import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.model.repository.IRepositoryEditorInput;
 import org.talend.core.model.repository.IRepositoryViewObject;
 import org.talend.core.model.repository.RepositoryViewObject;
+import org.talend.core.repository.model.ItemReferenceBean;
 import org.talend.core.repository.model.ProxyRepositoryFactory;
+import org.talend.core.repository.seeker.RepositorySeekerManager;
 import org.talend.core.repository.ui.actions.DeleteActionCache;
+import org.talend.core.repository.ui.dialog.ItemReferenceDialog;
 import org.talend.core.repository.utils.ConvertJobsUtil;
 import org.talend.core.repository.utils.ConvertJobsUtil.JobType;
 import org.talend.core.repository.utils.ConvertJobsUtil.Status;
+import org.talend.core.repository.utils.RepositoryNodeDeleteManager;
 import org.talend.core.runtime.CoreRuntimePlugin;
-import org.talend.core.ui.IJobletProviderService;
 import org.talend.core.ui.branding.IBrandingService;
 import org.talend.core.ui.editor.IJobEditorHandler;
 import org.talend.core.ui.editor.JobEditorHandlerManager;
+import org.talend.core.ui.properties.tab.HorizontalTabFactory;
+import org.talend.core.ui.properties.tab.TalendPropertyTabDescriptor;
 import org.talend.core.utils.KeywordsValidator;
 import org.talend.designer.core.ICamelDesignerCoreService;
 import org.talend.designer.core.i18n.Messages;
 import org.talend.repository.ProjectManager;
 import org.talend.repository.RepositoryWorkUnit;
 import org.talend.repository.model.IProxyRepositoryFactory;
+import org.talend.repository.model.IRepositoryNode;
 import org.talend.repository.model.RepositoryConstants;
 import org.talend.repository.ui.properties.StatusHelper;
 import org.talend.repository.ui.views.IJobSettingsView;
@@ -95,6 +104,8 @@ import org.talend.repository.ui.views.IJobSettingsView;
 public class MainComposite extends AbstractTabComposite {
 
     private boolean enableControl;
+
+    private HorizontalTabFactory tabFactory;
 
     private Text nameText;
 
@@ -132,9 +143,14 @@ public class MainComposite extends AbstractTabComposite {
 
     protected String statusLabelText = null;
 
+    public MainComposite(Composite parent, int style, HorizontalTabFactory tabFactory, IRepositoryViewObject obj) {
+        this(parent, style, tabFactory.getWidgetFactory(), obj);
+        this.tabFactory = tabFactory;
+    }
+
     /**
      * yzhang MainComposite constructor comment.
-     * 
+     *
      * @param parent
      * @param style
      */
@@ -160,14 +176,6 @@ public class MainComposite extends AbstractTabComposite {
                     allowEnableControl = false;
                 }
                 Item originalItem = repositoryObject.getProperty().getItem();
-                if (PluginChecker.isJobLetPluginLoaded()) {
-                    IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
-                            IJobletProviderService.class);
-                    if (service != null && service.isJobletItem(originalItem)) {
-                        allowEnableControl = false;
-                        enableControl = false;
-                    }
-                }
                 if (GlobalServiceRegister.getDefault().isServiceRegistered(ICamelDesignerCoreService.class)) {
                     ICamelDesignerCoreService camelService = (ICamelDesignerCoreService) GlobalServiceRegister.getDefault()
                             .getService(ICamelDesignerCoreService.class);
@@ -280,13 +288,53 @@ public class MainComposite extends AbstractTabComposite {
             versionLabel.setLayoutData(data);
         }
 
+        Text creationDate = widgetFactory.createText(composite, ""); //$NON-NLS-1$
+        data = new FormData();
+
+        data.left = new FormAttachment(0, AbstractPropertySection.STANDARD_LABEL_WIDTH);
+        data.right = new FormAttachment(50, 0);
+        data.top = new FormAttachment(authorLabel, ITabbedPropertyConstants.VSPACE);
+        creationDate.setLayoutData(data);
+        creationDate.setEnabled(false);
+        Date cDate = repositoryObject.getCreationDate();
+        creationDate.setText(cDate != null ? FORMATTER.format(cDate) : ""); //$NON-NLS-1$
+        creationDate.setEnabled(enableControl);
+
+        CLabel creationLabel = widgetFactory.createCLabel(composite,
+                Messages.getString("MainComposite.DateSection.creationLabel")); //$NON-NLS-1$
+        data = new FormData();
+        data.left = new FormAttachment(0, 0);
+        data.right = new FormAttachment(creationDate, -ITabbedPropertyConstants.HSPACE);
+        data.top = new FormAttachment(creationDate, 0, SWT.CENTER);
+        creationLabel.setLayoutData(data);
+
+        Text modificationDate = widgetFactory.createText(composite, ""); //$NON-NLS-1$
+        data = new FormData();
+        data.left = new FormAttachment(creationDate, AbstractPropertySection.STANDARD_LABEL_WIDTH);
+        data.right = new FormAttachment(100, 0);
+        data.top = new FormAttachment(authorLabel, ITabbedPropertyConstants.VSPACE);
+        modificationDate.setLayoutData(data);
+        modificationDate.setEnabled(false);
+        Date mDate = repositoryObject.getModificationDate();
+        modificationDate.setText(mDate != null ? FORMATTER.format(mDate) : ""); //$NON-NLS-1$
+        modificationDate.setEnabled(enableControl);
+
+        CLabel modificationLabel = widgetFactory.createCLabel(composite,
+                Messages.getString("MainComposite.DateSection.ModificationLabel")); //$NON-NLS-1$
+        data = new FormData();
+        data.left = new FormAttachment(creationDate, ITabbedPropertyConstants.HSPACE - 10);
+        data.right = new FormAttachment(modificationDate, ITabbedPropertyConstants.HSPACE);
+        data.top = new FormAttachment(modificationDate, 0, SWT.CENTER);
+        modificationLabel.setLayoutData(data);
+
+        final Map<String, String> statusMap = getStatusMap();
         if (allowEnableControl) {
             // Job Type
             jobTypeCCombo = widgetFactory.createCCombo(composite, SWT.READ_ONLY | SWT.DROP_DOWN);
             data = new FormData();
             data.left = new FormAttachment(0, AbstractPropertySection.STANDARD_LABEL_WIDTH);
             data.right = new FormAttachment(50, 0);
-            data.top = new FormAttachment(authorLabel, ITabbedPropertyConstants.VSPACE);
+            data.top = new FormAttachment(creationDate, ITabbedPropertyConstants.VSPACE);
             jobTypeCCombo.setLayoutData(data);
             jobTypeCCombo.setItems(JobType.getJobTypeToDispaly());
             String jobType = ConvertJobsUtil.getJobTypeFromFramework(framework);
@@ -294,8 +342,11 @@ public class MainComposite extends AbstractTabComposite {
             jobTypeValue = jobTypeCCombo.getText();
             jobTypeCCombo.setEnabled(allowEnableControl);
 
-            CLabel jobTypeLabel = widgetFactory.createCLabel(composite,
-                    Messages.getString("MainComposite.JobTypeSection.jobTypeLabel")); //$NON-NLS-1$
+            String type = Messages.getString("MainComposite.JobTypeSection.jobTypeLabel"); //$NON-NLS-1$
+            if (obj.getProperty().getItem() instanceof JobletProcessItem) {
+                type = Messages.getString("MainComposite.JobTypeSection.jobletTypeLabel"); //$NON-NLS-1$
+            }
+            CLabel jobTypeLabel = widgetFactory.createCLabel(composite, type);
             data = new FormData();
             data.left = new FormAttachment(0, 0);
             data.right = new FormAttachment(jobTypeCCombo, -ITabbedPropertyConstants.HSPACE);
@@ -307,9 +358,10 @@ public class MainComposite extends AbstractTabComposite {
             data = new FormData();
             data.left = new FormAttachment(jobTypeCCombo, AbstractPropertySection.STANDARD_LABEL_WIDTH);
             data.right = new FormAttachment(100, 0);
-            data.top = new FormAttachment(authorLabel, ITabbedPropertyConstants.VSPACE);
+            data.top = new FormAttachment(creationDate, ITabbedPropertyConstants.VSPACE);
             jobFrameworkCCombo.setLayoutData(data);
-            jobFrameworkCCombo.setItems(ConvertJobsUtil.getFrameworkItemsByJobType(jobType));
+            jobFrameworkCCombo.setItems(ConvertJobsUtil.getFrameworkItemsByJobType(jobType,
+                    (obj.getProperty().getItem() instanceof JobletProcessItem)));
             jobFrameworkCCombo.setText(framework != null ? framework : ""); //$NON-NLS-1$
             frameworkValue = jobFrameworkCCombo.getText();
             jobFrameworkCCombo.setEnabled(allowEnableControl);
@@ -349,7 +401,7 @@ public class MainComposite extends AbstractTabComposite {
             String status = repositoryObject.getStatusCode();
             statusText.setText(status != null ? status : ""); //$NON-NLS-1$
             statusText.setItems(Status.getStatusToDispaly());
-            statusLabelText = getStatusMap().get(status);
+            statusLabelText = statusMap.get(status);
             setStatusComboText(statusLabelText);
             statusText.setEnabled(allowEnableControl);
         } else {
@@ -357,7 +409,7 @@ public class MainComposite extends AbstractTabComposite {
             data = new FormData();
             data.left = new FormAttachment(0, AbstractPropertySection.STANDARD_LABEL_WIDTH);
             data.right = new FormAttachment(50, 0);
-            data.top = new FormAttachment(authorLabel, ITabbedPropertyConstants.VSPACE);
+            data.top = new FormAttachment(creationDate, ITabbedPropertyConstants.VSPACE);
             purposeText.setLayoutData(data);
             String content = repositoryObject.getPurpose();
             purposeText.setText(content != null ? content : ""); //$NON-NLS-1$
@@ -375,11 +427,11 @@ public class MainComposite extends AbstractTabComposite {
             data = new FormData();
             data.left = new FormAttachment(purposeText, AbstractPropertySection.STANDARD_LABEL_WIDTH);
             data.right = new FormAttachment(100, 0);
-            data.top = new FormAttachment(authorLabel, ITabbedPropertyConstants.VSPACE);
+            data.top = new FormAttachment(creationDate, ITabbedPropertyConstants.VSPACE);
             statusText.setLayoutData(data);
             String status = repositoryObject.getStatusCode();
             statusText.setText(status != null ? status : ""); //$NON-NLS-1$
-            statusLabelText = getStatusMap().get(status);
+            statusLabelText = statusMap.get(status);
             setStatusComboText(statusLabelText);
             statusText.setEnabled(enableControl);
         }
@@ -393,16 +445,19 @@ public class MainComposite extends AbstractTabComposite {
         statusLabel.setLayoutData(data);
         statusText.setItems(Status.getStatusToDispaly());
         String status = repositoryObject.getStatusCode();
-        statusLabelText = getStatusMap().get(status);
+        statusLabelText = statusMap.get(status);
         setStatusComboText(statusLabelText);
 
         descriptionText = widgetFactory.createText(composite, "", SWT.MULTI | SWT.V_SCROLL | SWT.WRAP); //$NON-NLS-1$
-        data = new FormData();
-        data.left = new FormAttachment(0, AbstractPropertySection.STANDARD_LABEL_WIDTH);
-        data.right = new FormAttachment(100, 0);
-        data.top = new FormAttachment(statusText, ITabbedPropertyConstants.VSPACE);
-        data.height = NB_LINES * descriptionText.getLineHeight();
-        descriptionText.setLayoutData(data);
+        FormData descriptionData = new FormData();
+        descriptionData.left = new FormAttachment(0, AbstractPropertySection.STANDARD_LABEL_WIDTH);
+        descriptionData.right = new FormAttachment(100, 0);
+        descriptionData.top = new FormAttachment(statusText, ITabbedPropertyConstants.VSPACE);
+        descriptionData.height = NB_LINES * descriptionText.getLineHeight();
+        descriptionText.setLayoutData(descriptionData);
+        if (!allowEnableControl) {
+            descriptionData.bottom = new FormAttachment(100);
+        }
 
         String description = repositoryObject.getDescription();
         descriptionText.setText(description != null ? description : ""); //$NON-NLS-1$
@@ -417,49 +472,12 @@ public class MainComposite extends AbstractTabComposite {
         data.top = new FormAttachment(descriptionText, 0, SWT.TOP);
         descriptionLabel.setLayoutData(data);
 
-        Text creationDate = widgetFactory.createText(composite, ""); //$NON-NLS-1$
-        data = new FormData();
-        data.left = new FormAttachment(0, AbstractPropertySection.STANDARD_LABEL_WIDTH);
-        data.right = new FormAttachment(33, 0);
-        data.top = new FormAttachment(descriptionText, ITabbedPropertyConstants.VSPACE);
-        creationDate.setLayoutData(data);
-        creationDate.setEnabled(false);
-        Date cDate = repositoryObject.getCreationDate();
-        creationDate.setText(cDate != null ? FORMATTER.format(cDate) : ""); //$NON-NLS-1$
-        creationDate.setEnabled(enableControl);
-
-        CLabel creationLabel = widgetFactory.createCLabel(composite,
-                Messages.getString("MainComposite.DateSection.creationLabel")); //$NON-NLS-1$
-        data = new FormData();
-        data.left = new FormAttachment(0, 0);
-        data.right = new FormAttachment(creationDate, -ITabbedPropertyConstants.HSPACE);
-        data.top = new FormAttachment(creationDate, 0, SWT.CENTER);
-        creationLabel.setLayoutData(data);
-
-        Text modificationDate = widgetFactory.createText(composite, ""); //$NON-NLS-1$
-        data = new FormData();
-        data.left = new FormAttachment(creationDate, AbstractPropertySection.STANDARD_LABEL_WIDTH + 25);
-        data.right = new FormAttachment(66, 0);
-        data.top = new FormAttachment(descriptionText, ITabbedPropertyConstants.VSPACE);
-        modificationDate.setLayoutData(data);
-        modificationDate.setEnabled(false);
-        Date mDate = repositoryObject.getModificationDate();
-        modificationDate.setText(mDate != null ? FORMATTER.format(mDate) : ""); //$NON-NLS-1$
-        modificationDate.setEnabled(enableControl);
-
-        CLabel modificationLabel = widgetFactory.createCLabel(composite,
-                Messages.getString("MainComposite.DateSection.ModificationLabel")); //$NON-NLS-1$
-        data = new FormData();
-        data.left = new FormAttachment(creationDate, ITabbedPropertyConstants.HSPACE * 3);
-        data.right = new FormAttachment(modificationDate, -ITabbedPropertyConstants.HSPACE);
-        data.top = new FormAttachment(modificationDate, 0, SWT.CENTER);
-        modificationLabel.setLayoutData(data);
-
         if (allowEnableControl) {
             btnConfirm = widgetFactory.createButton(composite, "Confirm", SWT.PUSH); //$NON-NLS-1$
+            descriptionData.bottom = new FormAttachment(btnConfirm, 0, SWT.TOP);
             data = new FormData();
-            data.right = new FormAttachment(100, 0);
-            data.top = new FormAttachment(modificationDate, 0, SWT.CENTER);
+            data.right = new FormAttachment(descriptionText, ITabbedPropertyConstants.HSPACE - 1, SWT.RIGHT);
+            data.bottom = new FormAttachment(100);
             btnConfirm.setLayoutData(data);
             btnConfirm.setEnabled(false);
 
@@ -475,7 +493,8 @@ public class MainComposite extends AbstractTabComposite {
 
                 @Override
                 public void modifyText(final ModifyEvent e) {
-                    ConvertJobsUtil.updateJobFrameworkPart(jobTypeCCombo.getText(), jobFrameworkCCombo);
+                    ConvertJobsUtil.updateJobFrameworkPart(jobTypeCCombo.getText(), jobFrameworkCCombo, (obj.getProperty()
+                            .getItem() instanceof JobletProcessItem));
                     evaluateTextField();
                 }
             });
@@ -599,7 +618,7 @@ public class MainComposite extends AbstractTabComposite {
                             property.setPurpose(originalPurpose);
                         }
                         if (!originalStatus.equals(StringUtils.trimToEmpty(repositoryObject.getStatusCode()))) {
-                            property.setStatusCode(getStatusCode(getStatusMap(), originalStatus));
+                            property.setStatusCode(getStatusCode(statusMap, originalStatus));
                         }
                         if (!originalDescription.equals(StringUtils.trimToEmpty(repositoryObject.getDescription()))) {
                             property.setDescription(originalDescription);
@@ -607,15 +626,20 @@ public class MainComposite extends AbstractTabComposite {
                         Item originalItem = repositoryObject.getProperty().getItem();
                         if (ConvertJobsUtil.isNeedConvert(originalItem, originalJobType, originalFramework, true)) {
                             boolean hasTestCase = ConvertJobsUtil.hasTestCase(repositoryObject.getProperty());
-                            if (hasTestCase
-                                    && !MessageDialogWithToggle
-                                            .openConfirm(null, "Warning",
-                                                    "Warning: You will lost all the testcases when you do converting, do you want to continue?")) {
+                            final List<ItemReferenceBean> unDeleteItems = RepositoryNodeDeleteManager.getInstance()
+                                    .getUnDeleteItems(repositoryObject, null, true);
+                            if (!unDeleteItems.isEmpty()) {
+                                ItemReferenceDialog dialog = new ItemReferenceDialog(PlatformUI.getWorkbench()
+                                        .getActiveWorkbenchWindow().getShell(), unDeleteItems);
+                                dialog.open();
                                 return;
                             }
                             // Convert
                             final Item newItem = ConvertJobsUtil.createOperation(originalName, originalJobType,
                                     originalFramework, repositoryObject);
+                            if (newItem != null) {
+                                ConvertJobsUtil.convertTestcases(newItem, repositoryObject, originalJobType);
+                            }
                             RepositoryWorkUnit repositoryWorkUnit = new RepositoryWorkUnit("Convert job") { //$NON-NLS-1$
 
                                 @Override
@@ -653,6 +677,16 @@ public class MainComposite extends AbstractTabComposite {
                                                     if (isNewItemCreated) {
                                                         newRepositoryObject = proxyRepositoryFactory.getLastVersion(
                                                                 ProjectManager.getInstance().getCurrentProject(), newId);
+                                                        if (tabFactory != null) {
+                                                            IRepositoryNode newRepoViewNode = RepositorySeekerManager
+                                                                    .getInstance().searchRepoViewNode(newId);
+                                                            if (newRepoViewNode != null) {
+                                                                TalendPropertyTabDescriptor selection = tabFactory.getSelection();
+                                                                if (selection != null) {
+                                                                    selection.setData(newRepoViewNode.getObject());
+                                                                }
+                                                            }
+                                                        }
                                                     } else {
                                                         newRepositoryObject = repositoryObject;
                                                     }
@@ -865,7 +899,9 @@ public class MainComposite extends AbstractTabComposite {
                             nameText.getText()) || nameText.getText().trim().contains(" ")) { //$NON-NLS-1$
                 errorMessage = Messages.getString("MainComposite.NameFormatError"); //$NON-NLS-1$
                 isValid = false;
-            } else if (KeywordsValidator.isKeyword(nameText.getText()) || "java".equalsIgnoreCase(nameText.getText())) {//$NON-NLS-1$
+            } else if (JavaConventions.validateClassFileName(nameText.getText() + ".class",//$NON-NLS-1$
+                    JavaCore.getOption(JavaCore.COMPILER_SOURCE), JavaCore.getOption(JavaCore.COMPILER_COMPLIANCE)).getSeverity() == IStatus.ERROR
+                    || KeywordsValidator.isKeyword(nameText.getText())) {
                 errorMessage = Messages.getString("MainComposite.KeywordsError"); //$NON-NLS-1$
                 isValid = false;
             } else if (nameText.getText().equalsIgnoreCase(ProjectManager.getInstance().getCurrentProject().getLabel())) {

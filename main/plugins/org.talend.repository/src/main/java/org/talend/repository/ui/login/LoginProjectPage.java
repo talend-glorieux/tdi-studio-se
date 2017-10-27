@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -12,9 +12,13 @@
 // ============================================================================
 package org.talend.repository.ui.login;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
@@ -23,11 +27,14 @@ import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Path;
 import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.IJobChangeEvent;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.core.runtime.jobs.JobChangeAdapter;
 import org.eclipse.jface.dialogs.IDialogConstants;
 import org.eclipse.jface.dialogs.MessageDialog;
+import org.eclipse.jface.dialogs.ProgressMonitorDialog;
+import org.eclipse.jface.operation.IRunnableWithProgress;
 import org.eclipse.jface.viewers.ArrayContentProvider;
 import org.eclipse.jface.viewers.ComboViewer;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
@@ -87,7 +94,6 @@ import org.talend.core.model.general.Project;
 import org.talend.core.model.properties.ProjectReference;
 import org.talend.core.model.properties.User;
 import org.talend.core.model.repository.SVNConstant;
-import org.talend.core.prefs.PreferenceManipulator;
 import org.talend.core.repository.model.IRepositoryFactory;
 import org.talend.core.repository.model.ProxyRepositoryFactory;
 import org.talend.core.repository.model.RepositoryFactoryProvider;
@@ -95,6 +101,7 @@ import org.talend.core.repository.model.provider.LoginConnectionManager;
 import org.talend.core.repository.services.ILoginConnectionService;
 import org.talend.core.repository.utils.ProjectHelper;
 import org.talend.core.runtime.CoreRuntimePlugin;
+import org.talend.core.service.IRemoteService;
 import org.talend.core.services.ICoreTisService;
 import org.talend.core.services.IGITProviderService;
 import org.talend.core.ui.TalendBrowserLaunchHelper;
@@ -186,6 +193,8 @@ public class LoginProjectPage extends AbstractLoginActionPage {
 
     protected Job backgroundGUIUpdate;
 
+    private String selectedProjectBeforeRefresh;
+    
     // protected ConnectionBean beforeConnBean;
 
     protected String finishButtonAction;
@@ -196,6 +205,10 @@ public class LoginProjectPage extends AbstractLoginActionPage {
             IBrandingService.class);
 
     protected LoginHelper loginHelper;
+
+    protected Map<Project, Job> fetchLicenseJobMap;
+
+    protected IRemoteService remoteService;
 
     public LoginProjectPage(Composite parent, LoginDialogV2 dialog, int style) {
         super(parent, dialog, style);
@@ -217,6 +230,7 @@ public class LoginProjectPage extends AbstractLoginActionPage {
         // if (!isSVNProviderPluginLoaded) {
         // initConnection();
         // }
+        fetchLicenseJobMap = new HashMap<Project, Job>();
     }
 
     @Override
@@ -597,13 +611,17 @@ public class LoginProjectPage extends AbstractLoginActionPage {
             if (selectedConnBean != null) {
                 connectionsViewer.setSelection(new StructuredSelection(new Object[] { selectedConnBean }));
                 IStructuredSelection sel = (IStructuredSelection) connectionsViewer.getSelection();
-                if (sel.getFirstElement() == selectedConnBean) {
+                if (selectedConnBean.equals(sel.getFirstElement())) {
                     selected = true;
                 }
             }
             if (!selected) {
                 connectionsViewer.setSelection(new StructuredSelection(new Object[] { storedConnections.get(0) }));
             }
+        }
+        ConnectionBean selectedConnBean = getConnection();
+        if (selectedConnBean != null) {
+            loginHelper.setCurrentSelectedConnBean(selectedConnBean);
         }
 
         if (getConnection() != null || !validateFields()) {
@@ -653,11 +671,14 @@ public class LoginProjectPage extends AbstractLoginActionPage {
                     // if (beforeConnBean != null && connection.equals(beforeConnBean)) {
                     // return;
                     // }
-                    if (connection == loginHelper.getCurrentSelectedConnBean()) {
+                    if (connection.equals(loginHelper.getCurrentSelectedConnBean())) {
+                        // in case they are equal but different object id
+                        loginHelper.setCurrentSelectedConnBean(connection);
                         return;
                     } else {
                         loginHelper.setCurrentSelectedConnBean(connection);
                     }
+                    cancelAndClearFetchJobs();
                     errorManager.clearAllMessages();
                     // beforeConnBean = connection;
                     updateServerFields();
@@ -804,7 +825,11 @@ public class LoginProjectPage extends AbstractLoginActionPage {
                 finishButton.setEnabled(false);
                 Project project = getProject();
                 if (project != null) {
-                    loginHelper.getPrefManipulator().setLastProject(project.getLabel());
+                    selectedProjectBeforeRefresh = project.getLabel();
+
+                    // last used project will be saved when click finish
+                    // loginHelper.getPrefManipulator().setLastProject(project.getLabel());
+                    fetchLicenseIfNeeded(project);
                     try {
                         fillUIBranches(project, false);
                     } catch (JSONException e) {
@@ -821,19 +846,21 @@ public class LoginProjectPage extends AbstractLoginActionPage {
 
             @Override
             public void selectionChanged(SelectionChangedEvent event) {
-                String branch = getBranch();
-                if (branch == null) {
-                    branch = SVNConstant.EMPTY;
-                }
-                Project project = getProject();
-                try {
-                    loginHelper.getPrefManipulator().setLastSVNBranch(
-                            new JSONObject(project.getEmfProject().getUrl()).getString("location"), project.getTechnicalLabel(),
-                            branch);
-                } catch (JSONException e) {
-                    // TODO Auto-generated catch block
-                    ExceptionHandler.process(e);
-                }
+
+                // last used branch of project will be saved when click finish
+                // String branch = getBranch();
+                // if (branch == null) {
+                // branch = SVNConstant.EMPTY;
+                // }
+                // Project project = getProject();
+                // try {
+                // loginHelper.getPrefManipulator().setLastSVNBranch(
+                // new JSONObject(project.getEmfProject().getUrl()).getString("location"), project.getTechnicalLabel(),
+                // branch);
+                // } catch (JSONException e) {
+                // // TODO Auto-generated catch block
+                // ExceptionHandler.process(e);
+                // }
             }
         });
 
@@ -883,6 +910,8 @@ public class LoginProjectPage extends AbstractLoginActionPage {
 
             @Override
             public void widgetSelected(SelectionEvent e) {
+                cancelAndClearFetchJobs();
+                LoginProjectPage.this.selectedProjectBeforeRefresh = getProject() == null ? null : getProject().getLabel();
                 // Validate data
                 if (validateFields()) {
                     fillUIProjectListWithBusyCursor();
@@ -897,6 +926,7 @@ public class LoginProjectPage extends AbstractLoginActionPage {
                     CommonExceptionHandler.process(e1);
                 }
                 setRepositoryContextInContext();
+                LoginProjectPage.this.selectedProjectBeforeRefresh = null;
             }
         });
 
@@ -995,22 +1025,97 @@ public class LoginProjectPage extends AbstractLoginActionPage {
         if (LoginHelper.isRestart) {
             loginDialog.okPressed();
         } else {
-            // This is for check if the reference project need to update
-            try {
-                saveUpdateStatus(getProject());
-            } catch (Exception e) {
-                // show exception
-                MessageBoxExceptionHandler.process(e, loginHelper.getUsableShell());
+            if (!refreshLicenseIfNeeded()) {
+                return;
             }
+            // should save before login, since svn related codes will read them
+            saveLastUsedProjectAndBranch();
             boolean isLogInOk = loginHelper.logIn(getConnection(), getProject());
             if (isLogInOk) {
                 LoginHelper.setAlwaysAskAtStartup(alwaysAsk.getSelection());
                 loginDialog.okPressed();
+                loginHelper.clearLicenseMap();
+                cancelAndClearFetchJobs();
             } else {
                 fillUIProjectListWithBusyCursor();
                 revertUpdateStatus();
             }
         }
+    }
+
+    /**
+     * 
+     * @return if false: user cancel login
+     */
+    private boolean refreshLicenseIfNeeded() {
+        ConnectionBean conn = loginHelper.getCurrentSelectedConnBean();
+        Project proj = getProject();
+        if (LoginHelper.isRemoteConnection(conn)) {
+            String url = getAdminURL();
+            String projLabel = proj.getLabel();
+            String userId = conn.getUser();
+            try {
+                String key = loginHelper.getLicenseMapKey(url, projLabel, userId);
+                String license = loginHelper.getLicense(key);
+                if (license == null || license.isEmpty()) {
+                    Job fetchJob = fetchLicenseJobMap.get(proj);
+                    if (fetchJob == null || fetchJob.getResult() != null) {
+                        // if result is not null, means fetchJob has already finished but no license fetched
+                        fetchJob = fetchLicense(proj);
+                    }
+                    final Job fJob = fetchJob;
+                    if (fJob != null) {
+                        final AtomicBoolean isInterupted = new AtomicBoolean(false);
+                        ProgressMonitorDialog dialog = new ProgressMonitorDialog(getShell());
+                        dialog.run(true, true, new IRunnableWithProgress() {
+
+                            @Override
+                            public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
+                                monitor.setTaskName(fJob.getName());
+                                while (true) {
+                                    if (monitor.isCanceled()) {
+                                        /**
+                                         * If network is slow, maybe just wait the fetch job finish, but still can click
+                                         * the Refresh button to cancel all fetch jobs
+                                         */
+                                        // fJob.cancel();
+
+                                        isInterupted.set(true);
+                                        break;
+                                    }
+                                    IStatus result = fJob.getResult();
+                                    if (result != null) {
+                                        break;
+                                    }
+                                    try {
+                                        Thread.sleep(250);
+                                    } catch (Exception e) {
+                                        // nothing to do
+                                    }
+                                }
+                            }
+                        });
+                        if (isInterupted.get()) {
+                            return false;
+                        }
+                    }
+                    license = loginHelper.getLicense(key);
+                }
+                if (license == null || license.isEmpty()) {
+                    throw new Exception(Messages.getString("LoginProjectPage.fetchLicense.error.failed")); //$NON-NLS-1$
+                }
+                // will do save in CoreTisService if needed
+                // ICoreTisService tisService = (ICoreTisService) GlobalServiceRegister.getDefault()
+                // .getService(ICoreTisService.class);
+                // File remoteLicense = tisService.getRemoteLicenseFile();
+                // tisService.storeLicenseFile(remoteLicense, license);
+            } catch (Exception e) {
+                ExceptionMessageDialog.openError(getShell(), Messages.getString("LoginProjectPage.fetchLicense.error.title"), //$NON-NLS-1$
+                        Messages.getString("LoginProjectPage.fetchLicense.error.msg"), e); //$NON-NLS-1$
+                return false;
+            }
+        }
+        return true;
     }
 
     private void revertUpdateStatus() {
@@ -1019,55 +1124,37 @@ public class LoginProjectPage extends AbstractLoginActionPage {
         repositoryContext.setNoUpdateWhenLogon(false);
     }
 
-    private void saveUpdateStatus(Project project) throws JSONException {
-        Context ctx = CoreRuntimePlugin.getInstance().getContext();
-        RepositoryContext repositoryContext = (RepositoryContext) ctx.getProperty(Context.REPOSITORY_CONTEXT_KEY);
-        PreferenceManipulator prefManipulator = new PreferenceManipulator();
-        if (!LoginHelper.isRemoteConnection(getConnection())) {
-            repositoryContext.setNoUpdateWhenLogon(true);
-            return;
-        }
-        String url = project.getEmfProject().getUrl();
-        if (url == null || !"git".equals(getStorage(url))) {
-            return;
-        }
-        String location = getLocation(url);
-        String projectName = project.getTechnicalLabel();
-        String branch = getBranch();
-        if (branch.startsWith("tags/")) {
-            repositoryContext.setNoUpdateWhenLogon(true);
-            return;
-        }
-        if (branch.startsWith("branches/"))
-            branch=branch.substring("branches/".length());
-        JSONObject json = prefManipulator.getLogonLocalBranchStatus(location, projectName);
-        if (json != null) {
-            if (!json.has(branch))
-                return;
-            Object noUpdateWhenLogon = json.get(branch);
-            if (noUpdateWhenLogon != null) {
-                repositoryContext.setNoUpdateWhenLogon((Boolean) noUpdateWhenLogon);
+    private void saveLastUsedProjectAndBranch() {
+
+        Project project = getProject();
+        loginHelper.getPrefManipulator().setLastProject(project.getLabel());
+
+        if (loginHelper.isRemoteConnection(getConnection())) {
+            String branch = getBranch();
+            if (branch == null) {
+                branch = SVNConstant.EMPTY;
             }
+            try {
+                loginHelper.getPrefManipulator().setLastSVNBranch(
+                        new JSONObject(project.getEmfProject().getUrl()).getString("location"), project.getTechnicalLabel(), //$NON-NLS-1$
+                        branch);
+            } catch (JSONException e) {
+                ExceptionHandler.process(e);
+            }
+        } else {
+            try {
+                String jsonStr = project.getEmfProject().getUrl();
+                if (jsonStr != null && !jsonStr.isEmpty()) {
+                    String lastLogonBranch = loginHelper.getPrefManipulator()
+                            .getLastSVNBranch(new JSONObject(jsonStr).getString("location"), project.getTechnicalLabel()); //$NON-NLS-1$
+                    ProjectManager.getInstance().setMainProjectBranch(project, lastLogonBranch);
+                }
+            } catch (Exception e) {
+                ExceptionHandler.process(e);
+            }
+
         }
 
-    }
-
-    public static String getStorage(String url) throws JSONException {
-        JSONObject jsonObject = new JSONObject(url);
-        String location = ""; //$NON-NLS-1$
-        if (jsonObject.has("storage")) {
-            location = jsonObject.getString("storage"); //$NON-NLS-1$
-        }
-        return location;
-    }
-
-    public static String getLocation(String url) throws JSONException {
-        JSONObject jsonObject = new JSONObject(url);
-        String location = ""; //$NON-NLS-1$
-        if (jsonObject.has("location")) {
-            location = jsonObject.getString("location"); //$NON-NLS-1$
-        }
-        return location;
     }
 
     @Override
@@ -1077,7 +1164,7 @@ public class LoginProjectPage extends AbstractLoginActionPage {
     }
 
     protected String getAdminURL() {
-        return LoginHelper.getAdminURL(getConnection());
+        return LoginHelper.getAdminURL(loginHelper.getCurrentSelectedConnBean());
     }
 
     protected void updateStudio() {
@@ -1764,7 +1851,18 @@ public class LoginProjectPage extends AbstractLoginActionPage {
     protected void selectLastUsedProject() {
         if (projectViewer != null) {
             Project[] projects = (Project[]) projectViewer.getInput();
-            Project project = loginHelper.getLastUsedProject(projects);
+            Project project = null;
+            if (selectedProjectBeforeRefresh != null) {
+                for (Project p : projects) {
+                    if (selectedProjectBeforeRefresh.equals(p.getLabel())) {
+                        project = p;
+                        break;
+                    }
+                }
+            }
+            if (project == null) {
+                project = loginHelper.getLastUsedProject(projects);
+            }
             if (project == null && projects.length > 0) {
                 project = projects[0];
             }
@@ -1772,7 +1870,6 @@ public class LoginProjectPage extends AbstractLoginActionPage {
                 try {
                     selectProject(project);
                 } catch (JSONException e) {
-                    // TODO Auto-generated catch block
                     ExceptionHandler.process(e);
                 }
             }
@@ -1781,6 +1878,8 @@ public class LoginProjectPage extends AbstractLoginActionPage {
 
     private void selectProject(Project goodProject) throws JSONException {
         projectViewer.setSelection(new StructuredSelection(new Object[] { goodProject }), true);
+        selectedProjectBeforeRefresh = goodProject.getLabel();
+        fetchLicenseIfNeeded(goodProject);
         fillUIBranches(goodProject, true);
         // if (PluginChecker.isTIS()) {
         // }
@@ -1822,13 +1921,13 @@ public class LoginProjectPage extends AbstractLoginActionPage {
                 projectBranches.add("trunk"); //$NON-NLS-1$
                 branchesViewer.setInput(projectBranches);
                 branchesViewer.setSelection(new StructuredSelection(new Object[] { "trunk" })); //$NON-NLS-1$
-            } else if ("git".equals(storage)) {
-                List<String> branches = getBranches(project);
-                projectBranches.addAll(branches);
+            } else if ("git".equals(storage)) { //$NON-NLS-1$
+                String master = "master"; //$NON-NLS-1$
+                projectBranches.add(master);
                 branchesViewer.setInput(projectBranches);
                 if (projectBranches.size() != 0) {
                     branchesViewer.setSelection(new StructuredSelection(
-                            new Object[] { projectBranches.contains("master") ? "master" : projectBranches.get(0) }));
+                            new Object[] { projectBranches.contains(master) ? master : projectBranches.get(0) }));
                 }
 
             }
@@ -1909,7 +2008,7 @@ public class LoginProjectPage extends AbstractLoginActionPage {
     }
 
     public User getUser() {
-        return LoginHelper.getUser(getConnection());
+        return LoginHelper.getUser(loginHelper.getCurrentSelectedConnBean());
     }
 
     public Project getProject() {
@@ -2197,5 +2296,93 @@ public class LoginProjectPage extends AbstractLoginActionPage {
             }
             return hasError || super.hasError();
         }
+    }
+
+    private IRemoteService getRemoteService() {
+        if (remoteService == null) {
+            if (GlobalServiceRegister.getDefault().isServiceRegistered(IRemoteService.class)) {
+                remoteService = (IRemoteService) GlobalServiceRegister.getDefault().getService(IRemoteService.class);
+            }
+        }
+        return remoteService;
+    }
+
+    private void fetchLicenseIfNeeded(Project proj) {
+        if (LoginHelper.isRemoteConnection(loginHelper.getCurrentSelectedConnBean())) {
+            fetchLicense(proj);
+        }
+    }
+
+    private Job fetchLicense(Project proj) {
+        String url = getAdminURL();
+        String userId = loginHelper.getCurrentSelectedConnBean().getUser();
+        String key = loginHelper.getLicenseMapKey(url, proj.getLabel(), userId);
+        String license = null;
+        try {
+            license = loginHelper.getLicense(key);
+        } catch (PersistenceException e) {
+            ExceptionHandler.process(e);
+        }
+        Job fetchJob = null;
+        if (license == null || license.isEmpty()) {
+            fetchJob = fetchLicenseJobMap.get(proj);
+            boolean createJob = true;
+            if (fetchJob != null) {
+                if (fetchJob.getResult() == null) {
+                    // just wait finish, click refresh may clear all running jobs
+                    createJob = false;
+                } else {
+                    createJob = true;
+                }
+            }
+            if (createJob) {
+                fetchJob = createFetchLicenseJob(proj);
+                fetchJob.setUser(false);
+                fetchJob.schedule();
+            }
+        }
+        return fetchJob;
+    }
+
+    private Job createFetchLicenseJob(Project proj) {
+        final String projLabel = proj.getLabel();
+        Job fetchJob = new Job(Messages.getString("LoginProjectPage.fetchLicense.job", proj.getLabel())) { //$NON-NLS-1$
+
+            @Override
+            protected IStatus run(IProgressMonitor monitor) {
+                ConnectionBean cBean = loginHelper.getCurrentSelectedConnBean();
+                try {
+                    String userId = cBean.getUser();
+                    String url = getAdminURL();
+                    JSONObject jsonObj = getRemoteService().getLicenseKey(userId, cBean.getPassword(), url, projLabel);
+                    String fetchedLicense = jsonObj.getString("customerName") + "_" + jsonObj.getString("licenseKey"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+                    String key = loginHelper.getLicenseMapKey(url, projLabel, userId);
+                    loginHelper.putLicense(key, fetchedLicense);
+                } catch (Exception e) {
+                    ExceptionHandler.process(e);
+                }
+                return Status.OK_STATUS;
+            }
+
+            @Override
+            protected void canceling() {
+                Thread thread = this.getThread();
+                try {
+                    // to interrupt the slow network connection
+                    thread.interrupt();
+                } catch (Exception e) {
+                    ExceptionHandler.process(e);
+                }
+            }
+        };
+        fetchLicenseJobMap.put(proj, fetchJob);
+        return fetchJob;
+    }
+
+    private void cancelAndClearFetchJobs() {
+        for (Job job : fetchLicenseJobMap.values()) {
+            job.cancel();
+        }
+        fetchLicenseJobMap.clear();
     }
 }

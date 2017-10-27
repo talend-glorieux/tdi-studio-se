@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -42,8 +42,11 @@ import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.progress.IProgressService;
+import org.talend.commons.CommonsPlugin;
 import org.talend.commons.ui.runtime.exception.ExceptionHandler;
+import org.talend.commons.ui.runtime.exception.MessageBoxExceptionHandler;
 import org.talend.commons.ui.swt.dialogs.EventLoopProgressMonitor;
+import org.talend.commons.utils.time.TimeMeasure;
 import org.talend.core.language.ECodeLanguage;
 import org.talend.core.language.LanguageManager;
 import org.talend.core.model.components.ComponentCategory;
@@ -70,6 +73,8 @@ import org.talend.designer.core.utils.ConnectionUtil;
 import org.talend.designer.core.utils.ParallelExecutionUtils;
 import org.talend.designer.runprocess.ProcessMessage.MsgType;
 import org.talend.designer.runprocess.i18n.Messages;
+import org.talend.designer.runprocess.jmx.JMXPerformanceChangeListener;
+import org.talend.designer.runprocess.jmx.JMXRunStatManager;
 import org.talend.designer.runprocess.prefs.RunProcessPrefsConstants;
 import org.talend.designer.runprocess.prefs.RunProcessTokenCollector;
 import org.talend.designer.runprocess.trace.TraceConnectionsManager;
@@ -138,7 +143,7 @@ public class RunProcessContext {
     private boolean selectAllTrace = false;
 
     /** Is process running. */
-    private boolean running;
+    private volatile boolean running;
 
     /** Is process monitoring */
     private boolean monitoring;
@@ -160,7 +165,7 @@ public class RunProcessContext {
 
     private boolean lastIsRow = false;
 
-    private final IProcessMessageManager processMessageManager;
+    protected final IProcessMessageManager processMessageManager;
 
     private int statsPort = IProcessor.NO_STATISTICS;
 
@@ -202,15 +207,17 @@ public class RunProcessContext {
 
         pcsDelegate = new PropertyChangeSupport(this);
         this.processMessageManager = new ProcessMessageManager();
+        initialize();
+    }
 
+    public void initialize() {
         setMonitorPerf(RunProcessPlugin.getDefault().getPreferenceStore().getBoolean(RunProcessPrefsConstants.ISSTATISTICSRUN));
         setMonitorTrace(RunProcessPlugin.getDefault().getPreferenceStore().getBoolean(RunProcessPrefsConstants.ISTRACESRUN));
         setWatchAllowed(RunProcessPlugin.getDefault().getPreferenceStore().getBoolean(RunProcessPrefsConstants.ISEXECTIMERUN));
         setSaveBeforeRun(RunProcessPlugin.getDefault().getPreferenceStore().getBoolean(RunProcessPrefsConstants.ISSAVEBEFORERUN));
         setClearBeforeExec(RunProcessPlugin.getDefault().getPreferenceStore()
                 .getBoolean(RunProcessPrefsConstants.ISCLEARBEFORERUN));
-        setLog4jLevel(RunProcessPlugin.getDefault().getPreferenceStore().getString(RunProcessPrefsConstants.LOG4JLEVEL));
-        setUseCustomLevel(RunProcessPlugin.getDefault().getPreferenceStore().getBoolean(RunProcessPrefsConstants.CUSTOMLOG4J));
+        loadLog4jContextFromProcess();
     }
 
     public synchronized void addPropertyChangeListener(PropertyChangeListener l) {
@@ -529,20 +536,20 @@ public class RunProcessContext {
                         final IProgressMonitor progressMonitor = new EventLoopProgressMonitor(monitor);
 
                         progressMonitor.beginTask(Messages.getString("ProcessComposite.buildTask"), IProgressMonitor.UNKNOWN); //$NON-NLS-1$
-                        try {
+                        
                             testPort();
                             // findNewStatsPort();
                             if (monitorPerf || monitorTrace) {
                                 if (traceConnectionsManager != null) {
                                     traceConnectionsManager.clear();
                                 }
-                                traceConnectionsManager = new TraceConnectionsManager(process);
+                                traceConnectionsManager = getTraceConnectionsManager(process);
                                 traceConnectionsManager.init();
                             }
                             final IContext context = getSelectedContext();
                             if (monitorPerf) {
                                 clearThreads();
-                                perfMonitor = new PerformanceMonitor();
+                                perfMonitor = getPerformanceMonitor();
                                 new Thread(perfMonitor, "PerfMonitor_" + process.getLabel()).start(); //$NON-NLS-1$
                                 perMonitorList.add(perfMonitor);
                             }
@@ -558,9 +565,34 @@ public class RunProcessContext {
                             processor.setContext(context);
                             ((IEclipseProcessor) processor).setTargetExecutionConfig(getSelectedTargetExecutionConfig());
 
-                            ProcessorUtilities.generateCode(processor, process, context,
+                            final boolean oldMeasureActived = TimeMeasure.measureActive;
+                            if (!oldMeasureActived) { // not active before.
+                                TimeMeasure.display = TimeMeasure.displaySteps = TimeMeasure.measureActive = CommonsPlugin
+                                        .isDebugMode();
+                            }
+                            final String generateCodeId = "Generate job source codes and compile before run"; //$NON-NLS-1$
+                            TimeMeasure.begin(generateCodeId);
+                            try {
+                                ProcessorUtilities.generateCode(processor, process, context,
                                     getStatisticsPort() != IProcessor.NO_STATISTICS, getTracesPort() != IProcessor.NO_TRACES
                                             && hasConnectionTrace(), true, progressMonitor);
+                            } catch (Throwable e) {
+                                // catch any Exception or Error to kill the process,
+                                // see bug 0003567
+                                running = true;
+                                MessageBoxExceptionHandler.process(e, Display.getDefault().getActiveShell());
+                                kill();
+                                return;
+                            } finally {
+                                progressMonitor.done();
+                                // System.out.println("exitValue:" +
+                                // ps.exitValue());
+                            }
+                            TimeMeasure.end(generateCodeId);
+                            // if active before, not disable and active still.
+                            if (!oldMeasureActived) {
+                                TimeMeasure.display = TimeMeasure.displaySteps = TimeMeasure.measureActive = false;
+                            }
                             final boolean[] refreshUiAndWait = new boolean[1];
                             refreshUiAndWait[0] = true;
                             final Display display = shell.getDisplay();
@@ -640,18 +672,7 @@ public class RunProcessContext {
 
                             }
 
-                        } catch (Throwable e) {
-                            // catch any Exception or Error to kill the process,
-                            // see bug 0003567
-                            running = true;
-                            ExceptionHandler.process(e);
-                            addErrorMessage(e);
-                            kill();
-                        } finally {
-                            progressMonitor.done();
-                            // System.out.println("exitValue:" +
-                            // ps.exitValue());
-                        }
+                        
                     }
                 });
             } catch (InvocationTargetException e1) {
@@ -667,6 +688,17 @@ public class RunProcessContext {
             this.running = true;
             setRunning(false);
         }
+    }
+
+    protected PerformanceMonitor getPerformanceMonitor() {
+        if (isESBRuntimeProcessor() && ComponentCategory.CATEGORY_4_CAMEL.getName().equals(process.getComponentsType())) {
+            return new JMXPerformanceMonitor();
+        }
+        return new PerformanceMonitor();
+    }
+
+    protected TraceConnectionsManager getTraceConnectionsManager(IProcess2 process) {
+        return new TraceConnectionsManager(process);
     }
 
     public void cleanWorkingDirectory() {
@@ -817,6 +849,10 @@ public class RunProcessContext {
         return tracesPort;
     }
 
+    private boolean isESBRuntimeProcessor() {
+        return "runtimeProcessor".equals(processor.getProcessorType()); //$NON-NLS-1$
+    }
+
     // private int getWatchPort() {
     // int port = watchAllowed ? RunProcessPlugin.getDefault()
     // .getRunProcessContextManager().getPortForWatch(this)
@@ -936,6 +972,18 @@ public class RunProcessContext {
                 addErrorMessage(ioe);
                 ExceptionHandler.process(ioe);
             }
+            if (isESBRuntimeProcessor()) {
+                if (messageOut != null || messageErr != null) {
+                    Display.getDefault().syncExec(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            processMessageManager.updateConsole();
+                        }
+                    });
+                }
+                return true;
+            }
             return messageOut != null || messageErr != null;
         }
 
@@ -1002,7 +1050,7 @@ public class RunProcessContext {
      * $Id$
      * 
      */
-    private class PerformanceMonitor implements Runnable {
+    public class PerformanceMonitor implements Runnable {
 
         private volatile boolean stopThread;
 
@@ -1112,7 +1160,7 @@ public class RunProcessContext {
             }
         }
 
-        private void processPerformances(final String data, final PerformanceData perfData, final IConnection conn) {
+        protected void processPerformances(final String data, final PerformanceData perfData, final IConnection conn) {
             if (conn == null) {
                 return;
             }
@@ -1174,6 +1222,51 @@ public class RunProcessContext {
             return node;
         }
 
+    }
+
+    /**
+     * JMX Performance Monitor for ESB Route running in ESB Runtime
+     */
+    class JMXPerformanceMonitor extends PerformanceMonitor {
+
+        private JMXPerformanceChangeListener jmxPerformanceChangeListener;
+
+        private JMXRunStatManager jmxManager;
+
+        public JMXPerformanceMonitor() {
+            jmxManager = JMXRunStatManager.getInstance();
+            jmxPerformanceChangeListener = new JMXPerformanceChangeListener() {
+
+                long startTime = System.currentTimeMillis();
+                String name = process.getLabel();
+                @Override
+                public String getProcessName() {
+                    return name;
+                }
+
+                @Override
+                public void performancesChanged(String connId, int exchangesCompleted) {
+                    long duration = System.currentTimeMillis() - startTime;
+                    final IConnection conn = traceConnectionsManager.finConnectionByUniqueName(connId);
+                    final PerformanceData perfData = new PerformanceData(connId + "|" + exchangesCompleted + "|" + duration);
+                    processPerformances(connId + "|" + exchangesCompleted + "|" + duration, perfData, conn);
+                    startTime = System.currentTimeMillis();
+                }
+            };
+        }
+
+        @Override
+        public void run() {
+            jmxManager.addTracing(RunProcessContext.this);
+            jmxManager.addPerformancesChangeListener(jmxPerformanceChangeListener);
+        }
+
+        @Override
+        public void stopThread() {
+            jmxManager.stopTracing(RunProcessContext.this);
+            jmxManager.removePerformancesChangeListener(jmxPerformanceChangeListener);
+            super.stopThread();
+        }
     }
 
     /**
@@ -1829,5 +1922,26 @@ public class RunProcessContext {
                 }
             }
         });
+    }
+
+    public void loadLog4jContextFromProcess() {
+        IElementParameter param = process.getElementParameter(EParameterName.LOG4J_RUN_ACTIVATE.getName());
+        if (param != null && param.getValue() instanceof Boolean && (Boolean) param.getValue()) { // checked
+            RunProcessPlugin.getDefault().getPreferenceStore().setValue(RunProcessPrefsConstants.CUSTOMLOG4J, true);
+        } else {
+            RunProcessPlugin.getDefault().getPreferenceStore().setValue(RunProcessPrefsConstants.CUSTOMLOG4J, false);
+        }
+        setUseCustomLevel(RunProcessPlugin.getDefault().getPreferenceStore().getBoolean(RunProcessPrefsConstants.CUSTOMLOG4J));
+
+        if (useCustomLevel) {
+            IElementParameter log4jLevelParam = process.getElementParameter(EParameterName.LOG4J_RUN_LEVEL.getName());
+            if (log4jLevelParam != null && log4jLevelParam.getValue() != null) {
+                RunProcessPlugin.getDefault().getPreferenceStore()
+                        .setValue(RunProcessPrefsConstants.LOG4JLEVEL, (String) log4jLevelParam.getValue());
+            } else {
+                RunProcessPlugin.getDefault().getPreferenceStore().setValue(RunProcessPrefsConstants.LOG4JLEVEL, "");
+            }
+        }
+        setLog4jLevel(RunProcessPlugin.getDefault().getPreferenceStore().getString(RunProcessPrefsConstants.LOG4JLEVEL));
     }
 }

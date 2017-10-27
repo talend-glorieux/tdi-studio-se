@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -34,7 +34,7 @@ import org.talend.core.model.process.INode;
 import org.talend.core.ui.CoreUIPlugin;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.components.ElementParameter;
-import org.talend.designer.core.ui.editor.jobletcontainer.JobletContainer;
+import org.talend.designer.core.ui.editor.jobletcontainer.AbstractJobletContainer;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.editor.nodes.NodeError;
 import org.talend.designer.core.ui.editor.nodes.NodeLabel;
@@ -210,7 +210,7 @@ public class NodeContainer extends Element {
             }
         }
 
-        if (this instanceof JobletContainer) {
+        if (this instanceof AbstractJobletContainer) {
             Dimension collapseSize = new Dimension(20, 20);
             collapseLocation.x = nodeLocation.x - 20;
             collapseLocation.y = nodeLocation.y - collapseSize.height;
@@ -337,7 +337,7 @@ public class NodeContainer extends Element {
             }
         }
 
-        if (this instanceof JobletContainer) {
+        if (this instanceof AbstractJobletContainer) {
             Dimension collapseSize = new Dimension(20, 20);
             collapseLocation.x = nodeLocation.x - 20;
             collapseLocation.y = nodeLocation.y - collapseSize.height;

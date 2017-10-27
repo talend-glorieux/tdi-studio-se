@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -37,6 +37,7 @@ import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.components.EmfComponent;
 import org.talend.designer.core.ui.editor.process.Process;
 import org.talend.designer.core.ui.preferences.StatsAndLogsConstants;
+import org.talend.metadata.managment.ui.utils.ConnectionContextHelper;
 import org.talend.repository.UpdateRepositoryUtils;
 
 /**
@@ -198,7 +199,9 @@ public class UpdateMainParameterCommand extends Command {
                                                             }
                                                         }
                                                     } else if (EParameterName.HADOOP_ADVANCED_PROPERTIES.getName().equals(
-                                                            param.getName())) {
+                                                            param.getName())
+                                                            || EParameterName.SPARK_ADVANCED_PROPERTIES.getName().equals(
+                                                                    param.getName())) {
                                                         List<Map> list = (ArrayList) param.getValue();
                                                         for (Map map : list) {
                                                             if (map.get("BUILDIN") != null && map.get("BUILDIN").equals("TRUE")) {
@@ -208,7 +211,6 @@ public class UpdateMainParameterCommand extends Command {
                                                             }
                                                         }
                                                         process.setPropertyValue(param.getName(), objectValue);
-
                                                     } else {
                                                         process.setPropertyValue(param.getName(), objectValue);
                                                     }
@@ -224,15 +226,16 @@ public class UpdateMainParameterCommand extends Command {
                         }
 
                     }
+                    IElementParameter property = process
+                            .getElementParameterFromField(EParameterFieldType.PROPERTY_TYPE, category);
+                    Map<String, IElementParameter> childParameters = null;
+                    if (property != null) {
+                        childParameters = property.getChildParameters();
+                    }
                     if (!repository) {
-                        IElementParameter property = process.getElementParameterFromField(EParameterFieldType.PROPERTY_TYPE,
-                                category);
-                        if (property != null) {
-                            Map<String, IElementParameter> childParameters = property.getChildParameters();
-                            if (childParameters != null) {
-                                IElementParameter elementParameter = childParameters.get(EParameterName.PROPERTY_TYPE.getName());
-                                elementParameter.setValue(EmfComponent.BUILTIN);
-                            }
+                        if (childParameters != null) {
+                            IElementParameter elementParameter = childParameters.get(EParameterName.PROPERTY_TYPE.getName());
+                            elementParameter.setValue(EmfComponent.BUILTIN);
                         }
 
                         // built-in
@@ -266,6 +269,14 @@ public class UpdateMainParameterCommand extends Command {
                                 param.setRepositoryValueUsed(false);
                                 param.setReadOnly(false);
                             }
+                        }
+                    } else {
+                        if (childParameters != null) {
+                            IElementParameter elementParameter = childParameters.get(EParameterName.REPOSITORY_PROPERTY_TYPE
+                                    .getName());
+                            ConnectionItem connItem = UpdateRepositoryUtils.getConnectionItemByItemId((String) elementParameter
+                                    .getValue());
+                            ConnectionContextHelper.addContextForProcessParameter(process, connItem, category, false);
                         }
                     }
                 }

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -76,6 +76,7 @@ public class TableManager {
             }
         if (view.getZone() == Zone.INPUTS || view.getZone() == Zone.OUTPUTS) {
             swtTableToView.put(view.getExpressionFilterText(), view);
+            swtTableToView.put(view.getColumnNameFilterText(),view);
         }
         swtTableToView.put(view.getTableViewerCreatorForColumns().getTable(), view);
         if (view.getTableViewerCreatorForFilters() != null) {
@@ -129,6 +130,7 @@ public class TableManager {
         DataMapTableView view = abstractDataMapTableToView.remove(data);
         swtTableToView.remove(view.getTableViewerCreatorForColumns().getTable());
         swtTableToView.remove(view.getExpressionFilterText());
+        swtTableToView.remove(view.getColumnNameFilterText());
         if (view.getTableViewerCreatorForFilters() != null) {
             swtTableToView.remove(view.getTableViewerCreatorForFilters().getTable());
         }

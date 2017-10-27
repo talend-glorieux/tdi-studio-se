@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -31,4 +31,13 @@ public class JobDesignsContentProvider extends ProjectRepoDirectChildrenNodeCont
         return projectNode.getRootRepositoryNode(ERepositoryObjectType.PROCESS);
     }
 
+    @Override
+    public Object getParent(Object element) {
+        if (element instanceof RepositoryNode) {
+            final RepositoryNode node = (RepositoryNode) element;
+            return node.getParent();
+        }
+
+        return super.getParent(element);
+    }
 }

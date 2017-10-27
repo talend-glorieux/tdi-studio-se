@@ -39,7 +39,7 @@
     <PARAMETER
       NAME="ACCESS_KEY"
       FIELD="TEXT"
-      NUM_ROW="20"
+      NUM_ROW="15"
       REQUIRED="true"
       SHOW_IF="INHERIT_CREDENTIALS == 'false'"
     >
@@ -49,7 +49,7 @@
     <PARAMETER
       NAME="SECRET_KEY"
       FIELD="PASSWORD"
-      NUM_ROW="20"
+      NUM_ROW="15"
       REQUIRED="true"
       SHOW_IF="INHERIT_CREDENTIALS == 'false'"
     >
@@ -59,10 +59,49 @@
     <PARAMETER
       NAME="INHERIT_CREDENTIALS"
       FIELD="CHECK"
-      NUM_ROW="21"
+      NUM_ROW="16"
       REQUIRED="true"
     >
       <DEFAULT>false</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="ASSUME_ROLE"
+      FIELD="CHECK"
+      NUM_ROW="17"
+      REQUIRED="true"
+    >
+      <DEFAULT>false</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="ARN"
+      FIELD="TEXT"
+      NUM_ROW="18"
+      REQUIRED="true"
+      SHOW_IF="ASSUME_ROLE == 'true'"
+    >
+      <DEFAULT>""</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="ROLE_SESSION_NAME"
+      FIELD="TEXT"
+      NUM_ROW="19"
+      REQUIRED="true"
+      SHOW_IF="ASSUME_ROLE == 'true'"
+    >
+      <DEFAULT>""</DEFAULT>
+    </PARAMETER>
+    
+    <PARAMETER
+      NAME="SESSION_DURATION"
+      FIELD="TEXT"
+      NUM_ROW="20"
+      REQUIRED="true"
+      SHOW_IF="ASSUME_ROLE == 'true'"
+    >
+      <DEFAULT>15</DEFAULT>
     </PARAMETER>
     
     <PARAMETER 
@@ -70,8 +109,9 @@
 	    FIELD="OPENED_LIST" 
 	    RAW="true" 
 	    NUM_ROW="22" 
-	    REQUIRED="true" 
-	 >
+	    REQUIRED="true"
+	    GROUP="REGION_ENDPOINT_GROUP">
+	    
      	<ITEMS DEFAULT="DEFAULT">
         	<ITEM NAME="DEFAULT" VALUE="DEFAULT" />
          	<ITEM NAME="AP_SOUTHEAST_1" VALUE="&quot;ap-southeast-1&quot;" />
@@ -88,7 +128,7 @@
     	</ITEMS>
     </PARAMETER>
     
-    <PARAMETER NAME="ENCRYPT" FIELD="CHECK" NUM_ROW="23"
+    <PARAMETER NAME="ENCRYPT" FIELD="CHECK" NUM_ROW="25"
 		REQUIRED="true" GROUP="ENCRYPT_GROUP">
 		<DEFAULT>false</DEFAULT>
 	</PARAMETER>
@@ -97,7 +137,7 @@
 	    NAME="KEY_TYPE" 
 	    FIELD="CLOSED_LIST" 
 	    RAW="true" 
-	    NUM_ROW="25" 
+	    NUM_ROW="26" 
 	    REQUIRED="true" 
 	    GROUP="ENCRYPT_GROUP"
 	    SHOW_IF="ENCRYPT == 'true'"
@@ -127,7 +167,7 @@
 	    NAME="ALGORITHM_ASYMMETRIC_MASTER_KEY" 
 	    FIELD="CLOSED_LIST" 
 	    RAW="true" 
-	    NUM_ROW="27"
+	    NUM_ROW="28"
 	    SHOW_IF="isShow[KEY_TYPE] AND (KEY_TYPE == 'ASYMMETRIC_MASTER_KEY')" 
 	    REQUIRED="true" 
 	    GROUP="ENCRYPT_GROUP"
@@ -180,6 +220,19 @@
    </PARAMETERS>
 
     <ADVANCED_PARAMETERS>
+    
+    <PARAMETER 	NAME="USE_REGION_ENDPOINT" FIELD="CHECK" NUM_ROW="5" REQUIRED="true"	GROUP="REGION_ENDPOINT_GROUP" >
+		<DEFAULT>false</DEFAULT>
+	</PARAMETER>
+    
+    <PARAMETER 	NAME="REGION_ENDPOINT" 
+    			FIELD="TEXT" 
+    			NUM_ROW="5" 
+    			REQUIRED="false" 
+    			GROUP="REGION_ENDPOINT_GROUP" 
+    			SHOW_IF="USE_REGION_ENDPOINT == 'true'" >
+      <DEFAULT>"s3.amazonaws.com"</DEFAULT>
+    </PARAMETER>
 
     <PARAMETER
       NAME="CONFIG_CLIENT"
@@ -220,6 +273,24 @@
         <ITEM NAME="VALUE" />
       </ITEMS>
     </PARAMETER>
+    
+    <PARAMETER
+      NAME="SET_STS_ENDPOINT"
+      FIELD="CHECK"
+      NUM_ROW="30"
+      NB_LINES="5"
+      SHOW_IF="ASSUME_ROLE == 'true'"
+    >
+    </PARAMETER>
+	<PARAMETER
+      NAME="STS_ENDPOINT"
+      FIELD="TEXT"
+      NUM_ROW="30"
+      REQUIRED="true"
+      SHOW_IF="(ASSUME_ROLE == 'true') AND (SET_STS_ENDPOINT == 'true')"
+    >
+      <DEFAULT>""</DEFAULT>
+    </PARAMETER>    	
 
     </ADVANCED_PARAMETERS>
 
@@ -240,13 +311,11 @@
 			MVN="mvn:org.talend.libraries/jackson-annotations-2.5.3/6.0.0"
 			UrlPath="platform:/plugin/org.talend.libraries.jackson/lib/jackson-annotations-2.5.3.jar"
 			REQUIRED="true" />
-		<IMPORT NAME="httpcore-4.3.3.jar" MODULE="httpcore-4.3.3.jar"
-			MVN="mvn:org.talend.libraries/httpcore-4.3.3/6.0.0"
-			UrlPath="platform:/plugin/org.talend.libraries.apache.http/lib/httpcore-4.3.3.jar"
+		<IMPORT NAME="httpcore-4.4.3.jar" MODULE="httpcore-4.4.3.jar"
+			MVN="mvn:org.talend.libraries/httpcore-4.4.3/6.3.0"
 			REQUIRED="true" />
-		<IMPORT NAME="httpclient-4.3.6.jar" MODULE="httpclient-4.3.6.jar"
-			MVN="mvn:org.talend.libraries/httpclient-4.3.6/6.0.0"
-			UrlPath="platform:/plugin/org.talend.libraries.apache.http/lib/httpclient-4.3.6.jar"
+		<IMPORT NAME="httpclient-4.5.1.jar" MODULE="httpclient-4.5.1.jar"
+			MVN="mvn:org.talend.libraries/httpclient-4.5.1/6.3.0"
 			REQUIRED="true" />
 		<IMPORT NAME="joda-time-2.8.1.jar" MODULE="joda-time-2.8.1.jar"
 			MVN="mvn:org.talend.libraries/joda-time-2.8.1/6.0.0"

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -18,13 +18,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.lang.StringUtils;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
+import org.talend.components.api.component.ComponentDefinition;
 import org.talend.components.api.properties.ComponentProperties;
 import org.talend.components.api.service.ComponentService;
 import org.talend.core.model.components.IComponent;
+import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.Element;
+import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.repository.FakePropertyImpl;
 import org.talend.core.runtime.util.GenericTypeUtils;
@@ -46,6 +52,11 @@ import org.talend.designer.core.ui.editor.process.Process;
  *
  */
 public class ComponentsUtilsTest {
+
+    @Before
+    public void before() {
+        System.setProperty("talend.test.component.filter", "true");
+    }
 
     @Test
     public void testGetParametersFromForm() {
@@ -72,19 +83,24 @@ public class ComponentsUtilsTest {
         /*
          * Test component
          */
-        IComponent component = ComponentsFactoryProvider.getInstance().get("tSalesforceInput", "DI"); //$NON-NLS-1$ //$NON-NLS-2$
-        INode node = new Node(component, new Process(new FakePropertyImpl()));
-
         // Test parameter initialization case (mainly to test ComponentsUtils.getParameterValue() method).
-        checkParameterInitializationStatus(node, true);
-        checkParameterInitializationStatus(node, false);
+        checkParameterInitializationStatus(true);
+        checkParameterInitializationStatus(false);
     }
 
-    private void checkParameterInitializationStatus(INode node, boolean isInitializing) {
+    private void checkParameterInitializationStatus(boolean isInitializing) {
+        INode node = createSFTestNode();
         ComponentProperties props = node.getComponentProperties();
-        Form form = props.getForm(Form.MAIN);
+        props.setValueEvaluator(null);
+        Form form = props.getForm(Form.ADVANCED);
         List<ElementParameter> parameters = ComponentsUtils.getParametersFromForm(node, isInitializing, null, props, form);
         checkParameterInitializationStatus(parameters, isInitializing);
+    }
+
+    private INode createSFTestNode() {
+        IComponent component = ComponentsFactoryProvider.getInstance().get("tSalesforceConnection", "DI"); //$NON-NLS-1$ //$NON-NLS-2$
+        INode node = new Node(component, new Process(new FakePropertyImpl()));
+        return node;
     }
 
     private void checkParameterInitializationStatus(List<ElementParameter> parameters, boolean isInitializing) {
@@ -204,4 +220,89 @@ public class ComponentsUtilsTest {
         assertTrue(properties.contains(props.contactProps.email));
     }
 
+
+    @Test
+    public void testLoadComponents() {
+        ComponentService componentService = ComponentsUtils.getComponentService();
+        Set<ComponentDefinition> componentDefinitions = componentService.getAllComponents();
+        Set<IComponent> coms = ComponentsFactoryProvider.getInstance().getComponents();
+        List<IComponent> comList = new ArrayList<IComponent>();
+        for (ComponentDefinition componentDefinition : componentDefinitions) {
+            for(IComponent com : coms){
+                if(com.getName().equals(componentDefinition.getName())){
+                    comList.add(com);
+                    break;
+                }
+            }
+        }
+        coms.removeAll(comList);
+        ComponentsUtils.loadComponents(componentService);
+        coms = ComponentsFactoryProvider.getInstance().getComponents();
+        for (ComponentDefinition componentDefinition : componentDefinitions) {
+            if(!componentDefinition.getName().equals("tJIRAInput")){
+                continue;
+            }
+            for(IComponent com : coms){
+                if(com.getName().equals(componentDefinition.getName())){
+                    assertFalse("Component loaded: "+componentDefinition.getName(), true);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testGetParameterValue() {
+        TestProperties props = (TestProperties) new TestProperties("test").init(); //$NON-NLS-1$
+        Property<String> testProperty = props.userId;
+        testProperty.setValue("user"); //$NON-NLS-1$
+        String testParamName = testProperty.getName();
+        EParameterFieldType testFieldType = EParameterFieldType.TEXT;
+        Form form = props.getForm(Form.MAIN);
+        Element fakeElement = new FakeElement(form.getName());
+        INode node = createSFTestNode();
+
+        // If it is a fake element, do not add quotes.
+        Object parameterValue = ComponentsUtils.getParameterValue(fakeElement, testProperty, testFieldType, testParamName);
+        assertEquals("user", parameterValue); //$NON-NLS-1$
+
+        // If the property value is context mode, do not add quotes.
+        testProperty.setValue("context.user"); //$NON-NLS-1$
+        parameterValue = ComponentsUtils.getParameterValue(node, testProperty, testFieldType, testParamName);
+        assertEquals("context.user", parameterValue); //$NON-NLS-1$
+
+        // If old parameter is null(parameter name is testParamName), will initialize and add quotes.
+        testProperty.setValue("user"); //$NON-NLS-1$
+        parameterValue = ComponentsUtils.getParameterValue(node, testProperty, testFieldType, testParamName);
+        assertEquals("\"user\"", parameterValue); //$NON-NLS-1$
+
+        // If old parameter value is null, will initialize and add quotes.
+        IElementParameter testParam = new ElementParameter(node);
+        testParam.setName(testParamName);
+        testParam.setDisplayName(testParamName);
+        testParam.setFieldType(testFieldType);
+        ((List<IElementParameter>) node.getElementParameters()).add(testParam);
+        parameterValue = ComponentsUtils.getParameterValue(node, testProperty, testFieldType, testParamName);
+        assertEquals("\"user\"", parameterValue); //$NON-NLS-1$
+
+        // If old parameter value is not null but not equals to property value, will initialize and add quotes.
+        node.setPropertyValue(testParamName, "user1");
+        parameterValue = ComponentsUtils.getParameterValue(node, testProperty, testFieldType, testParamName);
+        assertEquals("\"user\"", parameterValue); //$NON-NLS-1$
+
+        // If old parameter value is not null and equals to property value, do not add quotes.
+        testProperty.setValue("user"); //$NON-NLS-1$
+        node.setPropertyValue(testParamName, "user");
+        parameterValue = ComponentsUtils.getParameterValue(node, testProperty, testFieldType, testParamName);
+        assertEquals("user", parameterValue); //$NON-NLS-1$
+
+        // If old parameter value is not null but property value is NULL, return "".
+        testProperty.setValue(null);
+        parameterValue = ComponentsUtils.getParameterValue(node, testProperty, testFieldType, testParamName);
+        assertEquals("\"\"", parameterValue); //$NON-NLS-1$
+    }
+
+    @After
+    public void after() {
+        System.setProperty("talend.test.component.filter", "false");
+    }
 }

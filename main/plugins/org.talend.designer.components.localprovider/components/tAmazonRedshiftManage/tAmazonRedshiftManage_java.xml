@@ -26,16 +26,46 @@
 
 	<PARAMETERS>
 		<PARAMETER NAME="ACCESS_KEY" FIELD="TEXT" NUM_ROW="10"
-			GROUP="AUTHENTICATION">
+			GROUP="AUTHENTICATION"
+			SHOW_IF="INHERIT_CREDENTIALS == 'false'">
 			<DEFAULT>""</DEFAULT>
 		</PARAMETER>
 
 		<PARAMETER NAME="SECRET_KEY" FIELD="PASSWORD" NUM_ROW="10"
-			GROUP="AUTHENTICATION">
+			GROUP="AUTHENTICATION"
+			SHOW_IF="INHERIT_CREDENTIALS == 'false'">
 			<DEFAULT>""</DEFAULT>
 		</PARAMETER>
+		
+		<PARAMETER NAME="INHERIT_CREDENTIALS" FIELD="CHECK" NUM_ROW="11" REQUIRED="true"
+			GROUP="AUTHENTICATION">
+      		<DEFAULT>false</DEFAULT>
+    	</PARAMETER>
+    	
+    	<PARAMETER NAME="ASSUME_ROLE" FIELD="CHECK" NUM_ROW="12" REQUIRED="true"
+			GROUP="AUTHENTICATION">
+      		<DEFAULT>false</DEFAULT>
+    	</PARAMETER>
+    	
+    	<PARAMETER NAME="ARN" FIELD="TEXT" NUM_ROW="13" REQUIRED="true"
+    		SHOW_IF="ASSUME_ROLE == 'true'"
+			GROUP="AUTHENTICATION">
+			<DEFAULT>""</DEFAULT>
+    	</PARAMETER>
+    	
+    	<PARAMETER NAME="ROLE_SESSION_NAME" FIELD="TEXT" NUM_ROW="14" REQUIRED="true"
+    		SHOW_IF="ASSUME_ROLE == 'true'"
+			GROUP="AUTHENTICATION">
+			<DEFAULT>""</DEFAULT>
+    	</PARAMETER>
+    	
+    	<PARAMETER NAME="SESSION_DURATION" FIELD="TEXT" NUM_ROW="15" REQUIRED="true"
+    		SHOW_IF="ASSUME_ROLE == 'true'"
+			GROUP="AUTHENTICATION">
+			<DEFAULT>15</DEFAULT>
+    	</PARAMETER>
 
-		<PARAMETER NAME="ACTION" FIELD="CLOSED_LIST" NUM_ROW="15"
+		<PARAMETER NAME="ACTION" FIELD="CLOSED_LIST" NUM_ROW="16"
 			GROUP="CONFIGURATION">
 			<ITEMS DEFAULT="CREATE_CLUSTER">
 				<ITEM NAME="CREATE_CLUSTER" VALUE="CREATE_CLUSTER" />
@@ -123,8 +153,18 @@
 	</PARAMETERS>
 
 	<ADVANCED_PARAMETERS>
+		<PARAMETER NAME="SET_STS_ENDPOINT" FIELD="CHECK" NUM_ROW="1" REQUIRED="true"
+			SHOW_IF="ASSUME_ROLE == 'true'">
+      		<DEFAULT>false</DEFAULT>
+    	</PARAMETER>
+    	
+    	<PARAMETER NAME="STS_ENDPOINT" FIELD="TEXT" NUM_ROW="1" REQUIRED="true"
+    		SHOW_IF="(ASSUME_ROLE == 'true') AND (SET_STS_ENDPOINT == 'true')">
+      		<DEFAULT>""</DEFAULT>
+    	</PARAMETER>
+		
 		<PARAMETER NAME="WAIT_FOR_CLUSTER_READY" FIELD="CHECK"
-			NUM_ROW="1"
+			NUM_ROW="3"
 			SHOW_IF="(ACTION=='CREATE_CLUSTER') OR (ACTION=='RESIZE_CLUSTER') OR (ACTION=='RESTORE_FROM_SNAPSHOT')"
 			GROUP="ADVANCED_CONFIGURATION">
 			<DEFAULT>true</DEFAULT>
@@ -206,13 +246,11 @@
 				MVN="mvn:org.talend.libraries/jackson-annotations-2.5.3/6.0.0"
 				UrlPath="platform:/plugin/org.talend.libraries.jackson/lib/jackson-annotations-2.5.3.jar"
 				REQUIRED="true" />
-			<IMPORT NAME="httpcore-4.3.3.jar" MODULE="httpcore-4.3.3.jar"
-				MVN="mvn:org.talend.libraries/httpcore-4.3.3/6.0.0"
-				UrlPath="platform:/plugin/org.talend.libraries.apache.http/lib/httpcore-4.3.3.jar"
+			<IMPORT NAME="httpcore-4.4.3.jar" MODULE="httpcore-4.4.3.jar"
+				MVN="mvn:org.talend.libraries/httpcore-4.4.3/6.3.0"
 				REQUIRED="true" />
-			<IMPORT NAME="httpclient-4.3.6.jar" MODULE="httpclient-4.3.6.jar"
-				MVN="mvn:org.talend.libraries/httpclient-4.3.6/6.0.0"
-				UrlPath="platform:/plugin/org.talend.libraries.apache.http/lib/httpclient-4.3.6.jar"
+			<IMPORT NAME="httpclient-4.5.1.jar" MODULE="httpclient-4.5.1.jar"
+				MVN="mvn:org.talend.libraries/httpclient-4.5.1/6.3.0"
 				REQUIRED="true" />
 			<IMPORT NAME="joda-time-2.8.1.jar" MODULE="joda-time-2.8.1.jar"
 				MVN="mvn:org.talend.libraries/joda-time-2.8.1/6.0.0"

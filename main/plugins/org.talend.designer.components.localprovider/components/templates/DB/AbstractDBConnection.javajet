@@ -48,10 +48,9 @@ imports="
 	} else {
 		boolean specify_alias = "true".equals(ElementParameterParser.getValue(node, "__SPECIFY_DATASOURCE_ALIAS__"));
 		if(specify_alias){
-			String alias = ElementParameterParser.getValue(node, "__DATASOURCE_ALIAS__");
 %>
-
-	if ((null == globalMap.get(KEY_DB_DATASOURCES)) || "".equals(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>)) {
+	java.util.Map<String, routines.system.TalendDataSource> dataSources_<%=cid%> = (java.util.Map<String, routines.system.TalendDataSource>) globalMap.get(KEY_DB_DATASOURCES);
+	if (dataSources_<%=cid%> == null) {
 <%
 		}
 %>
@@ -66,7 +65,15 @@ imports="
 		globalMap.put("conn_<%=cid%>", conn_<%=cid%>);
 <%
 		if(specify_alias){
+			String alias = ElementParameterParser.getValue(node, "__DATASOURCE_ALIAS__");
 %>
+	} else {
+		String dsAlias_<%=cid%> = <%=(null != alias && !("".equals(alias)))?alias:"\"\""%>;
+		if (dataSources_<%=cid%>.get(dsAlias_<%=cid%>) == null) {
+   			throw new Exception("No DataSource with alias: " + dsAlias_<%=cid%> + " available!");
+      	}
+		conn_<%=cid%> = dataSources_<%=cid%>.get(dsAlias_<%=cid%>).getConnection();
+		globalMap.put("conn_<%=cid%>", conn_<%=cid%>);
 	}
 <%
 		}

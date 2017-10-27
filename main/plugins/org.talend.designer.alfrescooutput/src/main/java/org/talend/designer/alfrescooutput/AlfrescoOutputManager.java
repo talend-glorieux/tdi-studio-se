@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -76,7 +76,7 @@ public class AlfrescoOutputManager {
                 break;
             }
         }
-        if (inConn != null) {
+        if (inConn != null && inConn.getMetadataTable() != null) {
             if (!inConn.getMetadataTable().sameMetadataAs(connector.getMetadataList().get(0))) {
                 MessageBox messageBox = new MessageBox(parent.getShell(), SWT.APPLICATION_MODAL | SWT.OK);
                 messageBox.setText(Messages.getString("AlfrescoOutputManager.schemaError.title")); //$NON-NLS-1$

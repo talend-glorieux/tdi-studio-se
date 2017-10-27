@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -43,9 +43,9 @@ import org.eclipse.swt.widgets.Text;
 import org.talend.commons.CommonsPlugin;
 import org.talend.commons.exception.ExceptionHandler;
 import org.talend.commons.utils.time.TimeMeasure;
-import org.talend.core.GlobalServiceRegister;
 import org.talend.core.database.EDatabaseTypeName;
 import org.talend.core.hadoop.IHadoopClusterService;
+import org.talend.core.hadoop.repository.HadoopRepositoryUtil;
 import org.talend.core.model.metadata.builder.connection.DatabaseConnection;
 import org.talend.core.model.process.IElement;
 import org.talend.core.model.process.IElementParameter;
@@ -58,6 +58,7 @@ import org.talend.core.model.repository.IRepositoryTypeProcessor;
 import org.talend.core.model.repository.IRepositoryViewObject;
 import org.talend.core.model.repository.RepositoryContentManager;
 import org.talend.core.model.utils.RepositoryManagerHelper;
+import org.talend.repository.ProjectManager;
 import org.talend.repository.i18n.Messages;
 import org.talend.repository.model.IRepositoryNode;
 import org.talend.repository.model.IRepositoryNode.ENodeType;
@@ -129,6 +130,10 @@ public class RepositoryReviewDialog extends Dialog {
     private static final String ISSPARK = "ISSPARK"; //$NON-NLS-1$
 
     private static final String USEYARN = "USEYARN"; //$NON-NLS-1$
+
+    private static final String ELEMENT = "ELEMENT"; //$NON-NLS-1$
+
+    private boolean filterReferenceNode = false;
 
     protected RepositoryReviewDialog(Shell parentShell) {
         super(parentShell);
@@ -344,26 +349,23 @@ public class RepositoryReviewDialog extends Dialog {
     }
 
     private IRepositoryTypeProcessor getHadoopSubMultiRepTypeProcessor(String[] repTypes) {
-        if (GlobalServiceRegister.getDefault().isServiceRegistered(IHadoopClusterService.class)) {
-            IHadoopClusterService hadoopClusterService = (IHadoopClusterService) GlobalServiceRegister.getDefault()
-                    .getService(IHadoopClusterService.class);
-            if (hadoopClusterService != null) {
-                List<String> repTypeList = new ArrayList<String>();
-                Map<String, Object> attributes = new HashMap<String, Object>();
-                for (String repType : repTypes) {
-                    Map<String, Object> attr = parseAttributes(repType);
-                    if (attr == null) {
-                        repTypeList.add(repType);
-                    } else {
-                        attributes.putAll(attr);
-                    }
+        IHadoopClusterService hadoopClusterService = HadoopRepositoryUtil.getHadoopClusterService();
+        if (hadoopClusterService != null) {
+            List<String> repTypeList = new ArrayList<String>();
+            Map<String, Object> attributes = new HashMap<String, Object>();
+            for (String repType : repTypes) {
+                Map<String, Object> attr = parseAttributes(repType);
+                if (attr == null) {
+                    repTypeList.add(repType);
+                } else {
+                    attributes.putAll(attr);
                 }
-
-                IRepositoryTypeProcessor processor = hadoopClusterService
-                        .getHadoopSubMultiRepTypeProcessor(repTypeList.toArray(new String[0]));
-                processor.setAttributes(attributes);
-                return processor;
             }
+            attributes.put(ELEMENT, elem);
+            IRepositoryTypeProcessor processor = hadoopClusterService.getHadoopSubMultiRepTypeProcessor(repTypeList
+                    .toArray(new String[0]));
+            processor.setAttributes(attributes);
+            return processor;
         }
 
         return null;
@@ -536,14 +538,18 @@ public class RepositoryReviewDialog extends Dialog {
         } else {
             RepositoryNode node = (RepositoryNode) selection.getFirstElement();
 
-            if (node.getType() != ENodeType.REPOSITORY_ELEMENT) {
+            if (filterReferenceNode && !ProjectManager.getInstance().isInCurrentMainProject(node)) {
                 highlightOKButton = false;
-            }
-            // else if (t == ERepositoryObjectType.SERVICESOPERATION) {
-            // return highlightOKButton;
-            // }
-            else if (!typeProcessor.isSelectionValid(node)) {
-                highlightOKButton = false;
+            } else {
+                if (node.getType() != ENodeType.REPOSITORY_ELEMENT) {
+                    highlightOKButton = false;
+                }
+                // else if (t == ERepositoryObjectType.SERVICESOPERATION) {
+                // return highlightOKButton;
+                // }
+                else if (!typeProcessor.isSelectionValid(node)) {
+                    highlightOKButton = false;
+                }
             }
         }
         return highlightOKButton;
@@ -660,6 +666,10 @@ public class RepositoryReviewDialog extends Dialog {
         if (this.typeProcessor instanceof JobTypeProcessor) {
             ((JobTypeProcessor) this.typeProcessor).setJobIDList(jobIDList);
         }
+    }
+
+    public void setFilterReferenceNode(boolean filterRefNode) {
+        this.filterReferenceNode = filterRefNode;
     }
 }
 

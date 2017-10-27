@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -12,7 +12,10 @@
 // ============================================================================
 package org.talend.designer.core.generic.model;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -22,17 +25,30 @@ import java.util.Set;
 
 import org.apache.avro.Schema;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.text.translate.AggregateTranslator;
+import org.apache.commons.lang3.text.translate.CharSequenceTranslator;
+import org.apache.commons.lang3.text.translate.EntityArrays;
+import org.apache.commons.lang3.text.translate.JavaUnicodeEscaper;
+import org.apache.commons.lang3.text.translate.LookupTranslator;
 import org.apache.log4j.Logger;
 import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.swt.graphics.ImageData;
 import org.eclipse.swt.graphics.RGB;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.Version;
 import org.talend.commons.exception.BusinessException;
+import org.talend.commons.exception.ExceptionHandler;
+import org.talend.commons.utils.resource.BundleFileUtil;
 import org.talend.components.api.component.ComponentDefinition;
 import org.talend.components.api.component.ComponentImageType;
 import org.talend.components.api.component.Connector;
+import org.talend.components.api.component.ConnectorTopology;
 import org.talend.components.api.component.PropertyPathConnector;
 import org.talend.components.api.component.VirtualComponentDefinition;
+import org.talend.components.api.component.runtime.ExecutionEngine;
+import org.talend.components.api.component.runtime.JarRuntimeInfo;
 import org.talend.components.api.properties.ComponentProperties;
 import org.talend.components.api.properties.ComponentPropertiesImpl;
 import org.talend.components.api.properties.ComponentReferenceProperties;
@@ -47,29 +63,40 @@ import org.talend.core.model.components.EComponentType;
 import org.talend.core.model.components.IMultipleComponentItem;
 import org.talend.core.model.components.IMultipleComponentManager;
 import org.talend.core.model.general.ModuleNeeded;
+import org.talend.core.model.metadata.builder.connection.Connection;
 import org.talend.core.model.metadata.types.JavaTypesManager;
 import org.talend.core.model.param.ERepositoryCategoryType;
 import org.talend.core.model.process.EComponentCategory;
 import org.talend.core.model.process.EConnectionType;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.ElementParameterParser;
+import org.talend.core.model.process.IConnectionCategory;
 import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.process.IElementParameterDefaultValue;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.process.INodeConnector;
 import org.talend.core.model.temp.ECodePart;
 import org.talend.core.model.utils.ContextParameterUtils;
+import org.talend.core.model.utils.NodeUtil;
 import org.talend.core.prefs.ITalendCorePrefConstants;
+import org.talend.core.runtime.maven.MavenArtifact;
+import org.talend.core.runtime.maven.MavenConstants;
+import org.talend.core.runtime.maven.MavenUrlHelper;
+import org.talend.core.runtime.services.IGenericWizardService;
 import org.talend.core.runtime.util.ComponentReturnVariableUtils;
 import org.talend.core.runtime.util.GenericTypeUtils;
 import org.talend.core.ui.component.ComponentsFactoryProvider;
+import org.talend.core.ui.component.settings.ComponentsSettingsHelper;
 import org.talend.core.ui.services.IComponentsLocalProviderService;
 import org.talend.core.utils.TalendQuoteUtils;
 import org.talend.daikon.NamedThing;
+import org.talend.daikon.exception.TalendRuntimeException;
 import org.talend.daikon.properties.Properties;
+import org.talend.daikon.properties.ReferenceProperties;
 import org.talend.daikon.properties.presentation.Form;
 import org.talend.daikon.properties.property.Property;
 import org.talend.daikon.properties.property.SchemaProperty;
+import org.talend.daikon.runtime.RuntimeInfo;
 import org.talend.daikon.serialize.PostDeserializeSetup;
 import org.talend.designer.core.DesignerPlugin;
 import org.talend.designer.core.generic.constants.IGenericConstants;
@@ -87,6 +114,7 @@ import org.talend.designer.core.model.components.NodeConnector;
 import org.talend.designer.core.model.components.NodeReturn;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.preferences.TalendDesignerPrefConstants;
+import org.talend.librariesmanager.model.ExtensionModuleManager;
 
 /**
  * created by hcyi on Sep 10, 2015 Detailled comment
@@ -98,19 +126,19 @@ public class Component extends AbstractBasicComponent {
 
     private ComponentDefinition componentDefinition;
 
-    private List<ModuleNeeded> componentImportNeedsList;
-
     private ComponentsProvider provider;
 
     private Map<String, String> translatedMap = new HashMap<>();
 
-    private static String ERROR_MESSAGE = "ERROR_MESSAGE";
+    private static String ERROR_MESSAGE = "ERROR_MESSAGE"; //$NON-NLS-1$
 
     public Component(ComponentDefinition componentDefinition) throws BusinessException {
+        this(componentDefinition, ComponentCategory.CATEGORY_4_DI.getName());
+    }
+
+    public Component(ComponentDefinition componentDefinition, String paletteType) throws BusinessException {
         this.componentDefinition = componentDefinition;
-        // TODO
-        // TCOMP-92
-        this.setPaletteType("DI"); //$NON-NLS-1$
+        this.setPaletteType(paletteType);
     }
 
     public ComponentDefinition getComponentDefinition() {
@@ -172,9 +200,14 @@ public class Component extends AbstractBasicComponent {
     }
 
     @Override
-    public List<NodeReturn> createReturns() {
+    public List<NodeReturn> createReturns(INode parentNode) {
         List<NodeReturn> listReturn = new ArrayList<>();
-        ComponentProperties componentProperties = ComponentsUtils.getComponentProperties(getName());
+
+        ComponentProperties componentProperties = parentNode.getComponentProperties();
+        if (componentProperties == null) {
+            parentNode.setComponentProperties(ComponentsUtils.getComponentProperties(getName()));
+            componentProperties = parentNode.getComponentProperties();
+        }
         if (!(componentProperties instanceof ComponentPropertiesImpl)) {
             return listReturn;
         }
@@ -592,8 +625,9 @@ public class Component extends AbstractBasicComponent {
             param.setRepositoryValue(wizardDefinition.getName());
         }
         param.setValue("");//$NON-NLS-1$
-        param.setNumRow(2);
+        param.setNumRow(1);
         param.setShow(wizardDefinition != null);
+        param.setTaggedValue(IGenericConstants.IS_PROPERTY_SHOW, wizardDefinition != null);
 
         ElementParameter newParam = new ElementParameter(node);
         newParam.setCategory(EComponentCategory.BASIC);
@@ -757,6 +791,7 @@ public class Component extends AbstractBasicComponent {
             }
         }
 
+        ElementParameter autoSwitchParam = null;
         for (ElementParameter param : listParam) { // TUP-4161
             if (EParameterFieldType.SCHEMA_REFERENCE.equals(param.getFieldType())) {
                 ElementParameter newParam = new ElementParameter(node);
@@ -794,13 +829,29 @@ public class Component extends AbstractBasicComponent {
                 newParam.setContext(IGenericConstants.CONTEXT);
                 newParam.setSerialized(true);
                 newParam.setParentParameter(param);
+
+                if (autoSwitchParam == null) {
+                    autoSwitchParam = new ElementParameter(node);
+                    autoSwitchParam.setCategory(EComponentCategory.TECHNICAL);
+                    autoSwitchParam.setName(EParameterName.REPOSITORY_ALLOW_AUTO_SWITCH.getName());
+                    autoSwitchParam.setDisplayName(EParameterName.REPOSITORY_ALLOW_AUTO_SWITCH.getDisplayName());
+                    autoSwitchParam.setNumRow(param.getNumRow());
+                    autoSwitchParam.setFieldType(EParameterFieldType.CHECK);
+                    autoSwitchParam.setValue(Boolean.FALSE);
+                    autoSwitchParam.setShow(false);
+                    autoSwitchParam.setRequired(true);
+                    autoSwitchParam.setReadOnly(true);
+                }
             }
+        }
+        if (autoSwitchParam != null) {
+            listParam.add(autoSwitchParam);
         }
     }
 
     /**
      * DOC nrousseau Comment method "setupConnector".
-     * 
+     *
      * @param node
      * @param rootProperty
      * @param paramName
@@ -816,7 +867,7 @@ public class Component extends AbstractBasicComponent {
             if (!(schemaProperty.getValue() instanceof Schema)) {
                 continue;
             }
-            Schema schema = (Schema) schemaProperty.getValue();
+            Schema schema = schemaProperty.getValue();
             if (connector instanceof PropertyPathConnector) {
                 String linkedSchema = ((PropertyPathConnector) connector).getPropertyPath() + ".schema"; //$NON-NLS-1$
                 if (paramName.equals(linkedSchema)) {
@@ -824,6 +875,7 @@ public class Component extends AbstractBasicComponent {
                     ElementParameter param = new ElementParameter(node);
                     param.setName(paramName);
                     param.setFieldType(EParameterFieldType.SCHEMA_REFERENCE);
+                    param.setShow(false);
                     if (!isOutput) {
                         param.setContext(EConnectionType.FLOW_MAIN.getName());
                     } else {
@@ -842,7 +894,7 @@ public class Component extends AbstractBasicComponent {
 
     /**
      * DOC nrousseau Comment method "findSchemaProperties".
-     * 
+     *
      * @param rootProperty
      * @param listParam
      * @return
@@ -902,8 +954,13 @@ public class Component extends AbstractBasicComponent {
     public List<INodeConnector> createConnectors(INode parentNode) {
         List<INodeConnector> listConnector = new ArrayList<>();
 
-        ComponentProperties componentProperties = ComponentsUtils.getComponentProperties(getName());
+        ComponentProperties componentProperties = parentNode.getComponentProperties();
+        if (componentProperties == null) {
+            parentNode.setComponentProperties(ComponentsUtils.getComponentProperties(getName()));
+            componentProperties = parentNode.getComponentProperties();
+        }
         Set<? extends Connector> inputConnectors = componentProperties.getPossibleConnectors(false);
+
         if (inputConnectors.isEmpty()) {
             INodeConnector connector = null;
             connector = addStandardType(listConnector, EConnectionType.FLOW_MAIN, parentNode);
@@ -911,7 +968,8 @@ public class Component extends AbstractBasicComponent {
             connector.setMaxLinkOutput(0);
         } else {
             for (Connector connector : inputConnectors) {
-                addGenericType(listConnector, EConnectionType.FLOW_MAIN, connector.getName(), parentNode, false);
+                addGenericType(listConnector, EConnectionType.FLOW_MAIN, connector.getName(), parentNode, componentProperties,
+                        false);
             }
         }
 
@@ -935,13 +993,16 @@ public class Component extends AbstractBasicComponent {
             if (Connector.REJECT_NAME.equals(connector.getName())) {
                 type = EConnectionType.REJECT;
             }
-            addGenericType(listConnector, type, connector.getName(), parentNode, true);
+            addGenericType(listConnector, type, connector.getName(), parentNode, componentProperties, true);
         }
         addStandardType(listConnector, EConnectionType.RUN_IF, parentNode);
         addStandardType(listConnector, EConnectionType.ON_COMPONENT_OK, parentNode);
         addStandardType(listConnector, EConnectionType.ON_COMPONENT_ERROR, parentNode);
         addStandardType(listConnector, EConnectionType.ON_SUBJOB_OK, parentNode);
         addStandardType(listConnector, EConnectionType.ON_SUBJOB_ERROR, parentNode);
+
+        Set<ConnectorTopology> topologies = componentDefinition.getSupportedConnectorTopologies();
+        createIterateConnectors(topologies, listConnector, parentNode);
 
         for (int i = 0; i < EConnectionType.values().length; i++) {
             EConnectionType currentType = EConnectionType.values()[i];
@@ -985,8 +1046,38 @@ public class Component extends AbstractBasicComponent {
     }
 
     /**
+     * Create iterate connector for this {@link Component} There are 4 types of components (depending on what main
+     * connections allowed): 1. StandAlone component (can't have main connections at all) 2. Input component (can have
+     * outgoing main connection) 3. Output component (can have incoming main connection) 4. Intermediate component (can
+     * have both incoming and outgoing main connections)
+     *
+     * Iterate connector is created by default for TCOMP component with following rules: Outgoing iterate: all types of
+     * components can have infinite outgoing iterate connections Incoming iterate: StandAlone, Input components (also
+     * called startable components) can have 1 incoming iterate flow; Output, Intermediate components can't have
+     * incoming iterate flow (because they are not startable)
+     *
+     * Note: infinite value is defined by -1 int value
+     *
+     * @param topologies connection topologies supported by this {@link Component}. Component could support several
+     * topologies. Such component is called hybrid
+     * @param listConnector list of all {@link Component} connectors
+     * @param parentNode parent node
+     */
+    private void createIterateConnectors(Set<ConnectorTopology> topologies, List<INodeConnector> listConnector,
+            INode parentNode) {
+        boolean inputOrNone = topologies.contains(ConnectorTopology.NONE) || topologies.contains(ConnectorTopology.OUTGOING);
+        INodeConnector iterateConnector = addStandardType(listConnector, EConnectionType.ITERATE, parentNode);
+        iterateConnector.setMaxLinkOutput(-1);
+        if (inputOrNone) {
+            iterateConnector.setMaxLinkInput(1);
+        } else {
+            iterateConnector.setMaxLinkInput(0);
+        }
+    }
+
+    /**
      * Add default connector type, if not already defined by component.
-     * 
+     *
      * @param listConnector
      * @param type
      * @param parentNode
@@ -1005,8 +1096,9 @@ public class Component extends AbstractBasicComponent {
     }
 
     private void addGenericType(List<INodeConnector> listConnector, EConnectionType type, String genericConnectorType,
-            INode parentNode, boolean isOutput) {
+            INode parentNode, ComponentProperties componentProperties, boolean isOutput) {
         GenericNodeConnector nodeConnector = new GenericNodeConnector(parentNode, isOutput);
+        nodeConnector.setComponentProperties(componentProperties);
         nodeConnector.setDefaultConnectionType(EConnectionType.FLOW_MAIN);
         nodeConnector.setGenericConnectorType(genericConnectorType);
         nodeConnector.setLinkName(type.getDefaultLinkName());
@@ -1029,23 +1121,84 @@ public class Component extends AbstractBasicComponent {
         return componentDefinition.isDataAutoPropagate();
     }
 
+    /*
+     * (non-Javadoc)
+     *
+     * @see org.talend.core.model.components.IComponent#getModulesNeeded()
+     */
     @Override
     public List<ModuleNeeded> getModulesNeeded() {
-        if (componentImportNeedsList != null) {
-            return componentImportNeedsList;
-        } else {
-            ComponentService componentService = ComponentsUtils.getComponentService();
-            Set<String> mavenUriDependencies = componentService.getMavenUriDependencies(getName());
-            componentImportNeedsList = new ArrayList<>(mavenUriDependencies.size());
-            for (String mvnUri : mavenUriDependencies) {
-                ModuleNeeded moduleNeeded = new ModuleNeeded(getName(), "", true, mvnUri);
-                componentImportNeedsList.add(moduleNeeded);
+        return getModulesNeeded(null);
+    }
+
+    @Override
+    public List<ModuleNeeded> getModulesNeeded(INode node) {
+        List<ModuleNeeded> componentImportNeedsList = new ArrayList<>();
+        ConnectorTopology topology = null;
+        if (node != null) {
+            boolean hasInput = !NodeUtil.getIncomingConnections(node, IConnectionCategory.DATA).isEmpty();
+            boolean hasOutput = !NodeUtil.getOutgoingConnections(node, IConnectionCategory.DATA).isEmpty();
+            if (hasInput && hasOutput) {
+                topology = ConnectorTopology.INCOMING_AND_OUTGOING;
+            } else if (hasInput) {
+                topology = ConnectorTopology.INCOMING;
+            } else if (hasOutput) {
+                topology = ConnectorTopology.OUTGOING;
+            } else {
+                topology = ConnectorTopology.NONE;
             }
-            ModuleNeeded moduleNeeded = new ModuleNeeded(getName(), "", true,
-                    "mvn:org.talend.libraries/slf4j-log4j12-1.7.2/6.0.0");
-            componentImportNeedsList.add(moduleNeeded);
-            return componentImportNeedsList;
+        } else {
+            Set<ConnectorTopology> topologies = componentDefinition.getSupportedConnectorTopologies();
+            if (!topologies.isEmpty()) {
+                topology = topologies.iterator().next();
+            }
         }
+        RuntimeInfo runtimeInfo = null;
+        try {
+            runtimeInfo = componentDefinition.getRuntimeInfo(ExecutionEngine.DI,
+                    node == null ? null : node.getComponentProperties(), topology);
+        } catch (Exception e) {
+            if (node == null) {
+                // not handled, must because the runtime info must have a node configuration (properties are null)
+            } else if (e instanceof TalendRuntimeException) {
+                // no need to check talend runtime exception in design time.
+                e.printStackTrace(); // only for debug.
+            } else {
+                ExceptionHandler.process(e);
+            }
+        }
+        if (runtimeInfo != null) {
+            if (runtimeInfo instanceof JarRuntimeInfo) {
+                JarRuntimeInfo currentRuntimeInfo = (JarRuntimeInfo) runtimeInfo;
+                runtimeInfo = currentRuntimeInfo.cloneWithNewJarUrlString(currentRuntimeInfo.getJarUrl().toString()
+                        .replace("mvn:", "mvn:" + MavenConstants.LOCAL_RESOLUTION_URL + "!"));
+            }
+            final Bundle bundle = FrameworkUtil.getBundle(componentDefinition.getClass());
+            for (URL mvnUri : runtimeInfo.getMavenUrlDependencies()) {
+                ModuleNeeded moduleNeeded = new ModuleNeeded(getName(), "", true, mvnUri.toString()); //$NON-NLS-1$
+                componentImportNeedsList.add(moduleNeeded);
+
+                if (bundle != null) { // update module location
+                    try {
+                        final MavenArtifact artifact = MavenUrlHelper.parseMvnUrl(moduleNeeded.getMavenUri());
+                        final String moduleFileName = artifact.getFileName();
+                        final File bundleFile = BundleFileUtil.getBundleFile(bundle, moduleFileName);
+                        if (bundleFile != null && bundleFile.exists()) {
+                            // FIXME, better install the embed jars from bundle directly in this way.
+                            moduleNeeded.setModuleLocaion(
+                                    ExtensionModuleManager.URIPATH_PREFIX + bundle.getSymbolicName() + '/' + moduleFileName);
+                        }
+                    } catch (IOException e) {
+                        ExceptionHandler.process(e);
+                    }
+                }
+            }
+        }
+        ModuleNeeded moduleNeeded = new ModuleNeeded(getName(), "", true, "mvn:org.talend.libraries/slf4j-log4j12-1.7.2/6.0.0");
+        componentImportNeedsList.add(moduleNeeded);
+        moduleNeeded = new ModuleNeeded(getName(), "", true, "mvn:org.talend.libraries/talend-codegen-utils/0.20.2");
+        componentImportNeedsList.add(moduleNeeded);
+        return componentImportNeedsList;
     }
 
     @Override
@@ -1195,8 +1348,13 @@ public class Component extends AbstractBasicComponent {
     protected void processCodegenPropInfos(List<CodegenPropInfo> propList, Properties props, String fieldString) {
         for (NamedThing prop : props.getProperties()) {
             if (prop instanceof Properties) {
+                if (prop instanceof ReferenceProperties) {
+                    ReferenceProperties rp = (ReferenceProperties) prop;
+                    rp.referenceDefinitionName.setTaggedValue(IGenericConstants.ADD_QUOTES, true);
+                }
                 if (prop instanceof ComponentReferenceProperties) {
-                    ((ComponentReferenceProperties) prop).componentProperties = null;
+                    ComponentReferenceProperties crp = (ComponentReferenceProperties) prop;
+                    crp.componentInstanceId.setTaggedValue(IGenericConstants.ADD_QUOTES, true);
                 }
                 CodegenPropInfo childPropInfo = new CodegenPropInfo();
                 if (fieldString.equals("")) {//$NON-NLS-1$
@@ -1223,12 +1381,16 @@ public class Component extends AbstractBasicComponent {
         return propsList;
     }
 
+    public static final CharSequenceTranslator ESCAPE_SCHEMA = new AggregateTranslator(
+            new CharSequenceTranslator[] { new LookupTranslator(new String[][] { { "\"", "\\\"" }, { "\\", "\\\\" } }),
+                    new LookupTranslator(EntityArrays.JAVA_CTRL_CHARS_ESCAPE()), JavaUnicodeEscaper.outsideOf(32, 127) });
+
     public String getCodegenValue(Property property, String value) {
         if (property.isFlag(Property.Flags.ENCRYPT)) {
             return ElementParameterParser.getEncryptedValue(value);
         }
         if (Boolean.valueOf(String.valueOf(property.getTaggedValue(IGenericConstants.ADD_QUOTES)))) {
-            return "\"" + value + "\"";//$NON-NLS-1$ //$NON-NLS-2$
+            return TalendQuoteUtils.addQuotesIfNotExist(value);
         }
         if (GenericTypeUtils.isEnumType(property)) {
             if (ContextParameterUtils.isContainContextParam(value) || value.indexOf("globalMap.get") > -1) {
@@ -1237,12 +1399,21 @@ public class Component extends AbstractBasicComponent {
                 return TalendQuoteUtils.addQuotesIfNotExist(value);
             }
         }
+        if (GenericTypeUtils.isStringType(property)
+                && property.getTaggedValue(IGenericConstants.LINE_SEPARATOR_REPLACED_TO) != null) {
+            String replacedTo = String.valueOf(property.getTaggedValue(IGenericConstants.LINE_SEPARATOR_REPLACED_TO));
+            // "Win", "Linux/Unix", "Mac"
+            return value.replaceAll("\r\n", replacedTo).replaceAll("\n", replacedTo).replaceAll("\r", replacedTo);
+        }
         if (GenericTypeUtils.isSchemaType(property)) {
             // Handles embedded escaped quotes which might occur
-            return "\"" + value.replace("\\\"", "\\\\\"").replace("\"", "\\\"") + "\"";//$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+            return "\"" + ESCAPE_SCHEMA.translate(value) + "\"";
         }
         if (GenericTypeUtils.isIntegerType(property) && ContextParameterUtils.isContainContextParam(value)) {
-            value = "Integer.valueOf(" + value + ")";
+            value = "routines.system.ObjectUtil.nonNull(" + value + ") ? Integer.valueOf(" + value + ") : null";
+        }
+        if ("\"\"\"".equals(value)) {
+            value = "\"\\\"\"";
         }
         return value;
     }
@@ -1258,7 +1429,7 @@ public class Component extends AbstractBasicComponent {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see java.lang.Object#equals(java.lang.Object)
      */
     @Override
@@ -1299,6 +1470,7 @@ public class Component extends AbstractBasicComponent {
                         @Override
                         public void setup(Object properties) {
                             ((Properties) properties).setValueEvaluator(new ComponentContextPropertyValueEvaluator(node));
+                            ComponentsUtils.getComponentService().postDeserialize(((Properties) properties));
                         }
 
                     }).object);
@@ -1377,4 +1549,103 @@ public class Component extends AbstractBasicComponent {
     public boolean hasConditionalOutputs() {
         return componentDefinition.isConditionalInputs();
     }
+
+    @Override
+    public String getRepositoryType(Connection connection) {
+        String propertiesStr = null;
+        IGenericWizardService wizardService = null;
+        if (GlobalServiceRegister.getDefault().isServiceRegistered(IGenericWizardService.class)) {
+            wizardService = (IGenericWizardService) GlobalServiceRegister.getDefault().getService(IGenericWizardService.class);
+        }
+        if (wizardService != null) {
+            propertiesStr = wizardService.getConnectionProperties(connection);
+        }
+        ComponentProperties properties = ComponentsUtils.getComponentPropertiesFromSerialized(propertiesStr, connection, false);
+        if (properties != null) {
+            ComponentWizardDefinition wizardDefinition = getWizardDefinition(properties);
+            if (wizardDefinition != null) {
+                return wizardDefinition.getName();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Sets the visible.
+     *
+     * @param visible the visible to set
+     */
+    public void setVisible(Boolean visible) {
+        this.visible = visible;
+    }
+
+    /*
+     * (non-Javadoc)
+     *
+     * @see org.talend.core.model.components.IComponent#isVisible()
+     */
+    @Override
+    public boolean isVisible() {
+        return isVisible(null);
+    }
+
+    @Override
+    public boolean isVisible(String family) {
+        if (visible != null) {
+            return visible;
+        }
+        return ComponentsSettingsHelper.isComponentVisible(this, family);
+    }
+
+    @Override
+    public boolean isVisibleInComponentDefinition() {
+        return true;
+    }
+
+    /**
+     * Sets the technical.
+     *
+     * @param technical the technical to set
+     */
+    public void setTechnical(Boolean technical) {
+        this.technical = technical;
+    }
+
+    /*
+     * (non-Javadoc)
+     *
+     * @see org.talend.core.model.components.IComponent#isTechnical()
+     */
+    @Override
+    public boolean isTechnical() {
+        if (technical != null) {
+            if (technical) {
+                return true;
+            } else {
+                if (isFamilyNameEmpty()) {// TUP-17720 when family name is null, should not show component
+                    return true;
+                }
+            }
+        } else {
+            return isFamilyNameEmpty();
+        }
+        return false;
+    }
+
+    public boolean isFamilyNameEmpty() {
+        if (getOriginalFamilyName() == null || getOriginalFamilyName().trim().isEmpty()) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public String getVersion() {
+        Version version = FrameworkUtil.getBundle(componentDefinition.getClass()).getVersion();
+        if (version != null) {
+            return version.toString();
+        }
+        return super.getVersion();
+    }
+
 }

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -766,7 +766,9 @@ public final class Expression {
             ElementParameter currentParam) {
         INode node = retrieveNodeElementFromParameter(currentParam, listParam);
         ESparkVersion version = SparkVersionUtil.getSparkVersion(node);
-
+        if(version == null){
+            return false;
+        }
         Pattern p = java.util.regex.Pattern.compile("(lt|le|gt|ge|eq|ne)\\s*'(SPARK_.*)'"); //$NON-NLS-1$
         Matcher m = p.matcher(simpleExpression);
         if (m.find()) {

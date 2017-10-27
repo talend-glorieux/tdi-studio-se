@@ -55,9 +55,9 @@ public class MsgMailUtil {
 
 	public void processAttachment(AttachmentChunks attachment, File dir)
 			throws IOException {
-		String fileName = attachment.attachFileName.toString();
-		if (attachment.attachLongFileName != null) {
-			fileName = attachment.attachLongFileName.toString();
+		String fileName = attachment.getAttachFileName().toString();
+		if (attachment.getAttachLongFileName() != null) {
+			fileName = attachment.getAttachLongFileName().toString();
 		}
 
 		File attachedFile = new File(dir, fileName);
@@ -68,7 +68,7 @@ public class MsgMailUtil {
 					"File location:" + attachedFile.getAbsolutePath());
 
 			fileOut = new FileOutputStream(attachedFile);
-			fileOut.write(attachment.attachData.getValue());
+			fileOut.write(attachment.getEmbeddedAttachmentObject());
 
 			processLog(Level.INFO, "Export successfully");
 		} finally {

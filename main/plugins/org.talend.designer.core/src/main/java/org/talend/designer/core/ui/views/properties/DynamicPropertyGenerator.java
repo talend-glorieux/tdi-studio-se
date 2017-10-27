@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -23,6 +23,8 @@ import org.talend.commons.ui.runtime.exception.ExceptionHandler;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.ui.properties.tab.IDynamicProperty;
 import org.talend.designer.core.ui.editor.properties.controllers.AbstractElementPropertySectionController;
+import org.talend.designer.core.ui.editor.properties.controllers.AbstractRepositoryController;
+import org.talend.designer.core.ui.editor.properties.controllers.ControllerRepositoryValueHander;
 import org.talend.designer.core.ui.editor.properties.controllers.generator.IControllerGenerator;
 
 /**
@@ -49,8 +51,7 @@ public class DynamicPropertyGenerator {
     public void initController(IDynamicProperty dp) {
         if (!initialized) {
 
-            for (int i = 0; i < extensionElements.length; i++) {
-                IConfigurationElement element = extensionElements[i];
+            for (IConfigurationElement element : extensionElements) {
                 try {
                     String controllerName = element.getAttribute("mapping"); //$NON-NLS-1$
                     EParameterFieldType key = EParameterFieldType.getFieldTypeByName(controllerName);
@@ -63,6 +64,11 @@ public class DynamicPropertyGenerator {
                         generator.setDynamicProperty(dp);
                         AbstractElementPropertySectionController controller = generator.generate();
                         dtpControls.put(key, controller);
+                        if (controller instanceof AbstractRepositoryController) {
+                            ControllerRepositoryValueHander repositoryValueHander = ((AbstractRepositoryController) controller)
+                                    .getRepositoryValueHander();
+                            ControllerRepositoryValueHander.getRepositoryValueHandlerMap().put(key, repositoryValueHander);
+                        }
                     }
                 } catch (CoreException e) {
                     ExceptionHandler.process(e);

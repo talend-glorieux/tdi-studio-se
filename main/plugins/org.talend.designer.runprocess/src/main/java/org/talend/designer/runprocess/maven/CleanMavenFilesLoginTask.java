@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -14,16 +14,8 @@ package org.talend.designer.runprocess.maven;
 
 import java.lang.reflect.InvocationTargetException;
 
-import org.eclipse.core.resources.IWorkspace;
-import org.eclipse.core.resources.IWorkspaceRunnable;
-import org.eclipse.core.resources.ResourcesPlugin;
-import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.jface.operation.IRunnableWithProgress;
-import org.talend.commons.exception.ExceptionHandler;
-import org.talend.core.GlobalServiceRegister;
-import org.talend.core.runtime.process.ITalendProcessJavaProject;
-import org.talend.designer.runprocess.IRunProcessService;
 import org.talend.login.AbstractLoginTask;
 
 /**
@@ -34,31 +26,31 @@ public class CleanMavenFilesLoginTask extends AbstractLoginTask implements IRunn
 
     @Override
     public void run(IProgressMonitor monitor) throws InvocationTargetException, InterruptedException {
-        final IWorkspaceRunnable runnable = new IWorkspaceRunnable() {
-
-            @Override
-            public void run(IProgressMonitor monitor) {
-                try {
-                    if (GlobalServiceRegister.getDefault().isServiceRegistered(IRunProcessService.class)) {
-                        IRunProcessService service = (IRunProcessService) GlobalServiceRegister.getDefault().getService(
-                                IRunProcessService.class);
-                        ITalendProcessJavaProject talendProcessJavaProject = service.getTalendProcessJavaProject();
-                        if (talendProcessJavaProject != null) {
-                            talendProcessJavaProject.cleanMavenFiles(monitor);
-                        }
-                    }
-                } catch (Exception e) {
-                    ExceptionHandler.process(e);
-                }
-            }
-        };
-
-        try {
-            IWorkspace workspace = ResourcesPlugin.getWorkspace();
-            workspace.run(runnable, workspace.getRoot(), IWorkspace.AVOID_UPDATE, monitor);
-        } catch (CoreException e) {
-            throw new InvocationTargetException(e);
-        }
+//        final IWorkspaceRunnable runnable = new IWorkspaceRunnable() {
+//
+//            @Override
+//            public void run(IProgressMonitor monitor) {
+//                try {
+//                    if (GlobalServiceRegister.getDefault().isServiceRegistered(IRunProcessService.class)) {
+//                        IRunProcessService service = (IRunProcessService) GlobalServiceRegister.getDefault().getService(
+//                                IRunProcessService.class);
+//                        ITalendProcessJavaProject talendProcessJavaProject = service.getTalendProcessJavaProject();
+//                        if (talendProcessJavaProject != null) {
+//                            talendProcessJavaProject.cleanMavenFiles(monitor);
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    ExceptionHandler.process(e);
+//                }
+//            }
+//        };
+//
+//        try {
+//            IWorkspace workspace = ResourcesPlugin.getWorkspace();
+//            workspace.run(runnable, workspace.getRoot(), IWorkspace.AVOID_UPDATE, monitor);
+//        } catch (CoreException e) {
+//            throw new InvocationTargetException(e);
+//        }
 
     }
 

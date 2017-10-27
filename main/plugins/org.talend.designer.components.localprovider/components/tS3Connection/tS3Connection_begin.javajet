@@ -13,5 +13,16 @@ imports="
 	String cid = node.getUniqueName();
 	%>
 	<%@ include file="S3Client.javajet" %>
+	
+	try{
+			conn_<%=cid%>.getBucketLoggingConfiguration("Check-Connection-Only");
+	}catch(com.amazonaws.AmazonServiceException ase){
+			if(ase.getErrorCode().equals("NoSuchBucket")){
+			//ignore
+			}else{
+					throw ase;
+			}
+	}
+	
 	globalMap.put("conn_" + "<%=cid%>",conn_<%=cid%>);
 	

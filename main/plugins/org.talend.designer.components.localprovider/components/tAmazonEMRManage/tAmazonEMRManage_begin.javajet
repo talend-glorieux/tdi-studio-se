@@ -109,7 +109,7 @@
 	boolean enable_key_pair = "true".equals(ElementParameterParser.getValue(node, "__ENABLE_KEY_PAIR__"));
 	String key_pair = ElementParameterParser.getValue(node, "__KEY_PAIR__");
 	
-	int instance_count = Integer.parseInt(ElementParameterParser.getValue(node, "__INSTANCE_COUNT__"));
+	String instance_count = ElementParameterParser.getValue(node, "__INSTANCE_COUNT__");
 	
 	String master_instance_type = ElementParameterParser.getValue(node, "__MASTER_INSTANCE_TYPE__");
 	String slave_instance_type = ElementParameterParser.getValue(node, "__SLAVE_INSTANCE_TYPE__");
@@ -126,7 +126,6 @@
 	boolean wait_for_cluster_ready = "true".equals(ElementParameterParser.getValue(node, "__WAIT_FOR_CLUSTER_READY__"));
 	boolean wait_for_steps_complete = "true".equals(ElementParameterParser.getValue(node, "__WAIT_FOR_STEPS_COMPLETE__"));
 	
-	String accesskey = ElementParameterParser.getValue(node, "__ACCESS_KEY__");
 	
 	String availability_zone = ElementParameterParser.getValue(node, "__AVAILABILITY_ZONE__");
 	
@@ -137,24 +136,8 @@
 	boolean keep_alive = "true".equals(ElementParameterParser.getValue(node, "__KEEP_ALIVE__"));
 %>
 	        
-	<%
-	String passwordFieldName = "__SECRET_KEY__";
-	%>
+	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/Amazon/EMRClient.javajet"%>
 	
-	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/password.javajet"%>
-   	
-   	com.amazonaws.auth.AWSCredentials credentials_<%=cid%> = new com.amazonaws.auth.BasicAWSCredentials(<%=accesskey%>,decryptedPassword_<%=cid%>);
-   	
-	com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClient emr_<%=cid%> = new com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClient(credentials_<%=cid%>);
-
-	<%
-	if(region!=null && !region.isEmpty() && !"DEFAULT".equalsIgnoreCase(region)){
-	%>
-	emr_<%=cid%>.setRegion(com.amazonaws.regions.RegionUtils.getRegion(<%=region%>));
-	<%
-	}
-	%>
-
 	<%
 	if("STOP".equals(action)) {
 	%>

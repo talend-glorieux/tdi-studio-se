@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -28,4 +28,10 @@ public interface IComponentPreferenceConstant {
     public static final String USER_COMPONENTS_FOLDER = "USER_COMPONENTS_FOLDER"; //$NON-NLS-1$
 
     public static final String LINK_STYLE = "LINK_STYLE"; //$NON-NLS-1$
+
+    static final String JSON_KEY_FILE_NAME = "filename"; //$NON-NLS-1$
+
+    static final String JSON_KEY_PROJECT_NAME = "projectname"; //$NON-NLS-1$
+
+    static final String JSON_KEY_CHECKSUM = "checksum"; //$NON-NLS-1$
 }

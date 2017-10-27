@@ -198,11 +198,6 @@ public class <%=className%> implements <%=talendJobInterfaces%> {
 		// fix for TESB-7714
 		talendESBJob.setEndpointRegistry(registry);
 
-        // TESB-15920 tRESTClient and SAM not working
-        <% if (hasSAM4RS) { %>
-        talendESBJob.setEventFeature(eventFeature);
-        <% } %>
-
 		return talendESBJob;
 	}
 <% } %>
@@ -231,11 +226,31 @@ if(isRunInMultiThread){
 
 	<%//uft-8 is for temp file, for example: tSortRow, tMap. Because they need keep reversibility.%>
 	private final static String utf8Charset = "UTF-8";
-
+	//contains type for every context property
+	public class PropertiesWithType extends java.util.Properties {
+		private static final long serialVersionUID = 1L;
+		private java.util.Map<String,String> propertyTypes = new java.util.HashMap<>();
+		
+		public PropertiesWithType(java.util.Properties properties){
+			super(properties);
+		}
+		public PropertiesWithType(){
+			super();
+		}
+		
+		public void setContextType(String key, String type) {
+			propertyTypes.put(key,type);
+		}
+	
+		public String getContextType(String key) {
+			return propertyTypes.get(key);
+		}
+	}
+	
 	// create and load default properties
 	private java.util.Properties defaultProps = new java.util.Properties();
 	// create application properties with default
-	public class ContextProperties extends java.util.Properties {
+	public class ContextProperties extends PropertiesWithType {
 
 		private static final long serialVersionUID = 1L;
 
@@ -304,6 +319,13 @@ public <%=JavaTypesManager.getTypeToGenerate(ctxParam.getType(),true)%> get<%=Ch
 	if(isRunInMultiThread || NodeUtil.containsMultiThreadComponent(process)){
 	%>
 		private final java.util.Map<String, Object> globalMap = java.util.Collections.synchronizedMap(new java.util.HashMap<String, Object>());
+		<%
+		if(ProcessUtils.isTestContainer(process)) {
+		%>
+			private final static java.util.Map<String, Object> junitGlobalMap = java.util.Collections.synchronizedMap(new java.util.HashMap<String, Object>());
+		<%
+		}
+		%>
 	<%
 	} else {
 	%>
@@ -457,8 +479,8 @@ private class TalendException extends Exception {
 			if(virtualComponentName!=null && currentComponent.indexOf(virtualComponentName+"_")==0){
 				globalMap.put(virtualComponentName+"_ERROR_MESSAGE",getExceptionCauseMessage(e));
 			}
-			 globalMap.put(currentComponent+"_ERROR_MESSAGE",getExceptionCauseMessage(e));
-			System.err.println("Exception in component " + currentComponent);
+			globalMap.put(currentComponent+"_ERROR_MESSAGE",getExceptionCauseMessage(e));
+			System.err.println("Exception in component " + currentComponent + " (" + jobName + ")");
 		}
 		if (!(e instanceof TDieException)) {
 			if(e instanceof TalendException){

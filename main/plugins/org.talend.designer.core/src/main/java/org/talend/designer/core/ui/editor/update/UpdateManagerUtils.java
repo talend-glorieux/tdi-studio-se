@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -14,6 +14,7 @@ package org.talend.designer.core.ui.editor.update;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -44,6 +45,7 @@ import org.talend.core.CorePlugin;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.model.components.IComponent;
 import org.talend.core.model.context.JobContext;
+import org.talend.core.model.context.JobContextManager;
 import org.talend.core.model.metadata.IMetadataTable;
 import org.talend.core.model.process.IContext;
 import org.talend.core.model.process.IElementParameter;
@@ -257,7 +259,7 @@ public final class UpdateManagerUtils {
                     .getShell(), results, onlySimpleShow);
 
             if (checkDialog.open() == IDialogConstants.OK_ID) {
-                return doExecuteUpdates(results, updateAllJobs);
+                return doExecuteUpdates(checkDialog.getSelectedElements(), updateAllJobs);
             }
         } finally {
             results.clear();
@@ -377,6 +379,14 @@ public final class UpdateManagerUtils {
                                     } else {
                                         process = (IProcess) result.getJob();
                                     }
+                                    if (result.getRepositoryUpdateManager() != null) {
+                                        Map<IContext, String> renameContextGroup = result.getRepositoryUpdateManager().getRenameContextGroup();
+                                        if (renameContextGroup != null && !renameContextGroup.isEmpty()) {
+                                            if (process.getContextManager() instanceof JobContextManager) {
+                                                ((JobContextManager) process.getContextManager()).setRenameGroupContext(renameContextGroup);
+                                            }
+                                        }
+                                    }
                                     IUpdateItemType jobletContextType = UpdateManagerProviderDetector.INSTANCE
                                             .getUpdateItemType(UpdateManagerHelper.TYPE_JOBLET_CONTEXT);
                                     if (process != null && jobletContextType != null
@@ -439,15 +449,16 @@ public final class UpdateManagerUtils {
                     // update joblet reference
                     upadateJobletReferenceInfor();
 
+                    final List<UpdateResult> tempResults = new ArrayList<UpdateResult>(results);
                     // refresh
                     Display.getDefault().asyncExec(new Runnable() {
                         
                         @Override
                         public void run() {
-                            refreshRelatedViewers(results);
+                            refreshRelatedViewers(tempResults);
                             
                             // hyWang add method checkandRefreshProcess for bug7248
-                            checkandRefreshProcess(results);
+                            checkandRefreshProcess(tempResults);
                         }
                     });
 
@@ -471,7 +482,7 @@ public final class UpdateManagerUtils {
                 }
             };
             try {
-                new ProgressMonitorDialog(null).run(true, true, iRunnableWithProgress);
+                new ProgressMonitorDialog(null).run(false, false, iRunnableWithProgress);
             } catch (InvocationTargetException e) {
                 ExceptionHandler.process(e);
             } catch (InterruptedException e) {

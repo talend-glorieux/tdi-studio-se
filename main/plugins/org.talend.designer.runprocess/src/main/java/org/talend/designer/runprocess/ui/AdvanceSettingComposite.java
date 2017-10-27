@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -83,6 +83,7 @@ public class AdvanceSettingComposite extends ScrolledComposite implements IDynam
     public AdvanceSettingComposite(Composite parent, int style) {
         super(parent, style);
         // TODO Auto-generated constructor stub
+        this.setMinSize(500, 450);
         setExpandHorizontal(true);
         setExpandVertical(true);
         this.setLayout(new FormLayout());

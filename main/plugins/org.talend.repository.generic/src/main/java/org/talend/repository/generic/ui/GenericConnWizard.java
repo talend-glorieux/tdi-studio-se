@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -12,7 +12,7 @@
 // ============================================================================
 package org.talend.repository.generic.ui;
 
-import java.util.ArrayList;
+import java.lang.reflect.Field;
 import java.util.List;
 
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -29,7 +29,6 @@ import org.eclipse.core.runtime.jobs.ISchedulingRule;
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.wizard.IWizardContainer;
-import org.eclipse.jface.wizard.IWizardPage;
 import org.eclipse.swt.graphics.Image;
 import org.eclipse.ui.IWorkbench;
 import org.eclipse.ui.IWorkbenchWizard;
@@ -37,9 +36,9 @@ import org.talend.commons.exception.ExceptionHandler;
 import org.talend.commons.exception.PersistenceException;
 import org.talend.commons.ui.swt.dialogs.ErrorDialogWidthDetailArea;
 import org.talend.commons.utils.VersionUtils;
-import org.talend.components.api.properties.ComponentProperties;
 import org.talend.components.api.service.ComponentService;
 import org.talend.components.api.wizard.ComponentWizard;
+import org.talend.components.api.wizard.ComponentWizardDefinition;
 import org.talend.core.context.Context;
 import org.talend.core.context.RepositoryContext;
 import org.talend.core.model.metadata.IMetadataTable;
@@ -51,16 +50,10 @@ import org.talend.core.model.repository.RepositoryObject;
 import org.talend.core.repository.model.ProxyRepositoryFactory;
 import org.talend.core.runtime.CoreRuntimePlugin;
 import org.talend.core.runtime.services.IGenericWizardService;
-import org.talend.daikon.properties.Properties;
 import org.talend.daikon.properties.presentation.Form;
-import org.talend.daikon.serialize.PostDeserializeSetup;
-import org.talend.daikon.serialize.SerializerDeserializer;
 import org.talend.designer.core.generic.constants.IGenericConstants;
-import org.talend.designer.core.generic.utils.ComponentsUtils;
-import org.talend.designer.core.model.components.ElementParameter;
 import org.talend.metadata.managment.ui.utils.ConnectionContextHelper;
 import org.talend.metadata.managment.ui.wizard.CheckLastVersionRepositoryWizard;
-import org.talend.metadata.managment.ui.wizard.context.MetadataContextPropertyValueEvaluator;
 import org.talend.repository.generic.i18n.Messages;
 import org.talend.repository.generic.internal.IGenericWizardInternalService;
 import org.talend.repository.generic.internal.service.GenericWizardInternalService;
@@ -79,11 +72,13 @@ import org.talend.repository.model.RepositoryNode;
 import org.talend.repository.model.RepositoryNodeUtilities;
 
 /**
- * 
+ *
  * created by ycbai on 2015年9月16日 Detailled comment
  *
  */
 public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
+
+    private ComponentWizard wizard;
 
     private GenericWizardPage wizPage;
 
@@ -103,19 +98,34 @@ public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
 
     private RepositoryNode repNode;
 
+    private ERepositoryObjectType repObjType;
+
     private List<IMetadataTable> oldMetadataTable;
 
     private IGenericWizardService wizardService;
 
     private ComponentService compService;
-
-    private List<ElementParameter> parameters = new ArrayList<>();
+    
+    private static String location = "repositoryLocation";//$NON-NLS-1$
 
     public GenericConnWizard(IWorkbench workbench, boolean creation, RepositoryNode node, String[] existingNames) {
+        this(workbench, creation, null, node, existingNames);
+    }
+
+    public GenericConnWizard(IWorkbench workbench, boolean creation, ComponentWizard componentWizard, RepositoryNode node,
+            String[] existingNames) {
         super(workbench, creation);
+        wizard = componentWizard;
         this.existingNames = existingNames;
         repNode = node;
+        repObjType = repNode.getObjectType();
+        if(repObjType == null || repNode.getType() != ENodeType.REPOSITORY_ELEMENT){
+            repObjType = (ERepositoryObjectType) repNode.getProperties(EProperties.CONTENT_TYPE);
+        }
         wizardService = GenericWizardServiceFactory.getGenericWizardService();
+        if (wizard == null) {
+            wizard = getDefaultWizard(repObjType.getType());
+        }
         ENodeType nodeType = node.getType();
         switch (nodeType) {
         case SIMPLE_FOLDER:
@@ -147,6 +157,9 @@ public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
             RepositoryObject object = new RepositoryObject(node.getObject().getProperty());
             setRepositoryObject(object);
             connection = (GenericConnection) ((ConnectionItem) object.getProperty().getItem()).getConnection();
+            // Set context name to null so as to open context select dialog once if there are more than one context
+            // group when opening a connection.
+            connection.setContextName(null);
             connectionProperty = object.getProperty();
             connectionItem = (ConnectionItem) object.getProperty().getItem();
             // set the repositoryObject, lock and set isRepositoryObjectEditable
@@ -172,34 +185,24 @@ public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
         // initialize the context mode
         ConnectionContextHelper.checkContextMode(connectionItem);
         setHelpAvailable(false);
+        setRepositoryLocation(wizard, location, connectionItem.getProperty().getId());
     }
 
     @Override
     public void addPages() {
-        ERepositoryObjectType repObjType = (ERepositoryObjectType) repNode.getProperties(EProperties.CONTENT_TYPE);
-        String typeName = repObjType.getType();
-        setWindowTitle(typeName);
-        Image wiardImage = wizardService.getWiardImage(typeName);
-        setDefaultPageImageDescriptor(ImageDescriptor.createFromImage(wiardImage));
-        ((GenericConnectionItem) connectionItem).setTypeName(typeName);
-
-        IGenericWizardInternalService internalService = new GenericWizardInternalService();
-        ComponentWizard componentWizard = null;
-        if (creation) {
-            componentWizard = internalService.getComponentWizard(typeName, connectionProperty.getId());
-        } else {
-            String compPropertiesStr = connection.getCompProperties();
-            if (compPropertiesStr != null) {
-                ComponentProperties properties = ComponentsUtils.getComponentPropertiesFromSerialized(compPropertiesStr, connection);
-                if (properties != null) {
-                    componentWizard = internalService.getTopLevelComponentWizard(properties, repNode.getId());
-                }
-            }
-        }
-        if (componentWizard == null) {
+        if (wizard == null) {
             return;
         }
-        List<Form> forms = componentWizard.getForms();
+        ComponentWizardDefinition wizardDefinition = wizard.getDefinition();
+        if (wizardDefinition == null) {
+            return;
+        }
+        setWindowTitle(wizardDefinition.getDisplayName());
+        Image wiardImage = wizardService.getWiardImage(repObjType.getType());
+        setDefaultPageImageDescriptor(ImageDescriptor.createFromImage(wiardImage));
+        ((GenericConnectionItem) connectionItem).setTypeName(repObjType.getType());
+
+        List<Form> forms = wizard.getForms();
         for (int i = 0; i < forms.size(); i++) {
             Form form = forms.get(i);
             boolean addContextSupport = false;
@@ -221,16 +224,31 @@ public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
         }
     }
 
+    private ComponentWizard getDefaultWizard(String typeName) {
+        IGenericWizardInternalService internalService = new GenericWizardInternalService();
+        return internalService.getComponentWizard(typeName, connectionProperty.getId());
+    }
+    
+    private void setRepositoryLocation(Object objectClass,String key, Object value){
+        Field declaredField = null;
+        try {
+            declaredField = objectClass.getClass().getDeclaredField(key);
+        } catch (NoSuchFieldException | SecurityException e) {
+            try {
+                declaredField = objectClass.getClass().getSuperclass().getDeclaredField(key);
+            } catch (NoSuchFieldException | SecurityException e1) {
+            }
+        } 
+        declaredField.setAccessible(true);
+        try {
+            declaredField.set(objectClass, value);
+        } catch (IllegalArgumentException | IllegalAccessException e) {
+        }
+    }
+
     @Override
     public boolean performFinish() {
         if (wizPage.isPageComplete()) {
-            IWizardPage[] pages = getPages();
-            for (IWizardPage page : pages) {
-                if (page instanceof GenericConnWizardPage) {
-                    GenericConnWizardPage gPage = (GenericConnWizardPage) page;
-                    parameters.addAll(gPage.getParameters());
-                }
-            }
             try {
                 createOrUpdateConnectionItem();
             } catch (Throwable e) {
@@ -260,14 +278,12 @@ public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
             public void run(IProgressMonitor monitor) throws CoreException {
                 try {
                     Form form = wizPage.getForm();
+                    setRepositoryLocation(form.getProperties(), location, connectionItem.getProperty().getId());
                     if (form.isCallAfterFormFinish()) {
                         if (creation) {
                             factory.create(connectionItem, pathToSave);
                         }
-                        compService.afterFormFinish(form.getName(), (ComponentProperties) form.getProperties());
-                    }
-                    if (!creation) {
-                        GenericUpdateManager.updateGenericConnection(connectionItem, oldMetadataTable);
+                        compService.afterFormFinish(form.getName(), form.getProperties());
                     }
                     updateConnectionItem(factory);
                 } catch (Throwable e) {
@@ -280,6 +296,10 @@ public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
         // the update the project files need to be done in the workspace runnable to avoid all
         // notification of changes before the end of the modifications.
         workspace.run(operation, schedulingRule, IWorkspace.AVOID_UPDATE, new NullProgressMonitor());
+        // Move it from WorkspaceRunnable to avoid the conflicting rules with other jobs.
+        if (!creation) {
+        	GenericUpdateManager.updateGenericConnection(connectionItem, oldMetadataTable);
+        }
     }
 
     @Override
@@ -296,7 +316,7 @@ public class GenericConnWizard extends CheckLastVersionRepositoryWizard {
 
     /**
      * We will accept the selection in the workbench to see if we can initialize from it.
-     * 
+     *
      * @see IWorkbenchWizard#init(IWorkbench, IStructuredSelection)
      */
     public void init(final IWorkbench workbench, final IStructuredSelection sel) {

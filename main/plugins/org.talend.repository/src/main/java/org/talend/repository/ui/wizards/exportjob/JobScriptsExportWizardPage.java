@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -73,10 +73,10 @@ import org.eclipse.ui.internal.wizards.datatransfer.WizardFileSystemResourceExpo
 import org.talend.commons.ui.runtime.exception.ExceptionHandler;
 import org.talend.commons.ui.runtime.exception.MessageBoxExceptionHandler;
 import org.talend.commons.utils.PasswordEncryptUtil;
+import org.talend.core.GlobalServiceRegister;
 import org.talend.core.PluginChecker;
 import org.talend.core.model.metadata.MetadataTalendType;
 import org.talend.core.model.process.IContext;
-import org.talend.core.model.properties.FolderItem;
 import org.talend.core.model.properties.Item;
 import org.talend.core.model.properties.ProcessItem;
 import org.talend.core.model.relationship.RelationshipItemBuilder;
@@ -84,6 +84,7 @@ import org.talend.core.model.repository.IRepositoryPrefConstants;
 import org.talend.core.model.repository.IRepositoryViewObject;
 import org.talend.core.repository.constants.FileConstants;
 import org.talend.core.runtime.CoreRuntimePlugin;
+import org.talend.core.service.IESBMicroService;
 import org.talend.core.ui.export.ArchiveFileExportOperationFullPath;
 import org.talend.core.ui.export.FileSystemExporterFullPath;
 import org.talend.designer.core.model.utils.emf.talendfile.ContextParameterType;
@@ -91,7 +92,6 @@ import org.talend.designer.core.model.utils.emf.talendfile.TalendFileFactory;
 import org.talend.repository.ProjectManager;
 import org.talend.repository.documentation.ExportFileResource;
 import org.talend.repository.i18n.Messages;
-import org.talend.repository.model.IRepositoryNode;
 import org.talend.repository.model.IRepositoryNode.ENodeType;
 import org.talend.repository.model.IRepositoryNode.EProperties;
 import org.talend.repository.model.RepositoryNode;
@@ -108,7 +108,7 @@ import org.talend.repository.utils.JobVersionUtils;
 /**
  * Page of the Job Scripts Export Wizard. <br/>
  * 
- * @referto WizardArchiveFileResourceExportPage1 $Id: JobScriptsExportWizardPage.java 1 2006-12-13 下午03:09:07 bqian
+ * @referto WizardArchiveFileResourceExportPage1 $Id: JobScriptsExportWizardPage.java 1 2006-12-13 ä¸‹å�ˆ03:09:07 bqian
  * 
  */
 public abstract class JobScriptsExportWizardPage extends WizardFileSystemResourceExportPage1 {
@@ -139,6 +139,8 @@ public abstract class JobScriptsExportWizardPage extends WizardFileSystemResourc
     protected Button jobItemButton;
 
     protected Button contextButton;
+    
+    protected Button exportMSAsZipButton;
 
     protected Button jobScriptButton;
 
@@ -216,36 +218,7 @@ public abstract class JobScriptsExportWizardPage extends WizardFileSystemResourc
 
     protected ProcessItem getProcessItem() {
         if ((processItem == null) && (nodes != null) && (nodes.length >= 1)) {
-            IRepositoryViewObject repositoryObject = nodes[0].getObject();
-            // add for bug TDI-20132
-            List<IRepositoryNode> nodesChildren = nodes[0].getChildren();
-            IRepositoryViewObject childObject = null;
-            if ((nodesChildren != null) && (nodesChildren.size() >= 1)) {
-                childObject = nodesChildren.get(0).getObject();
-            }
-            if (repositoryObject == null && childObject != null && childObject.getProperty().getItem() instanceof ProcessItem) {
-                processItem = (ProcessItem) childObject.getProperty().getItem();
-            }
-            if (repositoryObject != null && repositoryObject.getProperty().getItem() instanceof ProcessItem) {
-                processItem = (ProcessItem) repositoryObject.getProperty().getItem();
-            } else if (repositoryObject != null && repositoryObject.getProperty().getItem() instanceof FolderItem) {
-                processItem = getProcessItemIfSelectFolder(repositoryObject);
-            }
-        }
-        return processItem;
-    }
-
-    protected ProcessItem getProcessItemIfSelectFolder(IRepositoryViewObject repositoryObject) {
-        List<IRepositoryNode> children = repositoryObject.getRepositoryNode().getChildren();
-        for (IRepositoryNode object : children) {
-            if (object.getObject().getProperty().getItem() instanceof FolderItem) {
-                processItem = getProcessItemIfSelectFolder(object.getObject());
-                if (processItem != null) {
-                    return processItem;
-                }
-            } else if (object.getObject().getProperty().getItem() instanceof ProcessItem) {
-                return (ProcessItem) object.getObject().getProperty().getItem();
-            }
+            processItem = ExportJobUtil.getProcessItem(Arrays.asList(nodes));
         }
         return processItem;
     }
@@ -449,6 +422,7 @@ public abstract class JobScriptsExportWizardPage extends WizardFileSystemResourc
         versionCombo.setLayoutData(gd);
 
         String[] allVersions = JobVersionUtils.getAllVersions(nodes[0]);
+        Arrays.sort(allVersions);
         String currentVersion = JobVersionUtils.getCurrentVersion(nodes[0]);
         versionCombo.setItems(allVersions);
         if (allVersions.length > 1) {
@@ -1398,6 +1372,36 @@ public abstract class JobScriptsExportWizardPage extends WizardFileSystemResourc
                 return false;
             }
 
+        } else if (JobExportType.MSESB.equals(jobExportType)) {
+            IRunnableWithProgress worker = null;
+            if (GlobalServiceRegister.getDefault().isServiceRegistered(IESBMicroService.class)) {
+                IESBMicroService microService = (IESBMicroService) GlobalServiceRegister.getDefault()
+                        .getService(IESBMicroService.class);
+                if (microService != null) {
+                    Map<ExportChoice, Object> exportChoiceMap = getExportChoiceMap();
+                    exportChoiceMap.put(ExportChoice.needAssembly, exportMSAsZipButton.getSelection());
+                    exportChoiceMap.put(ExportChoice.needLauncher, exportMSAsZipButton.getSelection());
+                    exportChoiceMap.put(ExportChoice.onlyDefautContext, contextButton.getSelection());
+
+                    exportChoiceMap.put(ExportChoice.needMavenScript, addBSButton.getSelection());
+
+                    if (addBSButton.getSelection()) {
+                        exportChoiceMap.put(ExportChoice.needAssembly, true);
+                        exportChoiceMap.put(ExportChoice.needLauncher, true);
+                    }
+                    worker = microService.createRunnableWithProgress(exportChoiceMap, Arrays.asList(getCheckNodes()),
+                            getSelectedJobVersion(), getDestinationValue(), "");
+                }
+            }
+
+            try {
+                getContainer().run(false, true, worker);
+            } catch (InvocationTargetException e) {
+                MessageBoxExceptionHandler.process(e.getCause(), getShell());
+                return false;
+            } catch (InterruptedException e) {
+                return false;
+            }
         } else {
             List<ContextParameterType> contextEditableResultValuesList = null;
             if (manager != null) {
@@ -1472,7 +1476,8 @@ public abstract class JobScriptsExportWizardPage extends WizardFileSystemResourc
     }
 
     protected boolean buildJobWithMaven(JobExportType jobExportType, IProgressMonitor monitor) {
-        String context = (contextCombo == null || contextCombo.isDisposed()) ? IContext.DEFAULT : contextCombo.getText();
+        String context = (contextCombo == null || contextCombo.isDisposed()) ? processItem.getProcess().getDefaultContext()
+                : contextCombo.getText();
         try {
             String destination = getDestinationValue();
             int separatorIndex = destination.lastIndexOf(File.separator);
@@ -1482,8 +1487,8 @@ public abstract class JobScriptsExportWizardPage extends WizardFileSystemResourc
             }
             Map<ExportChoice, Object> exportChoiceMap = getExportChoiceMap();
             exportChoiceMap.put(ExportChoice.addStatistics, Boolean.TRUE);
-            return BuildJobManager.getInstance().buildJobs(destination, Arrays.asList(getCheckNodes()), getSelectedJobVersion(),
-                    context, exportChoiceMap, jobExportType, monitor);
+            return BuildJobManager.getInstance().buildJobs(destination, Arrays.asList(getCheckNodes()), getDefaultFileName(),
+                    getSelectedJobVersion(), context, exportChoiceMap, jobExportType, monitor);
 
         } catch (Exception e) {
             MessageBoxExceptionHandler.process(e, getShell());

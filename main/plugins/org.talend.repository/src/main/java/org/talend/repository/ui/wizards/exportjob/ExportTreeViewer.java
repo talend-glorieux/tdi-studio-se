@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -136,7 +136,7 @@ public class ExportTreeViewer {
     }
 
     /**
-     * 
+     *
      * @param workArea
      */
     public Composite createItemList(Composite workArea) {
@@ -182,7 +182,8 @@ public class ExportTreeViewer {
             if (treeItem.getData() != null && treeItem.getData() instanceof RepositoryNode) {
                 RepositoryNode repositoryNode = (RepositoryNode) treeItem.getData();
                 for (RepositoryNode repositoryNode2 : repositoryNodes) {
-                    if (repositoryNode.getId().equals(repositoryNode2.getId())) {
+                    if (repositoryNode.getRoot().getProject().equals(repositoryNode2.getRoot().getProject())
+                            && repositoryNode.getId().equals(repositoryNode2.getId())) {
                         exportItemsTreeViewer.setChecked(repositoryNode, true);
                     }
                 }
@@ -338,7 +339,7 @@ public class ExportTreeViewer {
 
     /**
      * DOC hcw Comment method "createSelectionButton".
-     * 
+     *
      * @param itemComposite
      */
     private void createSelectionButton(Composite itemComposite) {
@@ -399,7 +400,7 @@ public class ExportTreeViewer {
     }
 
     /**
-     * 
+     *
      * A repository view with checkbox on the left.
      */
 

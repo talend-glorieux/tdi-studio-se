@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -14,10 +14,12 @@ package org.talend.designer.rowgenerator.ui.editor;
 
 import java.util.List;
 
+import org.talend.commons.exception.ExceptionHandler;
 import org.talend.core.model.metadata.IMetadataColumn;
 import org.talend.core.model.metadata.MetadataColumn;
 import org.talend.designer.rowgenerator.data.Function;
 import org.talend.designer.rowgenerator.data.Parameter;
+import org.talend.utils.json.JSONException;
 
 /**
  * qzhang class global comment. Detailled comment <br/>
@@ -26,6 +28,8 @@ import org.talend.designer.rowgenerator.data.Parameter;
  * 
  */
 public class MetadataColumnExt extends MetadataColumn {
+
+    public static final String FUNCTION_INFO = "FUNCTION_INFO"; //$NON-NLS-1$
 
     private boolean isChanged;
 
@@ -51,9 +55,25 @@ public class MetadataColumnExt extends MetadataColumn {
 
     public void setFunction(Function function) {
         this.function = function;
+        updateFunctionInfo();
     }
 
-    @SuppressWarnings("unchecked")//$NON-NLS-1$
+    private void updateFunctionInfo() {
+        if (function != null) {
+            try {
+                String serializedFunction = function.toSerialized();
+                this.getAdditionalField().put(FUNCTION_INFO, serializedFunction);
+            } catch (JSONException e) {
+                ExceptionHandler.process(e);
+            }
+        }
+    }
+
+    public String getFunctionInfo() {
+        return this.getAdditionalField().get(FUNCTION_INFO);
+    }
+
+    @SuppressWarnings("unchecked")
     public String getParameter() {
         String currentPara = ""; //$NON-NLS-1$
         if (this.function != null) {

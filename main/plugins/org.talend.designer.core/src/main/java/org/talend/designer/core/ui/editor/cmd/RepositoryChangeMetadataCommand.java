@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -20,6 +20,8 @@ import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.talend.commons.runtime.xml.XmlUtil;
+import org.talend.components.api.properties.ComponentProperties;
+import org.talend.core.GlobalServiceRegister;
 import org.talend.core.model.metadata.ColumnNameChanged;
 import org.talend.core.model.metadata.IMetadataColumn;
 import org.talend.core.model.metadata.IMetadataTable;
@@ -43,6 +45,7 @@ import org.talend.core.model.utils.ContextParameterUtils;
 import org.talend.core.model.utils.IDragAndDropServiceHandler;
 import org.talend.core.model.utils.TalendTextUtils;
 import org.talend.core.repository.seeker.RepositorySeekerManager;
+import org.talend.core.runtime.services.IGenericWizardService;
 import org.talend.core.utils.TalendQuoteUtils;
 import org.talend.cwm.helper.SAPBWTableHelper;
 import org.talend.cwm.helper.TaggedValueHelper;
@@ -51,15 +54,16 @@ import org.talend.designer.core.model.components.EmfComponent;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.editor.properties.controllers.ColumnListController;
 import org.talend.designer.core.ui.views.properties.ComponentSettingsView;
+import org.talend.designer.core.utils.DesignerUtilities;
 import org.talend.metadata.managment.ui.utils.ConnectionContextHelper;
 import org.talend.repository.UpdateRepositoryUtils;
 import org.talend.repository.model.IRepositoryNode;
 
 /**
  * DOC nrousseau class global comment. Detailled comment <br/>
- * 
+ *
  * $Id: talend-code-templates.xml 1 2006-09-29 17:06:40 +0000 (ven., 29 sept. 2006) nrousseau $
- * 
+ *
  */
 public class RepositoryChangeMetadataCommand extends ChangeMetadataCommand {
 
@@ -102,7 +106,8 @@ public class RepositoryChangeMetadataCommand extends ChangeMetadataCommand {
     @Override
     public void execute() {
         node.setPropertyValue(propName, newPropValue);
-        if ((EParameterName.SCHEMA + ":" + EParameterName.REPOSITORY_SCHEMA_TYPE).equals(propName)) { //$NON-NLS-1$
+        String mainSchemaParamName = DesignerUtilities.getMainSchemaParameterName(node);
+        if (mainSchemaParamName.equals(propName)) {
             IElementParameter elementParameter = node.getElementParameter(propName);
             if (elementParameter != null) {
                 IElementParameter schemaTypeParam = elementParameter.getParentParameter().getChildParameters()
@@ -225,6 +230,38 @@ public class RepositoryChangeMetadataCommand extends ChangeMetadataCommand {
                 }
             }
             setTableRelevantParameterValues();
+            if (getConnection() != null) {
+                // for salesforce
+                IElementParameter param = node.getElementParameterFromField(EParameterFieldType.PROPERTY_TYPE);
+                if (param != null
+                        && EmfComponent.REPOSITORY.equals(param.getChildParameters().get(EParameterName.PROPERTY_TYPE.getName())
+                                .getValue())) {
+                    IElementParameter module = node.getElementParameter("module.moduleName");
+                    if (module != null) {
+                        String repositoryValue = module.getRepositoryValue();
+                        if (repositoryValue == null) {
+                            List<ComponentProperties> componentProperties = null;
+                            IGenericWizardService wizardService = null;
+                            if (GlobalServiceRegister.getDefault().isServiceRegistered(IGenericWizardService.class)) {
+                                wizardService = (IGenericWizardService) GlobalServiceRegister.getDefault().getService(
+                                        IGenericWizardService.class);
+                            }
+                            if (wizardService != null && wizardService.isGenericConnection(getConnection())) {
+                                componentProperties = wizardService.getAllComponentProperties(getConnection(), null);
+                            }
+                            repositoryValue = String.valueOf(RepositoryToComponentProperty.getGenericRepositoryValue(
+                                    getConnection(), componentProperties, module.getName()));
+                        }
+                        if (repositoryValue != null) {
+                            Object objectValue = RepositoryToComponentProperty.getValue(getConnection(), repositoryValue,
+                                    newOutputMetadata, node.getComponent().getName());
+                            if (objectValue != null) {
+                                module.setValue(objectValue);
+                            }
+                        }
+                    }
+                }
+            }
         }
         super.setConnection(connection);
         super.execute();

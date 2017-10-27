@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -352,6 +352,10 @@ public enum EParameterName {
     USE_HADOOP_PROPERTIES("USE_HADOOP_PROPERTIES"), //$NON-NLS-1$
     HADOOP_ADVANCED_PROPERTIES("HADOOP_ADVANCED_PROPERTIES"), //$NON-NLS-1$
 
+    // Added for spark properties
+    USE_SPARK_ADVANCED_PROPERTIES("USE_SPARK_ADVANCED_PROPERTIES"), //$NON-NLS-1$
+    SPARK_ADVANCED_PROPERTIES("SPARK_ADVANCED_PROPERTIES"), //$NON-NLS-1$
+
     // Added for log4j.xml
     LOG4J_ACTIVATE("LOG4J_ACTIVATE"), //$NON-NLS-1$
     HMAP_PATH("HMAP_PATH"), //$NON-NLS-1$
@@ -363,6 +367,10 @@ public enum EParameterName {
     STREAMING_BATCH_SIZE("STREAMING_BATCH_SIZE"), //$NON-NLS-1$
 
     REPAINT("REPAINT"), //$NON-NLS-1$
+    
+    //for automap algorithms
+    LEVENSHTEIN("LEVENSHTEIN"),//$NON-NLS-1$
+    JACCARD("JACCARD"),//$NON-NLS-1$
 
     // for tDataprepRun
     PREPARATION_ID("PREPARATION_ID");

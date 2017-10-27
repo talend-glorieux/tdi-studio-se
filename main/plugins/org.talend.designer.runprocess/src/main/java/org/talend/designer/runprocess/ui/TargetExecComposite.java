@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -86,6 +86,7 @@ public class TargetExecComposite extends ScrolledComposite implements IDynamicPr
         panel.setBackground(Display.getDefault().getSystemColor(SWT.COLOR_DARK_RED));
 
         jobComposite = this.processViewHelper.getProcessComposite(panel);
+
         // CSS
         CoreUIPlugin.setCSSClass(this, this.getClass().getSimpleName());
     }

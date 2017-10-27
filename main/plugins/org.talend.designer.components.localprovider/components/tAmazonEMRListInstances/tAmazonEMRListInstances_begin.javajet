@@ -23,27 +23,11 @@
 	boolean enable_key_pair = "true".equals(ElementParameterParser.getValue(node, "__ENABLE_KEY_PAIR__"));
 	String key_pair = ElementParameterParser.getValue(node, "__KEY_PAIR__");
 		
-	String accesskey = ElementParameterParser.getValue(node, "__ACCESS_KEY__");
-		
 %>
 	
 	int nb_line_<%=cid %> = 0;
 	
-	<%
-	String passwordFieldName = "__SECRET_KEY__";
-	%>	
-	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/password.javajet"%>
-	 	
-	com.amazonaws.auth.AWSCredentials credentials_<%=cid%> = new com.amazonaws.auth.BasicAWSCredentials(<%=accesskey%>,decryptedPassword_<%=cid%>);   	
-	com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClient emr_<%=cid%> = new com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClient(credentials_<%=cid%>);
-
-	<%
-	if(region!=null && !region.isEmpty() && !"DEFAULT".equalsIgnoreCase(region)){
-		%>
-		emr_<%=cid%>.setRegion(com.amazonaws.regions.RegionUtils.getRegion(<%=region%>));
-		<%
-	}
-	%>
+	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/Amazon/EMRClient.javajet"%>
 		
 	com.amazonaws.services.elasticmapreduce.model.ListInstanceGroupsRequest request_<%=cid%> = new com.amazonaws.services.elasticmapreduce.model.ListInstanceGroupsRequest()
 		.withClusterId(<%=cluster_id%>);

@@ -20,6 +20,7 @@ import org.talend.commons.ui.runtime.image.ECoreImage;
 import org.talend.commons.ui.runtime.image.ImageProvider;
 import org.talend.commons.ui.utils.workbench.gef.SimpleHtmlFigure;
 import org.talend.core.GlobalServiceRegister;
+import org.talend.core.model.components.IComponent;
 import org.talend.core.model.metadata.IMetadataTable;
 import org.talend.core.model.process.IConnection;
 import org.talend.core.model.process.IElement;
@@ -39,21 +40,7 @@ import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.preferences.TalendDesignerPrefConstants;
 import org.talend.repository.ProjectManager;
 
-public class JobletContainer extends NodeContainer {
-
-    public static final String UPDATE_JOBLET_CONTENT = "UPDATE_JOBLET_CONTENT"; //$NON-NLS-1$
-
-    public static final String UPDATE_JOBLET_DATA = "UPDATE_JOBLET_DATA"; //$NON-NLS-1$
-
-    public static final String UPDATE_JOBLET_CONNECTIONS = "UPDATE_JOBLET_CONNECTIONS"; //$NON-NLS-1$
-
-    public static final String UPDATE_JOBLET_TITLE_COLOR = "UPDATE_JOBLET_TITLE_COLOR"; //$NON-NLS-1$
-
-    public static final String UPDATE_JOBLET_DISPLAY = "UPDATE_JOBLET_DISPLAY"; //$NON-NLS-1$
-
-    protected List<Node> nodes = new ArrayList<Node>();
-
-    private List<NodeContainer> nodeContainers = new ArrayList<NodeContainer>();
+public class JobletContainer extends AbstractJobletContainer {
 
     private IProcess2 process;
 
@@ -71,9 +58,6 @@ public class JobletContainer extends NodeContainer {
 
     private boolean hasChange;
 
-    private boolean update = false;
-
-    private boolean needchangeLock = true;
 
     protected List<IElement> jobletElements = new ArrayList<IElement>();
 
@@ -348,6 +332,18 @@ public class JobletContainer extends NodeContainer {
     public void refreshJobletNodes(boolean update, boolean coll) {
         if (this.node.isJoblet()) {
             if (!coll || update) {
+                boolean componentUpdated = false;
+                IComponent oldComponent = node.getComponent();
+                if (GlobalServiceRegister.getDefault().isServiceRegistered(IJobletProviderService.class)) {
+                    IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
+                            IJobletProviderService.class);
+                    IComponent newComponent = service.getUpdatedJobletComponent(oldComponent);
+                    if(oldComponent != newComponent){
+                        node.setComponent(newComponent);
+                        componentUpdated = true;
+                    }
+                }
+                
                 JobletUtil util = new JobletUtil();
                 IProcess jobletProcess = this.getNode().getComponent().getProcess();
                 Set<IConnection> conns = new HashSet<IConnection>();
@@ -356,9 +352,11 @@ public class JobletContainer extends NodeContainer {
                 if (jobletProcess instanceof IProcess2) {
                     lockByOther = util.lockByOthers(((IProcess2) jobletProcess).getProperty().getItem());
                 }
-
+               
+                
                 Map<String, List<? extends IElementParameter>> paraMap = new HashMap<String, List<? extends IElementParameter>>();
                 // List<NodeContainer> temList = new ArrayList<NodeContainer>(nodeContainers);
+                if(!componentUpdated){
                 for (NodeContainer nc : nodeContainers) {
                     if (this.node.getProcess() instanceof IProcess2) {
                         if (!update) {
@@ -367,6 +365,9 @@ public class JobletContainer extends NodeContainer {
                         ((IProcess2) this.node.getProcess()).removeUniqueNodeName(nc.getNode().getUniqueName());
                     }
                 }
+                }
+               
+                
                 nodeContainers.clear();
                 jobletElements.clear();
 

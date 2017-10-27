@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -37,6 +37,10 @@ class Job {
      * only used for image.
      */
     private boolean isJoblet = true;
+    
+    private boolean isSparkJoblet = false;
+    
+    private boolean isSparkStreamingJoblet = false;
 
     private boolean isMR = true;
 
@@ -92,6 +96,22 @@ class Job {
 
     public void setJoblet(boolean isJoblet) {
         this.isJoblet = isJoblet;
+    }
+    
+    public boolean isSparkJoblet() {
+        return this.isSparkJoblet;
+    }
+
+    public void setSparkJoblet(boolean isSparkJoblet) {
+        this.isSparkJoblet = isSparkJoblet;
+    }
+    
+    public boolean isSparkStreamingJoblet() {
+        return this.isSparkStreamingJoblet;
+    }
+
+    public void setSparkStreamingJoblet(boolean isSparkStreamingJoblet) {
+        this.isSparkStreamingJoblet = isSparkStreamingJoblet;
     }
 
     public boolean isMR() {

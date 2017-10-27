@@ -2,11 +2,17 @@ package org.talend.designer.core.ui.editor.jobletcontainer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
+import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.draw2d.geometry.Dimension;
 import org.eclipse.draw2d.geometry.Point;
 import org.eclipse.draw2d.geometry.Rectangle;
@@ -20,18 +26,13 @@ import org.talend.commons.runtime.model.repository.ERepositoryStatus;
 import org.talend.commons.ui.runtime.exception.ExceptionHandler;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.PluginChecker;
-import org.talend.core.model.components.ComponentCategory;
 import org.talend.core.model.components.ComponentUtilities;
 import org.talend.core.model.components.IComponent;
-import org.talend.core.model.metadata.IMetadataColumn;
-import org.talend.core.model.metadata.IMetadataTable;
-import org.talend.core.model.metadata.MetadataTable;
 import org.talend.core.model.process.EConnectionType;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.Element;
 import org.talend.core.model.process.IConnection;
 import org.talend.core.model.process.IElementParameter;
-import org.talend.core.model.process.IExternalData;
 import org.talend.core.model.process.IExternalNode;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.process.INodeConnector;
@@ -76,6 +77,17 @@ public class JobletUtil {
                         }
                     }
                 }
+            }
+        }
+        return false;
+    }
+
+    public boolean isJoblet(NodeType node) {
+        EList listParamType = node.getElementParameter();
+        for (Object o : listParamType) {
+            ElementParameterType ele = ((ElementParameterType) o);
+            if (ele.getName() != null && ele.getName().equals(EParameterName.FAMILY.getName()) && ele.getValue() != null) {
+                return ele.getValue().equals(IComponent.JOBLET_FAMILY);
             }
         }
         return false;
@@ -214,7 +226,7 @@ public class JobletUtil {
             String tempComponentName = tempComponent.getName();
             if (tempComponentName != null) {
                 IComponent component = ComponentsFactoryProvider.getInstance().get(tempComponentName,
-                        ComponentCategory.CATEGORY_4_DI.getName());
+                        cloneNode.getProcess().getComponentsType());
                 if (component != null) {
                     cloneNode.setComponent(component);
                 }
@@ -237,12 +249,7 @@ public class JobletUtil {
         if (service != null) {
             isInOut = service.isJobletInOutComponent(node);
         }
-        Node cloneNode = null;
-        if (isInOut) {
-            cloneNode = new Node(node.getComponent(), (IProcess2) process, node.getUniqueName());
-        } else {
-            cloneNode = new Node(node.getComponent(), (IProcess2) process);
-        }
+        Node cloneNode = new Node(node.getComponent(), (IProcess2) process, node.getUniqueName());
 
         nodePart.setModel(cloneNode);
         // if (lock == null) {
@@ -285,15 +292,6 @@ public class JobletUtil {
                     cloneElement.setValue(elementPara.getValue());
                 }
 
-                // if (lock == null) {
-                // cloneElement.setReadOnly(true);
-                // } else {
-                // if (lock) {
-                // cloneElement.setReadOnly(false);
-                // } else {
-                // cloneElement.setReadOnly(true);
-                // }
-                // }
                 if (lockByOther) {
                     cloneElement.setReadOnly(true);
                 } else {
@@ -312,15 +310,6 @@ public class JobletUtil {
                             IElementParameter cloneC = cloneElementChild.get(key);
                             if (cloneC != null) {
                                 cloneC.setValue(c.getValue());
-                                // if (lock == null) {
-                                // cloneC.setReadOnly(true);
-                                // } else {
-                                // if (lock) {
-                                // cloneC.setReadOnly(false);
-                                // } else {
-                                // cloneC.setReadOnly(true);
-                                // }
-                                // }
                                 if (lockByOther) {
                                     cloneC.setReadOnly(true);
                                 } else {
@@ -345,7 +334,6 @@ public class JobletUtil {
         }
 
         cloneNode.setMetadataList(node.getMetadataList());
-        // cloneNode.setExternalNode(node.getExternalNode());
         cloneNode.setListConnector(node.getListConnector());
         cloneNode.setConnectionName(node.getConnectionName());
         cloneNode.setLocation(node.getLocation());
@@ -364,13 +352,6 @@ public class JobletUtil {
                 externalNode.setExternalEmfData(EcoreUtil.copy(node.getExternalNode().getExternalEmfData()));
             }
 
-            // for (IMetadataTable metaTable : node.getMetadataList()) {
-            // String oldName = metaTable.getTableName();
-            //                String newName = oldMetaToNewMeta.get(cloneNode.getUniqueName() + ":" + metaTable.getTableName()); //$NON-NLS-1$
-            // externalNode.renameOutputConnection(oldName, newName);
-            // CorePlugin.getDefault().getMapperService()
-            // .renameJoinTable(process, externalNode.getExternalData(), createdNames);
-            // }
             // when copy a external node, should also copy screeshot
             if (node.getExternalNode() != null) {
                 ImageDescriptor screenshot = node.getExternalNode().getScreenshot();
@@ -379,8 +360,21 @@ public class JobletUtil {
                 }
             }
         }
-        cloneNode.setLabel(node.getLabel());
-        cloneNode.setPropertyValue(EParameterName.LABEL.getName(), node.getLabel());
+        if (node.getElementParameter(EParameterName.LABEL.getName()) != null) {
+            cloneNode.setPropertyValue(EParameterName.LABEL.getName(), node.getElementParameter(EParameterName.LABEL.getName())
+                    .getValue());
+        } else {
+            cloneNode.setPropertyValue(EParameterName.LABEL.getName(), node.getLabel());
+        }
+        boolean found = false;
+        for (INode inode : process.getGraphicalNodes()) {
+            if (inode.getUniqueName().equals(cloneNode.getUniqueName())) {
+                found = true;
+            }
+        }
+        if (!found) {
+            ((IProcess2) process).removeUniqueNodeName(cloneNode.getUniqueName());
+        }
         return cloneNode;
     }
 
@@ -466,6 +460,39 @@ public class JobletUtil {
 
     }
 
+    public void reloadJobletInCurrentProcessInBackground(final IProcess2 process) {
+        Job reloadJob = new Job("Reload joblet process...") {
+
+            @Override
+            protected IStatus run(IProgressMonitor monitor) {
+                reloadJobletInCurrentProcess(process);
+                return Status.OK_STATUS;
+            }
+
+        };
+        reloadJob.setPriority(Job.INTERACTIVE);
+        reloadJob.setSystem(true);
+        reloadJob.schedule();
+
+    }
+
+    public void reloadJobletInCurrentProcess(IProcess2 process) {
+        List<? extends INode> nodeList = process.getGraphicalNodes();
+        Set<String> components = new HashSet<String>();
+        for (INode node : nodeList) {
+            if (!components.contains(node.getComponent().getName() + node.getComponent().getVersion())
+                    && ((Node) node).isJoblet()) {
+                components.add(node.getComponent().getName() + node.getComponent().getVersion());
+                IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
+                        IJobletProviderService.class);
+                if (service != null) {
+                    service.reloadJobletProcess(node, true);
+                }
+            }
+        }
+
+    }
+
     public boolean needReadOnlyJoblet(JobletProcessItem jobletItem) {
         IWorkbenchPage page = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
         IEditorPart[] editors = page.getEditors();
@@ -522,7 +549,8 @@ public class JobletUtil {
                                 continue;
                             } else {
                                 if (((Node) node).isJoblet() && jobletItem.getProperty() != null) {
-                                    if (jobletItem.getProperty().getId().equals(node.getComponent().getProcess().getId())) {
+                                    if (jobletItem.getProperty().getId().equals(node.getComponent().getProcess().getId())
+                                            && jobletItem.getProperty().getVersion().equals(node.getComponent().getVersion())) {
                                         boolean haveOpened = !((Node) node).getNodeContainer().isCollapsed();
                                         if (haveOpened) {
                                             return true;
@@ -538,7 +566,8 @@ public class JobletUtil {
                 List<? extends INode> nodeList = pro.getGraphicalNodes();
                 for (INode node : nodeList) {
                     if (((Node) node).isJoblet() && jobletItem.getProperty() != null) {
-                        if (jobletItem.getProperty().getId().equals(node.getComponent().getProcess().getId())) {
+                        if (jobletItem.getProperty().getId().equals(node.getComponent().getProcess().getId())
+                                && jobletItem.getProperty().getVersion().equals(node.getComponent().getVersion())) {
                             boolean haveOpened = !((Node) node).getNodeContainer().isCollapsed();
                             if (haveOpened) {
                                 return true;
@@ -550,161 +579,6 @@ public class JobletUtil {
                 }
             }
         }
-        return false;
-    }
-
-    public boolean checkModify(JobletContainer jobletContainer) {
-        IJobletProviderService service = (IJobletProviderService) GlobalServiceRegister.getDefault().getService(
-                IJobletProviderService.class);
-        if (service != null) {
-            service.reloadJobletProcess(jobletContainer.getNode());
-        }
-        IProcess process = jobletContainer.getNode().getComponent().getProcess();
-        List<? extends INode> nodeList = process.getGraphicalNodes();
-        List<NodeContainer> containerList = jobletContainer.getNodeContainers();
-        for (NodeContainer nodeCon : containerList) {
-            Node node = nodeCon.getNode();
-            String jobletUnique = node.getJoblet_unique_name();
-            if (jobletUnique == null || "".equals(jobletUnique)) {
-                continue;
-            }
-            for (INode nodeOra : nodeList) {
-                if (nodeOra.getUniqueName().equals(jobletUnique)) {
-                    // if (nodeOra.isActivate() != node.isActivate()) {
-                    // return true;
-                    // }
-                    List<? extends IElementParameter> paras = node.getElementParameters();
-                    for (IElementParameter para : paras) {
-                        if (para == null) {
-                            continue;
-                        }
-                        String paraName = para.getName();
-                        if (paraName != null) {
-                            if (paraName.equals(EParameterName.UNIQUE_NAME.getName())) {
-                                continue;
-                            }
-                            if (paraName.equals(EParameterName.UPDATE_COMPONENTS.getName())) {
-                                continue;
-                            }
-                            IElementParameter paraOra = nodeOra.getElementParameter(paraName);
-                            if (paraOra == null || para == null) {
-                                continue;
-                            }
-
-                            if (para.getValue() != null) {
-                                if (paraOra.getValue() != null) {
-                                    // TDI-18915:The parameter here is not only a string value,but can be a
-                                    // MetadataTable
-                                    if (para.getValue() instanceof IMetadataTable) {
-                                        boolean isSame = ((MetadataTable) para.getValue()).sameMetadataAs((MetadataTable) paraOra
-                                                .getValue());
-                                        if (!isSame) {
-                                            return true;
-                                        }
-                                    } else {
-                                        if (!para.getValue().equals(paraOra.getValue())) {
-                                            return true;
-                                        }
-                                    }
-                                } else {
-                                    return true;
-                                }
-                            } else {
-                                if (paraOra.getValue() != null) {
-                                    return true;
-                                }
-                            }
-
-                            if (paraOra.getChildParameters() != null && para.getChildParameters() != null) {
-                                Map<String, IElementParameter> paraChild = para.getChildParameters();
-                                Map<String, IElementParameter> paraOraChild = paraOra.getChildParameters();
-                                Iterator<Entry<String, IElementParameter>> ite = paraChild.entrySet().iterator();
-                                while (ite.hasNext()) {
-                                    Entry<String, IElementParameter> entry = ite.next();
-                                    String key = entry.getKey();
-                                    IElementParameter c = entry.getValue();
-                                    if (key != null && c != null) {
-                                        IElementParameter oc = paraOraChild.get(key);
-
-                                        if (oc != null) {
-                                            if (c.getValue() != null) {
-                                                if (oc.getValue() != null) {
-                                                    if (!oc.getValue().equals(c.getValue())) {
-                                                        return true;
-                                                    }
-                                                } else {
-                                                    return true;
-                                                }
-                                            } else {
-                                                if (oc.getValue() != null) {
-                                                    return true;
-                                                }
-                                            }
-                                        }
-
-                                    }
-                                }
-                            }
-                        }
-
-                    }
-
-                    List<IMetadataTable> nodeTables = node.getMetadataList();
-                    List<IMetadataTable> oraTables = nodeOra.getMetadataList();
-                    if (nodeTables.size() != oraTables.size()) {
-                        return true;
-                    }
-                    for (IMetadataTable tab : nodeTables) {
-                        for (IMetadataTable oraTab : oraTables) {
-                            if (tab.getTableName().equals(oraTab.getTableName())) {
-                                if (tab.getListColumns().size() != oraTab.getListColumns().size()) {
-                                    return true;
-                                } else {
-                                    for (IMetadataColumn c : tab.getListColumns()) {
-                                        IMetadataColumn oraColumn = oraTab.getColumn(c.getLabel());
-                                        if (oraColumn == null) {
-                                            return true;
-                                        } else if (!c.getTalendType().equals(oraColumn.getTalendType())) {
-                                            return true;
-                                        } else if (!c.getType().equals(oraColumn.getType())) {
-                                            return true;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    IExternalNode OraExternalNode = nodeOra.getExternalNode();
-                    if (OraExternalNode != null) {
-                        IExternalNode externalNode = node.getExternalNode();
-                        if (externalNode == null) {
-                            return true;
-                        }
-                        IExternalData oraData = nodeOra.getExternalData();
-                        IExternalData data = node.getExternalData();
-                        if (oraData != null) {
-                            if (data == null) {
-                                return true;
-                            }
-                            List<IMetadataTable> oraMetaList = OraExternalNode.getMetadataList();
-                            List<IMetadataTable> metaList = externalNode.getMetadataList();
-                            if (oraMetaList != null) {
-                                if (metaList == null) {
-                                    return true;
-                                }
-                                if (oraMetaList.size() != metaList.size()) {
-                                    return true;
-                                }
-                            }
-
-                        }
-
-                    }
-
-                }
-            }
-        }
-
         return false;
     }
 
@@ -722,19 +596,19 @@ public class JobletUtil {
         return true;
     }
 
-    public Map<String, List<JobletContainer>> getModifyMap(List<Element> elem) {
-        Map<String, List<JobletContainer>> jobletNodeMap = new HashMap<String, List<JobletContainer>>();
+    public Map<String, List<AbstractJobletContainer>> getModifyMap(List<Element> elem) {
+        Map<String, List<AbstractJobletContainer>> jobletNodeMap = new HashMap<String, List<AbstractJobletContainer>>();
         for (Element element : elem) {
             if (element instanceof SubjobContainer) {
                 for (NodeContainer container : ((SubjobContainer) element).getNodeContainers()) {
-                    if (container instanceof JobletContainer) {
+                    if (container instanceof AbstractJobletContainer) {
                         String processID = container.getNode().getProcess().getId();
                         if (!jobletNodeMap.containsKey(processID)) {
-                            List<JobletContainer> nodeList = new ArrayList<JobletContainer>();
-                            nodeList.add((JobletContainer) container);
+                            List<AbstractJobletContainer> nodeList = new ArrayList<AbstractJobletContainer>();
+                            nodeList.add((AbstractJobletContainer) container);
                             jobletNodeMap.put(processID, nodeList);
                         } else {
-                            jobletNodeMap.get(processID).add((JobletContainer) container);
+                            jobletNodeMap.get(processID).add((AbstractJobletContainer) container);
                         }
                     }
                 }
@@ -771,7 +645,7 @@ public class JobletUtil {
         for (NodeContainer container : sub.getNodeContainers()) {
             List<IConnection> inList = new ArrayList<IConnection>();
             List<IConnection> outList = new ArrayList<IConnection>();
-            if ((container instanceof JobletContainer)) {// && ((JobletContainer) container).isCollapsed()
+            if ((container instanceof AbstractJobletContainer)) {// && ((JobletContainer) container).isCollapsed()
                 inList.addAll(((JobletContainer) container).getInputs());
                 outList.addAll(((JobletContainer) container).getOutputs());
             } else {
@@ -812,7 +686,7 @@ public class JobletUtil {
 
     }
 
-    public boolean isRed(JobletContainer jobletContainer) {
+    public boolean isRed(AbstractJobletContainer jobletContainer) {
         IProcess2 jobletProcess = (IProcess2) jobletContainer.getNode().getComponent().getProcess();
         if (jobletProcess == null) {
             return false;
@@ -835,6 +709,16 @@ public class JobletUtil {
             }
         }
 
+        return false;
+    }
+
+    public boolean matchExpression(String expression) {
+        if (expression == null) {
+            return false;
+        }
+        if (expression.contains(":")) {//$NON-NLS-1$
+            return true;
+        }
         return false;
     }
 

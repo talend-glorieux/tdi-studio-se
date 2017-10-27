@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -692,7 +692,7 @@ public class MetadataTableEditorViewExt extends MetadataTableEditorView {
     }
 
     public void updateHeader(String id, String currTitle, boolean isHide) {
-        final TableViewerCreatorColumn funColumn = getTableViewerCreator().getColumn(id);
+        final TableViewerCreatorColumnNotModifiable funColumn = getTableViewerCreator().getColumn(id);
         if (isHide) {
             final TableEditorContentNotModifiable tableEditorContent = funColumn.getTableEditorContent();
             if (tableEditorContent != null && tableEditorContent instanceof CheckboxTableEditorContent) {

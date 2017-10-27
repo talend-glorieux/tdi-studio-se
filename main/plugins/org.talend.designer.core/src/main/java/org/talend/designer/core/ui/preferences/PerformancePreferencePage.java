@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -33,6 +33,8 @@ public class PerformancePreferencePage extends FieldEditorPreferencePage impleme
     private CheckBoxFieldEditor dbConnTimeoutActive;
 
     private IntegerFieldEditor dbConnTimeout;
+
+    private IntegerFieldEditor hbaseOrMaprDBScanLimit;
 
     public PerformancePreferencePage() {
         super(GRID);
@@ -81,7 +83,6 @@ public class PerformancePreferencePage extends FieldEditorPreferencePage impleme
             textControl.setToolTipText(Messages.getString("PerformancePreferencePage.ConnectionTimeoutTip")); //$NON-NLS-1$
             dbConnTimeout.setValidRange(0, Short.MAX_VALUE);
             textControl.setEnabled(getPreferenceStore().getBoolean(ITalendCorePrefConstants.DB_CONNECTION_TIMEOUT_ACTIVED));
-
             addField(dbConnTimeoutActive);
             addField(dbConnTimeout);
             addSVNInforAutoCheckFiled();
@@ -118,7 +119,6 @@ public class PerformancePreferencePage extends FieldEditorPreferencePage impleme
             textControl.setToolTipText(Messages.getString("PerformancePreferencePage.ConnectionTimeoutTip")); //$NON-NLS-1$
             dbConnTimeout.setValidRange(0, Short.MAX_VALUE);
             textControl.setEnabled(getPreferenceStore().getBoolean(ITalendCorePrefConstants.DB_CONNECTION_TIMEOUT_ACTIVED));
-
             addField(dbConnTimeoutActive);
             addField(dbConnTimeout);
 
@@ -137,6 +137,14 @@ public class PerformancePreferencePage extends FieldEditorPreferencePage impleme
                 getFieldEditorParent());
         codeFormatTimeout.setValidRange(1, Short.MAX_VALUE);
         addField(codeFormatTimeout);
+
+        hbaseOrMaprDBScanLimit = new IntegerFieldEditor(ITalendCorePrefConstants.HBASE_OR_MAPRDB_SCAN_LIMIT,
+                Messages.getString("PerformancePreferencePage.HBaseOrMaprDBScanLimit"), //$NON-NLS-1$
+                getFieldEditorParent());
+        Text limitTextControl = hbaseOrMaprDBScanLimit.getTextControl(getFieldEditorParent());
+        limitTextControl.setToolTipText(Messages.getString("PerformancePreferencePage.HBaseOrMaprDBScanLimitTip")); //$NON-NLS-1$
+        hbaseOrMaprDBScanLimit.setValidRange(0, Short.MAX_VALUE);
+        addField(hbaseOrMaprDBScanLimit);
     }
 
     private void addSVNInforAutoCheckFiled() {
@@ -172,8 +180,15 @@ public class PerformancePreferencePage extends FieldEditorPreferencePage impleme
                     ITalendCorePrefConstants.PERFORMANCE_TAC_CONNECTION_TIMEOUT,
                     Messages.getString("PerformancePreferencePage.tacTimeout"), //$NON-NLS-1$
                     getFieldEditorParent());
-            autoCheckTime.setValidRange(0, 3600);
+            tacConnectionTimeout.setValidRange(0, 3600);
             addField(tacConnectionTimeout);
+
+            final IntegerFieldEditor tacReadTimeout = new IntegerFieldEditor(
+                    ITalendCorePrefConstants.PERFORMANCE_TAC_READ_TIMEOUT,
+                    Messages.getString("PerformancePreferencePage.tacTimeout.read"), //$NON-NLS-1$
+                    getFieldEditorParent());
+            tacReadTimeout.setValidRange(0, 3600);
+            addField(tacReadTimeout);
         }
 
     }

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -23,6 +23,7 @@ import org.talend.core.model.process.IContext;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.process.IProcess;
 import org.talend.core.model.process.IProcess2;
+import org.talend.core.model.properties.Item;
 import org.talend.core.model.properties.JobletProcessItem;
 import org.talend.core.model.properties.Property;
 import org.talend.core.model.update.EUpdateItemType;
@@ -36,6 +37,8 @@ import org.talend.core.model.update.extension.UpdateManagerProviderDetector;
 import org.talend.core.service.IEBCDICProviderService;
 import org.talend.core.service.IMRProcessService;
 import org.talend.core.service.IStormProcessService;
+import org.talend.core.ui.ISparkJobletProviderService;
+import org.talend.core.ui.ISparkStreamingJobletProviderService;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.process.AbstractProcessProvider;
 import org.talend.designer.core.model.utils.emf.talendfile.ElementParameterType;
@@ -312,7 +315,7 @@ public class UpdateCheckResult extends UpdateResult {
                 jobInfor = RepositoryUpdateManager.getUpdateJobInfor(property);
                 org.talend.core.model.properties.Item item = property.getItem();
                 if (item instanceof JobletProcessItem) {
-                    isJoblet = true;
+                    handleJoblet(item);
                 } else if (GlobalServiceRegister.getDefault().isServiceRegistered(IMRProcessService.class)) {
                     IMRProcessService mrProcessService = (IMRProcessService) GlobalServiceRegister.getDefault().getService(
                             IMRProcessService.class);
@@ -328,7 +331,7 @@ public class UpdateCheckResult extends UpdateResult {
                 jobInfor = RepositoryUpdateManager.getUpdateJobInfor(((org.talend.core.model.properties.Item) getJob())
                         .getProperty());
                 if (getJob() instanceof JobletProcessItem) {
-                    isJoblet = true;
+                    handleJoblet((JobletProcessItem)getJob());
                 } else if (GlobalServiceRegister.getDefault().isServiceRegistered(IMRProcessService.class)) {
                     IMRProcessService mrProcessService = (IMRProcessService) GlobalServiceRegister.getDefault().getService(
                             IMRProcessService.class);
@@ -350,6 +353,32 @@ public class UpdateCheckResult extends UpdateResult {
             }
         }
 
+    }
+    
+    private void handleJoblet(Item item){
+        boolean isSpark = false;
+        boolean isSparkStreaming = false;
+        if (GlobalServiceRegister.getDefault().isServiceRegistered(ISparkJobletProviderService.class)) {
+            ISparkJobletProviderService sparkJobletService = (ISparkJobletProviderService) GlobalServiceRegister
+                    .getDefault().getService(ISparkJobletProviderService.class);
+            if (sparkJobletService != null && sparkJobletService.isSparkJobletItem(item)) {
+                isSpark = true;
+            }
+        }
+        if (GlobalServiceRegister.getDefault().isServiceRegistered(ISparkStreamingJobletProviderService.class)) {
+            ISparkStreamingJobletProviderService sparkStreamingJobletService = (ISparkStreamingJobletProviderService) GlobalServiceRegister
+                    .getDefault().getService(ISparkStreamingJobletProviderService.class);
+            if (sparkStreamingJobletService != null && sparkStreamingJobletService.isSparkStreamingJobletItem(item)) {
+                isSparkStreaming = true;
+            }
+        }
+        if(isSpark){
+            isSparkJoblet = true;
+        }else if(isSparkStreaming){
+            isSparkStreamingJoblet = true;
+        }else{
+            isJoblet = true;
+        }
     }
 
 }

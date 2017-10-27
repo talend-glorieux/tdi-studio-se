@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -105,12 +105,11 @@ public class FileController extends AbstractElementPropertySectionController {
             if (!file.equals("")) { //$NON-NLS-1$
                 if (!file.equals(elem.getPropertyValue(propertyName))) {
                     String portableValue = Path.fromOSString(file).toPortableString();
-                    filePathText.setText(TalendTextUtils.addQuotes(portableValue));
-                    if (isInWizard()) {
-                        return new PropertyChangeCommand(elem, propertyName, portableValue);
-                    } else {
-                        return new PropertyChangeCommand(elem, propertyName, TalendTextUtils.addQuotes(portableValue));
+                    if (!isInWizard()) {
+                        portableValue = TalendTextUtils.addQuotes(portableValue);
                     }
+                    filePathText.setText(portableValue);
+                    return new PropertyChangeCommand(elem, propertyName, portableValue);
                 }
             }
         }
@@ -246,6 +245,23 @@ public class FileController extends AbstractElementPropertySectionController {
         Point initialSize = dField.getLayoutControl().computeSize(SWT.DEFAULT, SWT.DEFAULT);
 
         dynamicProperty.setCurRowSize(initialSize.y + ITabbedPropertyConstants.VSPACE);
+
+        if (isInWizard()) {
+            labelLabel.setAlignment(SWT.RIGHT);
+            if (lastControl != null) {
+                data.right = new FormAttachment(lastControl, -STANDARD_BUTTON_WIDTH);
+            } else {
+                data.right = new FormAttachment(100, -STANDARD_BUTTON_WIDTH - ITabbedPropertyConstants.HSPACE);
+            }
+            data.left = new FormAttachment((((nbInRow - numInRow) * MAX_PERCENT) / nbInRow),
+                    currentLabelWidth + ITabbedPropertyConstants.HSPACE);
+
+            data = (FormData) labelLabel.getLayoutData();
+            data.right = new FormAttachment(cLayout, 0);
+            data.left = new FormAttachment((((nbInRow - numInRow) * MAX_PERCENT) / nbInRow), 0);
+
+            return labelLabel;
+        }
 
         return btnEdit;
     }

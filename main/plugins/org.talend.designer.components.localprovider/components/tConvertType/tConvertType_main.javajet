@@ -127,7 +127,7 @@
             <%
             }
             
-            if ("Date".equals(outType) && "String".equals(inType)) {%>
+            if ("Date".equals(outType) && ("String".equals(inType)||"Object".equals(inType))) {%>
               <%=outconnName %>.<%=outLabel %>=TypeConvert.<%=inType %>2<%=outType %>(<%=preconnName %>.<%=preLabel %>, <%=outPattern %>);
             <%} else if ("String".equals(outType) && "Date".equals(inType)) {%>
               <%=outconnName %>.<%=outLabel %>=TypeConvert.<%=inType %>2<%=outType %>(<%=preconnName %>.<%=preLabel %>, <%=inPattern %>);

@@ -1,0 +1,74 @@
+<%
+    String domain = ElementParameterParser.getValue(node, "__DOMAIN__");
+    String host = ElementParameterParser.getValue(node, "__HOST__");
+	String authType = ElementParameterParser.getValue(node, "__AUTH_TYPE__");
+	String userName = ElementParameterParser.getValue(node, "__USERNAME__");
+	String serviceURL = ElementParameterParser.getValue(node, "__SERVICE_ROOT_URL__");
+	String applicationId = ElementParameterParser.getValue(node, "__APPLICATION_ID__");
+	String authority = ElementParameterParser.getValue(node, "__AUTHORITY__");
+	
+	String timeout = ElementParameterParser.getValue(node, "__TIMEOUT__");
+	boolean reuseHttpClient = ("true").equals(ElementParameterParser.getValue(node,"__REUSE_HTTP_CLIENT__"));
+	%>
+	int nb_line_<%=cid%> = 0;
+	<%
+	String passwordFieldName = "__PASSWORD__";
+	String entitySetName = ElementParameterParser.getValue(node, "__ENTITYSET__").trim();
+ 	String customEntityName = ElementParameterParser.getValue(node, "__CUSTOM_ENTITY_NAME__");
+ 	if("CustomEntitySet".equals(entitySetName)){
+	%>
+		String entitySetName_<%=cid%>=<%=customEntityName%>;
+	<%
+	}else{
+	%>
+		String entitySetName_<%=cid%>="<%=entitySetName%>";
+	<%	
+	}
+	 String action = ElementParameterParser.getValue(node,"__ACTION__");
+	 if("update".equals(action)){
+	    List<IMetadataTable> metadatas = node.getMetadataList();
+	    if ((metadatas!=null)&&(metadatas.size()>0)) {
+	        IMetadataTable metadata = metadatas.get(0);
+	        if (metadata!=null) {
+			      List<IMetadataColumn> columns = metadata.getListColumns();
+			      int sizeColumns = columns.size();
+			      boolean hasKeyColumn=false;
+			      for(int i = 0; i < sizeColumns; i++){
+	        		    IMetadataColumn column = columns.get(i);
+                   if(column.isKey()){
+                        hasKeyColumn = true;
+                        break;
+                    }
+                }
+                if(!hasKeyColumn){
+                %>
+                    if(true){
+                        throw new RuntimeException("No key column is specified in the schema!");
+                    }
+                <%
+                }
+            }
+        }
+    }
+	%>
+
+	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/password.javajet"%>
+
+	<%
+    if(isMsCrm2016OnPremise) {
+    %>
+    org.talend.ms.crm.odata.ClientConfiguration clientConfig_<%=cid%> = org.talend.ms.crm.odata.ClientConfigurationFactory
+            .buildNtlmClientConfiguration(<%=userName%>, decryptedPassword_<%=cid%>, <%=host%>, <%=domain%>);
+    <%
+    } else {
+    %>
+    org.talend.ms.crm.odata.ClientConfiguration clientConfig_<%=cid%> = org.talend.ms.crm.odata.ClientConfigurationFactory
+            .buildOAuthClientConfiguration(<%=applicationId%>, <%=userName%>, decryptedPassword_<%=cid%>, <%=authority%>);
+    <%
+    }
+    %>
+
+	clientConfig_<%=cid%>.setTimeout(<%=timeout%>);
+	clientConfig_<%=cid%>.setMaxRetry(reConnMaxNum_<%=cid%>,<%=attemptsInterval%>);
+	clientConfig_<%=cid%>.setReuseHttpClient(<%=reuseHttpClient%>);
+	org.talend.ms.crm.odata.DynamicsCRMClient client_<%=cid%> = new org.talend.ms.crm.odata.DynamicsCRMClient(clientConfig_<%=cid%>,<%=serviceURL%>,entitySetName_<%=cid%>);

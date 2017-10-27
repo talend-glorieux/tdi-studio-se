@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -44,6 +44,7 @@ import org.eclipse.swt.layout.FormData;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.views.properties.tabbed.ITabbedPropertyConstants;
+import org.talend.commons.exception.ExceptionHandler;
 import org.talend.core.model.metadata.ColumnNameChanged;
 import org.talend.core.model.metadata.ColumnNameChangedExt;
 import org.talend.core.model.metadata.IMetadataColumn;
@@ -71,6 +72,10 @@ import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.components.ElementParameter;
 import org.talend.designer.core.ui.editor.cmd.PropertyChangeCommand;
 import org.talend.designer.core.ui.editor.nodes.Node;
+import org.talend.designer.rowgenerator.data.Function;
+import org.talend.utils.json.JSONArray;
+import org.talend.utils.json.JSONException;
+import org.talend.utils.json.JSONObject;
 
 import orgomg.cwm.objectmodel.core.TaggedValue;
 
@@ -110,6 +115,11 @@ public class ColumnListController extends AbstractElementPropertySectionControll
     private static Logger log = Logger.getLogger(ColumnListController.class);
 
     private boolean updateColumnListFlag;
+
+    /**
+     * Get function when re-select columns
+     */
+    public static final String FUNCTION_INFO = "FUNCTION_INFO"; //$NON-NLS-1$
 
     /**
      * DOC dev ColumnListController constructor comment.
@@ -539,6 +549,7 @@ public class ColumnListController extends AbstractElementPropertySectionControll
                     if (!found) {
                         newLine = TableController.createNewLine(param);
                         newLine.put(codes[0], columnName);
+                        reUsedColumnFunctionArrayCheck(newLine, element, codes);
                         if (!StringUtils.isEmpty(edifactId)) {
                             org.talend.core.model.metadata.builder.connection.Connection connection = MetadataToolHelper
                                     .getConnectionFromRepository(edifactId);
@@ -676,6 +687,48 @@ public class ColumnListController extends AbstractElementPropertySectionControll
                 param.setListItemsShowIf(listItemsShowIf);
                 param.setListItemsNotShowIf(listItemsNotShowIf);
 
+            }
+        }
+    }
+
+    private static void reUsedColumnFunctionArrayCheck(Map<String, Object> newLine, IElement element, String[] codes) {
+        if (element instanceof INode && ((INode) element).getMetadataList().size() > 0
+                && ((INode) element).getComponent().getName().equals("tRowGenerator")) {
+            IMetadataTable table = ((INode) element).getMetadataList().get(0);
+            String lineName = (String) newLine.get("SCHEMA_COLUMN"); //$NON-NLS-1$
+            for (IMetadataColumn column : table.getListColumns()) {
+
+                if (lineName != null && lineName.equals(column.getLabel()) && "".equals(newLine.get("ARRAY"))) {
+                    Map<String, String> columnFunction = column.getAdditionalField();
+                    String functionInfo = columnFunction.get(FUNCTION_INFO);
+                    if (functionInfo != null) {
+                        try {
+                            JSONObject functionInfoObj = new JSONObject(functionInfo);
+                            String functionExpression = "";
+                            String functionName = functionInfoObj.getString(Function.NAME);
+                            if (!functionName.equals("...")) {
+                                String className = functionInfoObj.getString(Function.PARAMETER_CLASS_NAME);
+                                String parmValueApend = "";
+                                functionExpression = className + '.' + functionName + "(";
+                                JSONArray parametersArray = functionInfoObj.getJSONArray(Function.PARAMETERS);
+                                if (parametersArray != null) {
+                                    for (int i = 0; i < parametersArray.length(); i++) {
+                                        JSONObject parameterObj = parametersArray.getJSONObject(i);
+                                        String paramValue = parameterObj.getString(Function.PARAMETER_VALUE);
+                                        parmValueApend = parmValueApend + paramValue.trim() + ',';
+                                    }
+                                }
+                                if (parmValueApend.endsWith(",")) {
+                                    parmValueApend = parmValueApend.substring(0, parmValueApend.lastIndexOf(","));
+                                }
+                                functionExpression = functionExpression + parmValueApend + ')';
+                                newLine.put("ARRAY", functionExpression);
+                            }
+                        } catch (JSONException e) {
+                            ExceptionHandler.process(e);
+                        }
+                    }
+                }
             }
         }
     }

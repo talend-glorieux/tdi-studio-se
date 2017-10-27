@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -33,7 +33,8 @@ import org.talend.core.model.process.IProcess;
 import org.talend.core.model.process.IProcess2;
 import org.talend.core.model.properties.ProcessItem;
 import org.talend.core.model.properties.Property;
-import org.talend.designer.maven.tools.creator.CreateMavenBundleTemplatePom;
+import org.talend.core.runtime.process.LastGenerationInfo;
+import org.talend.core.runtime.repository.build.IMavenPomCreator;
 import org.talend.designer.maven.tools.creator.CreateMavenJobPom;
 import org.talend.designer.maven.utils.PomUtil;
 import org.talend.designer.runprocess.ProcessorConstants;
@@ -177,16 +178,31 @@ public abstract class BigDataJavaProcessor extends MavenJavaProcessor {
         List<String> list = new ArrayList<>();
         list.add(ProcessorConstants.CMD_KEY_WORD_LIBJAR);
         StringBuffer libJars = new StringBuffer();
-        Set<String> libNames = null;
+        Set<String> libNames = new HashSet<>();
         boolean isExport = isExportConfig() || isRunAsExport();
-        if (isExport) {
-            // In an export mode, all the dependencies and the routines/beans/udfs are packaged in the lib folder.
-            libNames = JavaProcessorUtilities.extractLibNamesOnlyForMapperAndReducer(process);
-        } else {
-            // In the local mode, all the dependencies are packaged in the lib folder. The routines/beans/udfs are not.
-            // We will
-            // handle them separetely.
-            libNames = JavaProcessorUtilities.extractLibNamesOnlyForMapperAndReducerWithoutRoutines(process);
+        if (process instanceof IProcess2) {
+            if (isExport) {
+                // In an export mode, all the dependencies and the routines/beans/udfs are packaged in the lib folder.
+                libNames = JavaProcessorUtilities.extractLibNamesOnlyForMapperAndReducer((IProcess2) process);
+            } else {
+                // In the local mode, all the dependencies are packaged in the lib folder. The routines/beans/udfs are
+                // not.
+                // We will
+                // handle them separetely.
+                libNames = JavaProcessorUtilities.extractLibNamesOnlyForMapperAndReducerWithoutRoutines((IProcess2) process);
+            }
+        }
+        Set<ModuleNeeded> modulesNeeded = LastGenerationInfo.getInstance().getModulesNeededWithSubjobPerJob(process.getId(), process.getVersion());
+        Set<String> allNeededLibsAfterAdjuster = new HashSet<String>();
+        for (ModuleNeeded module: modulesNeeded) {
+            allNeededLibsAfterAdjuster.add(module.getModuleName());
+        }
+        Iterator<String> it = libNames.iterator();
+        while (it.hasNext()) {
+            String jarName = it.next();
+            if (!allNeededLibsAfterAdjuster.contains(jarName)) {
+                it.remove();
+            }
         }
 
         File libDir = JavaProcessorUtilities.getJavaProjectLibFolder();
@@ -321,8 +337,8 @@ public abstract class BigDataJavaProcessor extends MavenJavaProcessor {
     }
 
     @Override
-    protected CreateMavenBundleTemplatePom createMavenTemplatePom() {
-        CreateMavenBundleTemplatePom createMavenTemplatePom = super.createMavenTemplatePom();
+    protected IMavenPomCreator createMavenPomCreator() {
+        IMavenPomCreator createMavenTemplatePom = super.createMavenPomCreator();
         if (createMavenTemplatePom instanceof CreateMavenJobPom) {
             CreateMavenJobPom createMavenJobPom = (CreateMavenJobPom) createMavenTemplatePom;
 

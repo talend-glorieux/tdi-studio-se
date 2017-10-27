@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement availe at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -325,7 +325,7 @@ public class NodePart extends AbstractGraphicalEditPart implements PropertyChang
     @Override
     public void propertyChange(final PropertyChangeEvent changeEvent) {
         boolean needUpdateSubjob = false;
-        if(!this.isActive()){
+        if (!this.isActive()) {
             return;
         }
         if (changeEvent.getPropertyName().equals(Node.LOCATION)) {
@@ -638,6 +638,9 @@ public class NodePart extends AbstractGraphicalEditPart implements PropertyChang
                     if (processName != null && !"".equals(processName) && !isAvoidShowJobAfterDoubleClick && !isSelectUseDynamic) { //$NON-NLS-1$
                         ItemCacheManager.clearCache();
                         ProcessItem processItem = ItemCacheManager.getProcessItem(processName, version);
+                        if (processItem == null) {
+                            return;
+                        }
                         Property updatedProperty = null;
                         try {
                             updatedProperty = ProxyRepositoryFactory

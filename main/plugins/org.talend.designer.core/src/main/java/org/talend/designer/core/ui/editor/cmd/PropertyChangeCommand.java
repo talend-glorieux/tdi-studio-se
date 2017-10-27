@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -20,7 +20,9 @@ import java.util.Map;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.eclipse.gef.commands.Command;
+import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.swt.widgets.Shell;
 import org.talend.commons.utils.threading.ExecutionLimiter;
 import org.talend.commons.utils.threading.ExecutionLimiterImproved;
 import org.talend.core.GlobalServiceRegister;
@@ -62,9 +64,9 @@ import org.talend.designer.runprocess.ItemCacheManager;
 /**
  * Command that changes a given property. It will call the set or get property value in an element. This element can be
  * either a node, a connection or a process. <br/>
- * 
+ *
  * $Id$
- * 
+ *
  */
 public class PropertyChangeCommand extends Command {
 
@@ -84,7 +86,7 @@ public class PropertyChangeCommand extends Command {
 
     // private ChangeMetadataCommand changeMetadataCommand;
     private List<ChangeMetadataCommand> changeMetadataCommands;
-    
+
     private Command updateELTMapComponentCommand;
 
     private String propertyTypeName;
@@ -136,7 +138,7 @@ public class PropertyChangeCommand extends Command {
 
     /**
      * The property is defined in an element, which can be either a node or a connection.
-     * 
+     *
      * @param elem
      * @param propName
      * @param propValue
@@ -246,6 +248,22 @@ public class PropertyChangeCommand extends Command {
 
         oldValue = elem.getPropertyValue(propName);
         elem.setPropertyValue(propName, newValue);
+        if (currentParam.getFieldType().equals(EParameterFieldType.CONNECTION_LIST) && currentParam.getContext() != null
+                && (elem instanceof Node)) {
+            String connParaname = currentParam.getContext() + ":" + currentParam.getName();
+            if (connParaname.equals(propName)) {
+                IConnection selectedConn = null;
+                for (IConnection conn : ((Node) elem).getIncomingConnections()) {
+                    if (conn.getUniqueName().equals(newValue)) {
+                        selectedConn = conn;
+                        break;
+                    }
+                }
+                if (selectedConn != null && getTakeSchema()) {
+                    ((Node) selectedConn.getSource()).takeSchemaFrom((Node) elem, currentParam.getContext());
+                }
+            }
+        }
         if ("ELT_TABLE_NAME".equals(propName) || "ELT_SCHEMA_NAME".equals(propName)) { //$NON-NLS-1$ //$NON-NLS-2$
             String oldELTValue = ""; //$NON-NLS-1$
             String newELTValue = ""; //$NON-NLS-1$
@@ -264,22 +282,27 @@ public class PropertyChangeCommand extends Command {
                 String tableName = TalendQuoteUtils.removeQuotes((String) elem.getPropertyValue("ELT_TABLE_NAME")); //$NON-NLS-1$
                 if (oldParamValue != null && !"".equals(oldParamValue.trim())) {
                     oldELTValue = oldParamValue + "."; //$NON-NLS-1$
-                } 
+                }
                 if (newParamValue != null && !"".equals(newParamValue.trim())) {
                     newELTValue = newParamValue + "."; //$NON-NLS-1$
                 }
-                oldELTValue = oldELTValue + tableName; //$NON-NLS-1$
-                newELTValue = newELTValue + tableName; //$NON-NLS-1$
+                oldELTValue = oldELTValue + tableName; // $NON-NLS-1$
+                newELTValue = newELTValue + tableName; // $NON-NLS-1$
             }
             List<? extends IConnection> connections = ((Node) elem).getOutgoingConnections();
             for (IConnection connection : connections) {
+                if (!connection.getName().equals(oldELTValue)) {
+                    // do nothing when custom connection name.
+                    continue;
+                }
                 INode targetNode = connection.getTarget();
                 String componentName = targetNode.getComponent().getName();
                 if (componentName.matches("tELT.+Map")) { //$NON-NLS-1$
                     if (GlobalServiceRegister.getDefault().isServiceRegistered(IDbMapDesignerService.class)) {
-                        IDbMapDesignerService service = (IDbMapDesignerService) GlobalServiceRegister.getDefault()
-                                .getService(IDbMapDesignerService.class);
-                        updateELTMapComponentCommand = service.getUpdateELTMapComponentCommand(targetNode, connection, oldELTValue, newELTValue);
+                        IDbMapDesignerService service = (IDbMapDesignerService) GlobalServiceRegister.getDefault().getService(
+                                IDbMapDesignerService.class);
+                        updateELTMapComponentCommand = service.getUpdateELTMapComponentCommand(targetNode, connection,
+                                oldELTValue, newELTValue);
                         updateELTMapComponentCommand.execute();
                     }
                 }
@@ -449,6 +472,10 @@ public class PropertyChangeCommand extends Command {
         if (currentParam.getName().equals(EParameterName.PROCESS_TYPE_PROCESS.getName())) {
             toUpdate = true;
         }
+        // TUP-18405, need update module list
+        if (currentParam.getFieldType() == EParameterFieldType.MODULE_LIST) {
+            toUpdate = true;
+        }
 
         if (toUpdate) {
             elem.setPropertyValue(updataComponentParamName, Boolean.TRUE);
@@ -494,7 +521,7 @@ public class PropertyChangeCommand extends Command {
 
     /**
      * DOC cmeng Comment method "updateRelativeNodesIfNeeded".
-     * 
+     *
      * @param currentParam
      */
     private void updateRelativeNodesIfNeeded(IElementParameter currentParam) {
@@ -514,7 +541,7 @@ public class PropertyChangeCommand extends Command {
 
     /**
      * DOC cmeng Comment method "setDefaultValues".
-     * 
+     *
      * @param currentParam
      */
     private void setDefaultValues(IElementParameter currentParam, IElement node) {
@@ -616,7 +643,7 @@ public class PropertyChangeCommand extends Command {
 
     /**
      * Set the values to default if needed.
-     * 
+     *
      * @param currentParam Current parameter that has been modified in the interface
      * @param testedParam Tested parameter, to know if there is a link for the default values between this parameter and
      * the current.
@@ -627,7 +654,6 @@ public class PropertyChangeCommand extends Command {
             return;
         }
         boolean contains = false;
-
         // zli
         for (IElementParameterDefaultValue value : testedParam.getDefaultValues()) {
             if (value.getIfCondition() != null) {
@@ -673,6 +699,7 @@ public class PropertyChangeCommand extends Command {
                         if (isValid) {
                             int index = ArrayUtils.indexOf(testedParam.getListItemsShowIf(), condition);
                             testedParam.setValue(testedParam.getListItemsValue()[index]);
+                            isCurrentComboValid = true;
                             break;
                         }
                     }
@@ -844,7 +871,7 @@ public class PropertyChangeCommand extends Command {
         }
         if (updateELTMapComponentCommand != null) {
             updateELTMapComponentCommand.undo();
-        } 
+        }
         CodeView.refreshCodeView(elem);
         ComponentSettings.switchToCurComponentSettingsView();
         JobSettings.switchToCurJobSettingsView();
@@ -905,7 +932,7 @@ public class PropertyChangeCommand extends Command {
         }
         if (updateELTMapComponentCommand != null) {
             updateELTMapComponentCommand.redo();
-        } 
+        }
         CodeView.refreshCodeView(elem);
         ComponentSettings.switchToCurComponentSettingsView();
         JobSettings.switchToCurJobSettingsView();
@@ -1005,6 +1032,10 @@ public class PropertyChangeCommand extends Command {
             }
         }
 
+    }
+
+    private boolean getTakeSchema() {
+        return MessageDialog.openQuestion(new Shell(), "", Messages.getString("Node.getSchemaOrNot")); //$NON-NLS-1$ //$NON-NLS-2$
     }
 
 }

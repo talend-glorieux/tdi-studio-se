@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -63,7 +63,6 @@ import org.talend.designer.mapper.i18n.Messages;
 import org.talend.designer.mapper.language.LanguageProvider;
 import org.talend.designer.mapper.language.generation.JavaGenerationManager.PROBLEM_KEY_FIELD;
 import org.talend.designer.mapper.model.table.AbstractInOutTable;
-import org.talend.designer.mapper.model.table.IUIMatchingMode;
 import org.talend.designer.mapper.model.table.InputTable;
 import org.talend.designer.mapper.model.table.OutputTable;
 import org.talend.designer.mapper.model.table.TMAP_LOOKUP_MODE;
@@ -86,6 +85,7 @@ import org.talend.designer.mapper.ui.visualmap.table.EntryState;
 import org.talend.designer.mapper.ui.visualmap.zone.Zone;
 import org.talend.designer.mapper.ui.visualmap.zone.scrollable.TablesZoneView;
 import org.talend.designer.mapper.utils.DataMapExpressionParser;
+import org.talend.designer.mapper.utils.MapperHelper;
 import org.talend.repository.model.IRepositoryService;
 import org.talend.repository.model.RepositoryConstants;
 
@@ -132,8 +132,7 @@ public class MapperManager extends AbstractMapperManager {
         problemsManager = new ProblemsManager(this);
         IProcess process = getAbstractMapComponent().getProcess();
         isMRProcess = ComponentCategory.CATEGORY_4_MAPREDUCE.getName().equals(process.getComponentsType());
-        isBigDataProcess = isMRProcess || ComponentCategory.CATEGORY_4_SPARK.getName().equals(process.getComponentsType())
-                || ComponentCategory.CATEGORY_4_SPARKSTREAMING.getName().equals(process.getComponentsType());
+        isBigDataProcess = MapperHelper.isMapperOnBigDataProcess(process.getComponentsType());
         getDefaultSetting();
     }
 
@@ -532,8 +531,8 @@ public class MapperManager extends AbstractMapperManager {
         IDataMapTable abstractDataMapTable = dataMapTableView.getDataMapTable();
         GlobalMapEntry dataMapTableEntry = null;
         if (dataMapTableView.getZone() == Zone.INPUTS) {
-            dataMapTableEntry = new GlobalMapEntry(abstractDataMapTable, "\"" + tableEntrySource.getParentName() + "." //$NON-NLS-1$ //$NON-NLS-2$
-                    + tableEntrySource.getName() + "\"", null); //$NON-NLS-1$
+            dataMapTableEntry = new GlobalMapEntry(abstractDataMapTable,
+                    "\"" + dataMapTableView.findUniqueName("myKey") + "\"", null); //$NON-NLS-1$//$NON-NLS-2$//$NON-NLS-3$
         } else {
             throw new IllegalArgumentException(Messages.getString("MapperManager.exceptionMessage.useOtherSignature")); //$NON-NLS-1$
         }
@@ -1131,13 +1130,7 @@ public class MapperManager extends AbstractMapperManager {
     public Map<String, Object> getDefaultSetting() {
         if (defaultSettingMap.isEmpty()) {
             defaultSettingMap.put(DataMapTableView.LOOKUP_MODEL_SETTING, TMAP_LOOKUP_MODE.LOAD_ONCE);
-            if (isMRProcess) {
-                defaultSettingMap.put(DataMapTableView.MATCH_MODEL_SETTING, new IUIMatchingMode[] { TMAP_MATCHING_MODE.ALL_ROWS,
-                        TMAP_MATCHING_MODE.ALL_MATCHES });
-            } else {
-                defaultSettingMap.put(DataMapTableView.MATCH_MODEL_SETTING, new IUIMatchingMode[] { TMAP_MATCHING_MODE.ALL_ROWS,
-                        TMAP_MATCHING_MODE.UNIQUE_MATCH });
-            }
+            defaultSettingMap.put(DataMapTableView.MATCH_MODEL_SETTING, TMAP_MATCHING_MODE.ALL_ROWS);
             defaultSettingMap.put(DataMapTableView.JOIN_MODEL_SETTING, false);
             defaultSettingMap.put(DataMapTableView.PERSISTENCE_MODEL_SETTING, false);
             defaultSettingMap.put(DataMapTableView.OUTPUT_REJECT, false);
@@ -1147,6 +1140,8 @@ public class MapperManager extends AbstractMapperManager {
 
             defaultSettingMap.put(MapperSettingsManager.REPLICATED_JOIN, false);
             defaultSettingMap.put(MapperSettingsManager.DIE_ON_ERROR, true);
+            defaultSettingMap.put(MapperSettingsManager.LEVENSHTEIN, 0);
+            defaultSettingMap.put(MapperSettingsManager.JACCARD, 0);
 
             // boolean parallel = false;
             // IElementParameter paraEle = getAbstractMapComponent().getElementParameter("LKUP_PARALLELIZE");
@@ -1154,6 +1149,7 @@ public class MapperManager extends AbstractMapperManager {
             // parallel = (Boolean) paraEle.getValue();
             // }
             defaultSettingMap.put(MapperSettingsManager.LOOKUP_IN_PARALLEL, false);
+            defaultSettingMap.put(MapperSettingsManager.ENABLE_AUTO_CONVERT_TYPE, false);
             defaultSettingMap.put(MapperSettingsManager.TEMPORARY_DATA_DIRECTORY, "");
             defaultSettingMap.put(MapperSettingsManager.ROWS_BUFFER_SIZE, 2000000);
         }

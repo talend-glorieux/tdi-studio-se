@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -17,8 +17,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.eclipse.core.runtime.IProgressMonitor;
@@ -33,6 +35,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.ui.PlatformUI;
+import org.talend.commons.CommonsPlugin;
 import org.talend.commons.exception.BusinessException;
 import org.talend.commons.exception.CommonExceptionHandler;
 import org.talend.commons.exception.LoginException;
@@ -74,6 +77,7 @@ import org.talend.repository.ui.dialog.OverTimePopupDialogTask;
 import org.talend.repository.ui.login.AbstractLoginActionPage.ErrorManager;
 import org.talend.repository.ui.login.connections.ConnectionUserPerReader;
 import org.talend.utils.json.JSONException;
+import org.talend.utils.json.JSONObject;
 
 /**
  * created by cmeng on May 22, 2015 Detailled comment
@@ -118,10 +122,14 @@ public class LoginHelper {
 
     public static boolean isRestart;
 
+    public static boolean isAutoLogonFailed;
+
     private IBrandingService brandingService = (IBrandingService) GlobalServiceRegister.getDefault().getService(
             IBrandingService.class);
 
     private IGITProviderService gitProviderService;
+
+    private Map<String, String> licenseMap;
 
     public static LoginHelper getInstance() {
         if (instance == null) {
@@ -131,6 +139,7 @@ public class LoginHelper {
     }
 
     protected LoginHelper() {
+        licenseMap = new HashMap<String, String>();
         init();
     }
 
@@ -218,6 +227,7 @@ public class LoginHelper {
         if (connectionsBeans != storedConnections) {
             setStoredConnections(connectionsBeans);
         }
+        init();
     }
 
     public void saveLastConnectionBean(ConnectionBean connBean) {
@@ -225,6 +235,7 @@ public class LoginHelper {
         if (connBean != null) {
             lastConnection = connBean.getName();
         }
+        init();
     }
 
     public ConnectionBean getCurrentSelectedConnBean() {
@@ -240,6 +251,10 @@ public class LoginHelper {
 
     protected static ConnectionBean getConnection() {
         return LoginHelper.getInstance().getFirstConnBean();
+    }
+
+    public static boolean isRemoteConnection() {
+        return isRemoteConnection(LoginHelper.getInstance().getCurrentSelectedConnBean());
     }
 
     protected static boolean needRestartForLocal(ConnectionBean curConnection) {
@@ -373,6 +388,7 @@ public class LoginHelper {
         if (connBean == null || project == null || project.getLabel() == null) {
             return false;
         }
+        setCurrentSelectedConnBean(connBean);
         try {
             if (!project.getEmfProject().isLocal() && factory.isLocalConnectionProvider()) {
                 List<IRepositoryFactory> rfList = RepositoryFactoryProvider.getAvailableRepositories();
@@ -455,6 +471,7 @@ public class LoginHelper {
             } else {
                 MessageBoxExceptionHandler.process(e.getTargetException(), getUsableShell());
             }
+            factory.getRepositoryContext().setProject(null);
             // } else {
             // fillUIProjectList();
             // MessageBoxExceptionHandler.process(e.getTargetException(), getShell());
@@ -470,6 +487,69 @@ public class LoginHelper {
         }
 
         return true;
+    }
+
+    public void saveUpdateStatus(Project project) throws JSONException {
+        Context ctx = CoreRuntimePlugin.getInstance().getContext();
+        RepositoryContext repositoryContext = (RepositoryContext) ctx.getProperty(Context.REPOSITORY_CONTEXT_KEY);
+        // reset repositoryContext first, in case switch branch
+        repositoryContext.setNoUpdateWhenLogon(false);
+        PreferenceManipulator prefManipulator = new PreferenceManipulator();
+        if (CommonsPlugin.isHeadless()) {
+            repositoryContext.setNoUpdateWhenLogon(false);
+            return;
+        }
+        if (!LoginHelper.isRemoteConnection(getCurrentSelectedConnBean())) {
+            repositoryContext.setNoUpdateWhenLogon(true);
+            return;
+        }
+        String url = project.getEmfProject().getUrl();
+        if (url == null || !"git".equals(getStorage(url))) {
+            return;
+        }
+        String location = getLocation(url);
+        String projectName = project.getTechnicalLabel();
+        String branch = ProjectManager.getInstance().getMainProjectBranch(project);
+        if (branch == null) {
+            return;
+        }
+        if (branch.startsWith("tags/")) {
+            repositoryContext.setNoUpdateWhenLogon(true);
+            return;
+        }
+        if (branch.startsWith("branches/")) {
+            branch = branch.substring("branches/".length());
+        }
+        JSONObject json = prefManipulator.getLogonLocalBranchStatus(location, projectName);
+        if (json != null) {
+            if (!json.has(branch)) {
+                // if not store yet, should be remote branch, so keep false value
+                return;
+            }
+            Object noUpdateWhenLogon = json.get(branch);
+            if (noUpdateWhenLogon != null) {
+                repositoryContext.setNoUpdateWhenLogon((Boolean) noUpdateWhenLogon);
+            }
+        }
+
+    }
+
+    public static String getStorage(String url) throws JSONException {
+        JSONObject jsonObject = new JSONObject(url);
+        String location = ""; //$NON-NLS-1$
+        if (jsonObject.has("storage")) {
+            location = jsonObject.getString("storage"); //$NON-NLS-1$
+        }
+        return location;
+    }
+
+    private String getLocation(String url) throws JSONException {
+        JSONObject jsonObject = new JSONObject(url);
+        String location = ""; //$NON-NLS-1$
+        if (jsonObject.has("location")) {
+            location = jsonObject.getString("location"); //$NON-NLS-1$
+        }
+        return location;
     }
 
     public Project[] getProjects(ConnectionBean connBean) {
@@ -689,11 +769,12 @@ public class LoginHelper {
                 isAlwaysAskAtStartup);
     }
 
-    protected Shell getUsableShell() {
+    public Shell getUsableShell() {
         if (usableShell != null) {
             return usableShell;
         } else {
-            return new Shell(DisplayUtils.getDisplay(), SWT.ON_TOP | SWT.TOP);
+            // return new Shell(DisplayUtils.getDisplay(), SWT.ON_TOP | SWT.TOP);
+            return DisplayUtils.getDefaultShell();
         }
     }
 
@@ -738,6 +819,22 @@ public class LoginHelper {
             }
         }
         return filteredConnections;
+    }
+
+    public String getLicenseMapKey(String url, String projectLabel, String userId) {
+        return url + "/" + userId + "/" + projectLabel; //$NON-NLS-1$ //$NON-NLS-2$
+    }
+
+    public void putLicense(String key, String license) throws PersistenceException {
+        licenseMap.put(key, license);
+    }
+
+    public void clearLicenseMap() {
+        licenseMap.clear();
+    }
+
+    public String getLicense(String key) throws PersistenceException {
+        return licenseMap.get(key);
     }
 
     public void setUsableShell(Shell usableShell) {

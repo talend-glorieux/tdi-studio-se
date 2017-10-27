@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -25,6 +25,7 @@ import org.eclipse.swt.widgets.Event;
 import org.eclipse.ui.IWorkbenchPart;
 import org.talend.core.GlobalServiceRegister;
 import org.talend.core.PluginChecker;
+import org.talend.core.model.components.ComponentCategory;
 import org.talend.core.model.metadata.IMetadataTable;
 import org.talend.core.model.process.EConnectionType;
 import org.talend.core.model.process.EParameterFieldType;
@@ -124,6 +125,13 @@ public class ConnectionCreateAction extends SelectionAction {
                 return false;
             }
 
+            if (curNodeConnector != null && "VALIDATION_REJECT".equals(curNodeConnector.getName())) {
+                if (node.getProcess() != null
+                        && !ComponentCategory.CATEGORY_4_DI.getName().equals(node.getProcess().getComponentsType())) {
+                    return false;
+                }
+            }
+
             if (connecType.hasConnectionCategory(IConnectionCategory.EXECUTION_ORDER)) {
                 if (!(Boolean) node.getPropertyValue(EParameterName.STARTABLE.getName())
                         || (!node.getProcessStartNode(false).equals(node))) {
@@ -145,7 +153,7 @@ public class ConnectionCreateAction extends SelectionAction {
             menuList = new ArrayList<String>();
             if (curNodeConnector == null) {
                 curNodeConnector = node.getConnectorFromType(connecType);
-                if (curNodeConnector == null) {
+                if (curNodeConnector == null || !curNodeConnector.isShow()) {
                     return false;
                 }
             }
@@ -191,7 +199,7 @@ public class ConnectionCreateAction extends SelectionAction {
                         boolean nameUsed = false;
                         for (Connection connec : (List<Connection>) node.getOutgoingConnections()) {
                             if (connec.getLineStyle().hasConnectionCategory(IConnectionCategory.FLOW)) {
-                                if (connec.getMetadataTable().getTableName().equals(table.getTableName())) {
+                                if (connec.getMetadataTable() != null && connec.getMetadataTable().getTableName().equals(table.getTableName())) {
                                     nameUsed = true;
                                 }
                             }
@@ -410,7 +418,7 @@ public class ConnectionCreateAction extends SelectionAction {
             List<INodeConnector> nodeConnectorList = new ArrayList<INodeConnector>(node.getConnectorsFromType(connecType));
             List<INodeConnector> toRemove = new ArrayList<INodeConnector>();
             for (INodeConnector connector : nodeConnectorList) {
-                if ((connector.getMaxLinkOutput() != -1) && (connector.getCurLinkNbOutput() >= connector.getMaxLinkOutput())) {
+                if (!connector.isShow() || ((connector.getMaxLinkOutput() != -1) && (connector.getCurLinkNbOutput() >= connector.getMaxLinkOutput()))) {
                     toRemove.add(connector);
                 } else {
                     if (PluginChecker.isJobLetPluginLoaded()) {

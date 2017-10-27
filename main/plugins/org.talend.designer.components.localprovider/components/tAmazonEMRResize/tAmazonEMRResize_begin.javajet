@@ -22,33 +22,15 @@
 	boolean request_spot = "true".equals(ElementParameterParser.getValue(node, "__REQUEST_SPOT__"));
 	String bid_price = ElementParameterParser.getValue(node, "__BID_PRICE__");
 	
-	int instance_count = Integer.parseInt(ElementParameterParser.getValue(node, "__INSTANCE_COUNT__"));
+	String instance_count = ElementParameterParser.getValue(node, "__INSTANCE_COUNT__");
 	
 	String task_instance_type = ElementParameterParser.getValue(node, "__TASK_INSTANCE_TYPE__");
 		
 	boolean wait_for_cluster_ready = false;
 	
-	String accesskey = ElementParameterParser.getValue(node, "__ACCESS_KEY__");
-	
 %>
 	        
-	<%
-	String passwordFieldName = "__SECRET_KEY__";
-	%>
-	
-	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/password.javajet"%>
-   	
-   	com.amazonaws.auth.AWSCredentials credentials_<%=cid%> = new com.amazonaws.auth.BasicAWSCredentials(<%=accesskey%>,decryptedPassword_<%=cid%>);
-   	
-	com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClient emr_<%=cid%> = new com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClient(credentials_<%=cid%>);
-
-	<%
-	if(region!=null && !region.isEmpty() && !"DEFAULT".equalsIgnoreCase(region)){
-	%>
-	emr_<%=cid%>.setRegion(com.amazonaws.regions.RegionUtils.getRegion(<%=region%>));
-	<%
-	}
-	%>
+	<%@ include file="@{org.talend.designer.components.localprovider}/components/templates/Amazon/EMRClient.javajet"%>
 
 	boolean isTaskGroup_<%=cid %> = true;
 	

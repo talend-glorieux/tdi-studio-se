@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -18,11 +18,9 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
 import org.eclipse.jface.viewers.CellEditor;
 import org.eclipse.jface.viewers.ColorCellEditor;
 import org.eclipse.jface.viewers.ComboBoxCellEditor;
-import org.eclipse.jface.viewers.ICellEditorListener;
 import org.eclipse.jface.viewers.TextCellEditor;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CCombo;
@@ -76,6 +74,8 @@ import org.talend.core.ui.metadata.editor.AbstractMetadataTableEditorView;
 import org.talend.core.ui.proposal.TalendProposalProvider;
 import org.talend.designer.core.model.components.EParameterName;
 import org.talend.designer.core.model.components.ElementParameter;
+import org.talend.designer.core.ui.celleditor.PatternCellEditor;
+import org.talend.designer.core.ui.celleditor.PatternPropertyCellEditor;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.event.CheckColumnSelectionListener;
 
@@ -183,7 +183,8 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
             final int curCol = i;
             final IElementParameter currentParam = (IElementParameter) itemsValue[i];
             // if all is empty, show it always.
-            boolean toDisplay = StringUtils.isEmpty(currentParam.getShowIf()) && StringUtils.isEmpty(currentParam.getNotShowIf());
+            boolean toDisplay = currentParam.isShow(currentParam.getShowIf(), currentParam.getNotShowIf(),
+                    element.getElementParameters());
             if (!toDisplay) {
                 List<Map<String, Object>> fullTable = (List<Map<String, Object>>) param.getValue();
                 for (int curLine = 0; curLine < fullTable.size(); curLine++) {
@@ -261,36 +262,6 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                             return returnedValue;
                         };
                     });
-                    cellEditor.addListener(new ICellEditorListener() {
-
-                        @Override
-                        public void editorValueChanged(boolean oldValidState, boolean newValidState) {
-                        }
-
-                        @Override
-                        public void cancelEditor() {
-                        }
-
-                        @Override
-                        public void applyEditorValue() {
-                            if (element instanceof Node) {
-                                IProcess process = ((Node) element).getProcess();
-                                if (process instanceof IProcess2) {
-                                    ((IProcess2) process).checkProcess();
-                                }
-                                // enable to refresh component setting after change modules.
-                                // so far, for cMessagingEndpoint (TUP-1119)
-                                if (element != null && "LIBPATH".equals(copyOfTmpParam.getName())) { //$NON-NLS-1$
-                                    IElementParameter updateComponentsParam = element
-                                            .getElementParameter(EParameterName.UPDATE_COMPONENTS.getName());
-                                    if (updateComponentsParam != null) {
-                                        updateComponentsParam.setValue(Boolean.TRUE);
-                                    }
-                                }
-                            }
-
-                        }
-                    });
                     break;
                 case OPENED_LIST:
                     final EditableComboBoxCellEditor editCellEditor = new EditableComboBoxCellEditor(table,
@@ -316,7 +287,7 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                                         if (element instanceof Node) {
                                             List<IConnection> listConnection = (List<IConnection>) ((Node) element).getInputs();
                                             for (IConnection con : listConnection) {
-                                                if (con.getName().equals(value)) {
+                                                if (con.getName().equals(value) && con.getMetadataTable() != null) {
                                                     List<IMetadataColumn> columns = con.getMetadataTable().getListColumns();
                                                     columnItems = new String[columns.size()];
                                                     for (int i = 0; i < columns.size(); i++) {
@@ -561,13 +532,30 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                     column.setCellEditor(schemaXPathEditor);
 
                     break;
+
+
+                case MULTI_PATTERN:
+                    column.setModifiable(true);
+                    PatternCellEditor patternEditor = new PatternCellEditor(table,element);
+                    patternEditor.setTableEditorView(this);
+                    column.setCellEditor(patternEditor);
+                    break;
+                    
+                case PATTERN_PROPERTY:
+                    column.setModifiable(true);
+                    PatternPropertyCellEditor patternPropertyEditor = new PatternPropertyCellEditor(table,element);
+                    patternPropertyEditor.setTableEditorView(this);
+                    column.setCellEditor(patternPropertyEditor);
+                    break;
+                    
                 default: // TEXT
                     TextCellEditor tcEditor = null;
                     if (((i == 0) && (param.isBasedOnSchema() || param.isBasedOnSubjobStarts()))
                             || (param.isRepositoryValueUsed()) || (param.isReadOnly()) || currentParam.isReadOnly()) {
                         // read only cell
                         if (!param.getElement().isReadOnly()
-                                && (param.getName().equals("HADOOP_ADVANCED_PROPERTIES") || param.getName().equals(
+                                && (param.getName().equals("HADOOP_ADVANCED_PROPERTIES")
+                                        || param.getName().equals("SPARK_ADVANCED_PROPERTIES") || param.getName().equals(
                                         "HBASE_PARAMETERS"))) {
                             if (currentParam.isNoContextAssist()) {
                                 tcEditor = new TextCellEditor(table);
@@ -598,7 +586,9 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
 
                     @Override
                     public boolean canModify(Object bean) {
-                        if (param.getName().equals("HADOOP_ADVANCED_PROPERTIES") || param.getName().equals("HBASE_PARAMETERS")) {
+                        if (param.getName().equals("HADOOP_ADVANCED_PROPERTIES")
+                                || param.getName().equals("SPARK_ADVANCED_PROPERTIES")
+                                || param.getName().equals("HBASE_PARAMETERS")) {
                             boolean canModify = super.canModify(bean);
                             if (canModify) {
                                 Map<String, Object> valueMap = (Map<String, Object>) bean;
@@ -645,7 +635,9 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                                 return AbstractMetadataTableEditorView.READONLY_CELL_BG_COLOR;
                             }
                         }
-                        if (param.getName().equals("HADOOP_ADVANCED_PROPERTIES") || param.getName().equals("HBASE_PARAMETERS")) {
+                        if (param.getName().equals("HADOOP_ADVANCED_PROPERTIES")
+                                || param.getName().equals("SPARK_ADVANCED_PROPERTIES")
+                                || param.getName().equals("HBASE_PARAMETERS")) {
                             if (valueMap.get("BUILDIN") == null || valueMap.get("BUILDIN") != null
                                     && valueMap.get("BUILDIN").equals("")) {
                                 return Display.getCurrent().getSystemColor(SWT.COLOR_GRAY);
@@ -656,8 +648,8 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                             Object value = ((Map<String, Object>) bean).get(items[curCol]);
                             boolean found = false;
                             Object[] items = currentParam.getListItemsValue();
-                            for (int j = 0; j < items.length; j++) {
-                                if (items[j].equals(value)) {
+                            for (Object item : items) {
+                                if (item.equals(value)) {
                                     found = true;
                                     break;
                                 }
@@ -823,6 +815,7 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                             }
                         }
 
+                        boolean isNeedReCheck = false;
                         switch (tmpParam.getFieldType()) {
                         case CONTEXT_PARAM_NAME_LIST:
                         case CLOSED_LIST:
@@ -831,6 +824,7 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                         case CONNECTION_LIST:
                         case LOOKUP_COLUMN_LIST:
                         case PREV_COLUMN_LIST:
+                            isNeedReCheck = true;
                             if (value instanceof String) {
                                 Object[] itemNames = ((IElementParameter) itemsValue[curCol]).getListItemsDisplayName();
                                 Object[] itemValues = ((IElementParameter) itemsValue[curCol]).getListItemsValue();
@@ -881,6 +875,23 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                          */
                         if (param.getFieldType().equals(EParameterFieldType.TABLE)) {
                             element.setPropertyValue(param.getName(), param.getValue());
+                        }
+
+                        if (isNeedReCheck && element instanceof Node) {
+                            IProcess process = ((Node) element).getProcess();
+                            if (process instanceof IProcess2) {
+                                ((IProcess2) process).checkProcess();
+                            }
+                            // enable to refresh component setting after change modules.
+                            // so far, for cMessagingEndpoint (TUP-1119)
+                            final IElementParameter copyOfTmpParam = currentParam;
+                            if (element != null && "LIBPATH".equals(copyOfTmpParam.getName())) { //$NON-NLS-1$
+                                IElementParameter updateComponentsParam = element
+                                        .getElementParameter(EParameterName.UPDATE_COMPONENTS.getName());
+                                if (updateComponentsParam != null) {
+                                    updateComponentsParam.setValue(Boolean.TRUE);
+                                }
+                            }
                         }
                     }
                 });
@@ -963,6 +974,8 @@ public class PropertiesTableEditorView<B> extends AbstractDataTableEditorView<B>
                                 }
                                 currentLine.put(curParam.getName(), newValue);
                             }
+                        }else if(itemsToDisplay.length >0){
+                        	  currentLine.put(curParam.getName(), 0);
                         }
                         break;
                     default:

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -38,6 +38,7 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.ui.views.properties.tabbed.ITabbedPropertyConstants;
 import org.talend.components.api.properties.ComponentReferenceProperties;
+import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.utils.TalendTextUtils;
@@ -46,12 +47,13 @@ import org.talend.designer.core.generic.constants.IGenericConstants;
 import org.talend.designer.core.generic.model.GenericElementParameter;
 import org.talend.designer.core.i18n.Messages;
 import org.talend.designer.core.model.components.EParameterName;
+import org.talend.designer.core.model.components.ElementParameter;
 import org.talend.designer.core.ui.editor.cmd.PropertyChangeCommand;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.designer.core.ui.editor.properties.controllers.AbstractElementPropertySectionController;
 
 /**
- * 
+ *
  * created by ycbai on 2015年10月21日 Detailled comment
  *
  */
@@ -89,6 +91,8 @@ public class ComponentRefController extends AbstractElementPropertySectionContro
                     if (!newValue.equals(elem.getPropertyValue(name))) {
                         String value = ""; //$NON-NLS-1$
                         List<? extends IElementParameter> params = elem.getElementParametersWithChildrens();
+                        IElementParameter propertyParameter = elem
+                                .getElementParameterFromField(EParameterFieldType.PROPERTY_TYPE);
                         boolean done = false;
                         for (int i = 0; i < params.size() && !done; i++) {
                             IElementParameter param = params.get(i);
@@ -96,13 +100,15 @@ public class ComponentRefController extends AbstractElementPropertySectionContro
                                 for (int j = 0; j < param.getListItemsValue().length; j++) {
                                     if (((CCombo) ctrl).getText().equals(param.getListItemsDisplayName()[j])) {
                                         value = (String) param.getListItemsValue()[j];
-                                        if (j == 0) {
+                                        if (j == 0 && (boolean) ((ElementParameter) propertyParameter)
+                                                .getTaggedValue(IGenericConstants.IS_PROPERTY_SHOW)) {
                                             // The first item in the combo is
                                             // this component
                                             props.referenceType
                                                     .setValue(ComponentReferenceProperties.ReferenceType.THIS_COMPONENT);
                                             props.componentInstanceId.setValue(null);
-                                            props.componentProperties = null;
+                                            props.setReference(null);
+                                            propertyParameter.setShow(true);
                                         } else {
                                             props.referenceType
                                                     .setValue(ComponentReferenceProperties.ReferenceType.COMPONENT_INSTANCE);
@@ -112,13 +118,14 @@ public class ComponentRefController extends AbstractElementPropertySectionContro
                                                     && gParameter.getElement() instanceof Node) {
                                                 Node node = (Node) gParameter.getElement();
                                                 List<INode> refNodes = (List<INode>) node.getProcess().getNodesOfType(
-                                                        props.componentType.getStringValue());
+                                                        props.referenceDefinitionName.getStringValue());
                                                 for (INode refNode : refNodes) {
                                                     if (refNode.getUniqueName() != null && refNode.getUniqueName().equals(value)) {
-                                                        props.componentProperties = refNode.getComponentProperties();
+                                                        props.setReference(refNode.getComponentProperties());
                                                     }
                                                 }
                                             }
+                                            propertyParameter.setShow(false);
                                         }
                                         done = true;
                                         break;
@@ -182,7 +189,6 @@ public class ComponentRefController extends AbstractElementPropertySectionContro
 
         GenericElementParameter gParam = (GenericElementParameter) param;
         ComponentReferenceProperties props = (ComponentReferenceProperties) gParam.getWidget().getContent();
-        props.componentInstanceId.setTaggedValue(IGenericConstants.ADD_QUOTES, true);
 
         combo.addSelectionListener(new SelectionAdapter() {
 
@@ -204,11 +210,40 @@ public class ComponentRefController extends AbstractElementPropertySectionContro
             combo.setToolTipText(VARIABLE_TOOLTIP + param.getVariableName());
         }
 
+        CLabel labelLabel = getWidgetFactory().createCLabel(subComposite,
+                Messages.getString("ComponentRefController.connectionLabel"));
         data = new FormData();
         if (lastControl != null) {
             data.left = new FormAttachment(lastControl, 0);
         } else {
             data.left = new FormAttachment((((numInRow - 1) * MAX_PERCENT) / nbInRow), 0);
+        }
+        data.top = new FormAttachment(0, top);
+        labelLabel.setLayoutData(data);
+
+        if (numInRow != 1) {
+            labelLabel.setAlignment(SWT.RIGHT);
+        }
+
+        data = new FormData();
+        int currentLabelWidth = STANDARD_LABEL_WIDTH;
+        GC gc = new GC(labelLabel);
+        Point labelSize = gc.stringExtent(Messages.getString("ComponentRefController.connectionLabel"));
+        gc.dispose();
+
+        if ((labelSize.x + ITabbedPropertyConstants.HSPACE) > currentLabelWidth) {
+            currentLabelWidth = labelSize.x + ITabbedPropertyConstants.HSPACE;
+        }
+
+        if (numInRow == 1) {
+            if (lastControl != null) {
+                data.left = new FormAttachment(lastControl, currentLabelWidth);
+            } else {
+                data.left = new FormAttachment(0, currentLabelWidth);
+            }
+
+        } else {
+            data.left = new FormAttachment(labelLabel, 0, SWT.RIGHT);
         }
         data.top = new FormAttachment(0, top);
         cLayout.setLayoutData(data);
@@ -293,6 +328,7 @@ public class ComponentRefController extends AbstractElementPropertySectionContro
             combo.setText(iLabel);
             combo.select(selection);
         }
+
     }
 
     private List<INode> getRefNodes(IElementParameter param, ComponentReferenceProperties props) {
@@ -302,7 +338,7 @@ public class ComponentRefController extends AbstractElementPropertySectionContro
             GenericElementParameter gParameter = (GenericElementParameter) param;
             if (gParameter != null && gParameter.getElement() != null && gParameter.getElement() instanceof Node) {
                 Node node = (Node) gParameter.getElement();
-                refNodes = (List<INode>) node.getProcess().getNodesOfType(props.componentType.getStringValue());
+                refNodes = (List<INode>) node.getProcess().getNodesOfType(props.referenceDefinitionName.getStringValue());
             }
         }
         return refNodes;

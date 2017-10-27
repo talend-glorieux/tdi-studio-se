@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -24,7 +24,6 @@ import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
 import org.eclipse.swt.widgets.Shell;
 import org.talend.commons.exception.ExceptionHandler;
-import org.talend.components.api.properties.ComponentProperties;
 import org.talend.components.api.service.ComponentService;
 import org.talend.core.model.process.EComponentCategory;
 import org.talend.core.model.process.Element;
@@ -94,7 +93,7 @@ public class GenericDialog extends TitleAreaDialog {
     private void init() {
         if (form.isCallBeforeFormPresent()) {
             try {
-                componentService.beforeFormPresent(form.getName(), (ComponentProperties) form.getProperties());
+                componentService.beforeFormPresent(form.getName(), form.getProperties());
             } catch (Throwable e) {
                 ExceptionHandler.process(e);
             }
@@ -115,7 +114,7 @@ public class GenericDialog extends TitleAreaDialog {
     protected void okPressed() {
         if (form.isCallAfterFormFinish()) {
             try {
-                componentService.afterFormFinish(form.getName(), (ComponentProperties) form.getProperties());
+                componentService.afterFormFinish(form.getName(), form.getProperties());
             } catch (Throwable e) {
                 ExceptionHandler.process(e);
             }
@@ -125,7 +124,7 @@ public class GenericDialog extends TitleAreaDialog {
 
     @Override
     protected void cancelPressed() {
-        componentService.cancelFormValues((ComponentProperties) form.getProperties(), form.getName());
+        componentService.cancelFormValues(form.getProperties(), form.getName());
         super.cancelPressed();
     }
 

@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -15,14 +15,18 @@ package org.talend.designer.core.generic.utils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.avro.Schema;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.text.translate.AggregateTranslator;
+import org.apache.commons.lang3.text.translate.CharSequenceTranslator;
+import org.apache.commons.lang3.text.translate.LookupTranslator;
+import org.apache.commons.lang3.text.translate.OctalUnescaper;
+import org.apache.commons.lang3.text.translate.UnicodeUnescaper;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.ServiceReference;
@@ -36,6 +40,8 @@ import org.talend.components.api.properties.ComponentProperties;
 import org.talend.components.api.service.ComponentService;
 import org.talend.core.model.components.IComponent;
 import org.talend.core.model.components.IComponentsFactory;
+import org.talend.core.model.components.filters.ComponentsFactoryProviderManager;
+import org.talend.core.model.components.filters.IComponentFactoryFilter;
 import org.talend.core.model.metadata.builder.connection.Connection;
 import org.talend.core.model.metadata.types.JavaType;
 import org.talend.core.model.metadata.types.JavaTypesManager;
@@ -43,6 +49,7 @@ import org.talend.core.model.process.EComponentCategory;
 import org.talend.core.model.process.EConnectionType;
 import org.talend.core.model.process.EParameterFieldType;
 import org.talend.core.model.process.IElement;
+import org.talend.core.model.process.IElementParameter;
 import org.talend.core.model.process.IElementParameterDefaultValue;
 import org.talend.core.model.process.INode;
 import org.talend.core.model.process.INodeConnector;
@@ -66,6 +73,7 @@ import org.talend.designer.core.generic.model.GenericElementParameter;
 import org.talend.designer.core.generic.model.GenericNodeConnector;
 import org.talend.designer.core.generic.model.GenericTableUtils;
 import org.talend.designer.core.generic.model.mapping.WidgetFieldTypeMapper;
+import org.talend.designer.core.generic.palette.GenericComponentCategoryFactory;
 import org.talend.designer.core.model.FakeElement;
 import org.talend.designer.core.model.components.ElementParameter;
 import org.talend.designer.core.model.components.ElementParameterDefaultValue;
@@ -77,10 +85,14 @@ import org.talend.metadata.managment.ui.wizard.context.MetadataContextPropertyVa
  */
 public class ComponentsUtils {
 
-    private static List<IComponent> components = null;
+    private static Set<IComponent> components = null;
+
+    private static ComponentService compService = null;
 
     public static ComponentService getComponentService() {
-        ComponentService compService = null;
+        if (compService != null) {
+            return compService;
+        }
         BundleContext bundleContext = FrameworkUtil.getBundle(ComponentsUtils.class).getBundleContext();
         ServiceReference<ComponentService> compServiceRef = bundleContext.getServiceReference(ComponentService.class);
         if (compServiceRef != null) {
@@ -104,31 +116,79 @@ public class ComponentsUtils {
     }
 
     public static void loadComponents(ComponentService service) {
+        if (service == null) {
+            return;
+        }
         IComponentsFactory componentsFactory = null;
         if (componentsFactory == null) {
             componentsFactory = ComponentsFactoryProvider.getInstance();
         }
         Set<IComponent> componentsList = componentsFactory.getComponents();
         if (components == null) {
-            components = new ArrayList<IComponent>();
+            components = new HashSet<>();
         } else {
             componentsList.removeAll(components);
-        }
-        Map<String, IComponent> existComponents = new HashMap<String, IComponent>();
-
-        for (IComponent component : componentsList) {
-            existComponents.put(component.getName(), component);
+            components.clear();
         }
 
         // Load components from service
         Set<ComponentDefinition> componentDefinitions = service.getAllComponents();
         for (ComponentDefinition componentDefinition : componentDefinitions) {
-            try {
-                Component currentComponent = new Component(componentDefinition);
-                componentsList.add(currentComponent);
-            } catch (BusinessException e) {
-                ExceptionHandler.process(e);
+            loadComponents(components, componentDefinition);
+        }
+        componentsList.addAll(components);
+    }
+
+    private static void loadComponents(Set<IComponent> componentsList, ComponentDefinition componentDefinition) {
+        List<String> supportedProducts = componentDefinition.getSupportedProducts();
+        if (supportedProducts == null) {
+            return;
+        }
+        for (String productType : supportedProducts) {
+            List<String> paletteTypes = GenericComponentCategoryFactory.getPaletteTypes(productType);
+            if (paletteTypes == null) {
+                continue;
             }
+            for (String paletteType : paletteTypes) {
+                loadComponent(componentsList, componentDefinition, paletteType);
+            }
+        }
+    }
+
+    private static void loadComponent(Set<IComponent> componentsList, ComponentDefinition componentDefinition,
+            String paletteType) {
+        try {
+            Component currentComponent = new Component(componentDefinition, paletteType);
+
+            Collection<IComponentFactoryFilter> filters = ComponentsFactoryProviderManager.getInstance().getProviders();
+            boolean hiddenComponent = false;
+            for (IComponentFactoryFilter filter : filters) {
+                if (!filter.isAvailable(currentComponent.getName())) {
+                    hiddenComponent = true;
+                    break;
+                }
+            }
+
+            // if the component is not needed in the current branding,
+            // and that this one IS NOT a specific component for code generation
+            // just don't load it
+            if (hiddenComponent
+                    && !(currentComponent.getOriginalFamilyName().contains("Technical") || currentComponent.isTechnical())) {
+                return;
+            }
+
+            // if the component is not needed in the current branding,
+            // and that this one IS a specific component for code generation,
+            // hide it
+            if (hiddenComponent
+                    && (currentComponent.getOriginalFamilyName().contains("Technical") || currentComponent.isTechnical())) {
+                currentComponent.setVisible(false);
+                currentComponent.setTechnical(true);
+            }
+
+            componentsList.add(currentComponent);
+        } catch (BusinessException e) {
+            ExceptionHandler.process(e);
         }
     }
 
@@ -145,7 +205,7 @@ public class ComponentsUtils {
      * DOC ycbai Comment method "loadParametersFromForm".
      * <p>
      * Get element parameters of <code>element</code> from <code>form</code>.
-     * 
+     *
      * @param node optional, used if there is a component setting up the properties
      * @param element
      * @param category
@@ -153,8 +213,8 @@ public class ComponentsUtils {
      * @return parameters list
      */
     private static List<ElementParameter> getParametersFromForm(IElement element, boolean isInitializing,
-            EComponentCategory category, ComponentProperties rootProperty, Properties compProperties,
-            String parentPropertiesPath, Form form, Widget parentWidget, AtomicInteger lastRowNum) {
+            EComponentCategory category, ComponentProperties rootProperty, Properties compProperties, String parentPropertiesPath,
+            Form form, Widget parentWidget, AtomicInteger lastRowNum) {
         List<ElementParameter> elementParameters = new ArrayList<>();
         List<String> parameterNames = new ArrayList<>();
         EComponentCategory compCategory = category;
@@ -194,8 +254,8 @@ public class ComponentsUtils {
                 if (!isSameComponentProperties(componentProperties, widgetProperty)) {
                     propertiesPath = getPropertiesPath(parentPropertiesPath, subProperties.getName());
                 }
-                elementParameters.addAll(getParametersFromForm(element, isInitializing, compCategory, rootProperty,
-                        subProperties, propertiesPath, subForm, widget, lastRN));
+                elementParameters.addAll(getParametersFromForm(element, isInitializing, compCategory, rootProperty, subProperties,
+                        propertiesPath, subForm, widget, lastRN));
                 continue;
             }
 
@@ -271,10 +331,12 @@ public class ComponentsUtils {
             } else if (widgetProperty instanceof Property) {
                 Property property = (Property) widgetProperty;
                 param.setRequired(property.isRequired());
-                param.setValue(getParameterValue(element, property, fieldType, isInitializing));
+                param.setValue(getParameterValue(element, property, fieldType, parameterName));
                 boolean isNameProperty = IGenericConstants.NAME_PROPERTY.equals(param.getParameterName());
-                if (EParameterFieldType.NAME_SELECTION_AREA.equals(fieldType) || isNameProperty) {
-                    // Disable context support for this filed type.
+                if (EParameterFieldType.NAME_SELECTION_AREA.equals(fieldType) || EParameterFieldType.JSON_TABLE.equals(fieldType)
+                        || EParameterFieldType.CLOSED_LIST.equals(fieldType) || EParameterFieldType.CHECK.equals(fieldType)
+                        || isNameProperty) {
+                    // Disable context support for those filed types and name parameter.
                     param.setSupportContext(false);
                 } else {
                     param.setSupportContext(isSupportContext(property));
@@ -293,14 +355,22 @@ public class ComponentsUtils {
                     List<String> possVals = new ArrayList<>();
                     List<String> possValsDisplay = new ArrayList<>();
                     for (Object obj : values) {
+                        String value = null;
+                        String valueDisplay = null;
                         if (obj instanceof NamedThing) {
                             NamedThing nal = (NamedThing) obj;
-                            possVals.add(nal.getName());
-                            possValsDisplay.add(nal.getDisplayName());
+                            value = nal.getName();
+                            valueDisplay = nal.getDisplayName();
                         } else {
-                            possVals.add(String.valueOf(obj));
-                            possValsDisplay.add(String.valueOf(obj));
+                            value = String.valueOf(obj);
+                            valueDisplay = String.valueOf(obj);
                         }
+                        String pvDisplayName = property.getPossibleValuesDisplayName(obj);
+                        if (StringUtils.isNotBlank(pvDisplayName) && !"null".equals(pvDisplayName)) { //$NON-NLS-1$
+                            valueDisplay = pvDisplayName;
+                        }
+                        possVals.add(value);
+                        possValsDisplay.add(valueDisplay);
                     }
                     param.setListItemsDisplayName(possValsDisplay.toArray(new String[0]));
                     param.setListItemsDisplayCodeName(possValsDisplay.toArray(new String[0]));
@@ -327,6 +397,7 @@ public class ComponentsUtils {
                     curParam.setNoContextAssist(false);
                     curParam.setRaw(false);
                     curParam.setReadOnly(false);
+                    fillDefaultValsForListType(curParam);
                     codeNames.add(curParam.getName());
                     possValsDisplay.add(curParam.getDisplayName());
                 }
@@ -338,9 +409,16 @@ public class ComponentsUtils {
                 param.setListItemsShowIf(listItemsShowIf);
                 param.setListItemsNotShowIf(listItemsNotShowIf);
                 param.setValue(GenericTableUtils.getTableValues(table, param));
+                param.setBasedOnSchema(
+                        Boolean.valueOf(String.valueOf(widget.getConfigurationValue(Widget.HIDE_TOOLBAR_WIDGET_CONF))));
             }
             if (!param.isReadOnly()) {
-                param.setReadOnly(element.isReadOnly());
+                param.setReadOnly(widget.isReadonly() || element.isReadOnly());
+            }
+            // For issue TUP-16139
+            if (EParameterFieldType.COMPONENT_REFERENCE.equals(fieldType) && param.getNumRow() == 2
+                    && EComponentCategory.BASIC.equals(compCategory)) {
+                param.setNumRow(1);
             }
             param.setSerialized(true);
             param.setDynamicSettings(true);
@@ -353,9 +431,31 @@ public class ComponentsUtils {
         return elementParameters;
     }
 
+    private static void fillDefaultValsForListType(ElementParameter param) {
+        if (param == null) {
+            return;
+        }
+        switch (param.getFieldType()) {
+        case CONTEXT_PARAM_NAME_LIST:
+        case CLOSED_LIST:
+        case DBTYPE_LIST:
+        case COLUMN_LIST:
+        case COMPONENT_LIST:
+        case CONNECTION_LIST:
+        case LOOKUP_COLUMN_LIST:
+        case PREV_COLUMN_LIST:
+            if (param.getValue() != null) {
+                param.setDefaultClosedListValue(param.getValue().toString());
+            }
+            break;
+        default:
+            return;
+        }
+    }
+
     /**
      * DOC nrousseau Comment method "getNameFromConnector".
-     * 
+     *
      * @param connector
      * @return
      */
@@ -370,9 +470,9 @@ public class ComponentsUtils {
     /**
      * DOC ycbai Comment method "getRelatedParameters".
      * <p>
-     * Get all element parameters related to the <code>parameter<code>.
-     * For example the paramters from the form associated with PresentationItem type.
-     * 
+     * Get all element parameters related to the <code>parameter<code>. For example the paramters from the form
+     * associated with PresentationItem type.
+     *
      * @param parameters
      * @return
      */
@@ -393,8 +493,7 @@ public class ComponentsUtils {
         return params;
     }
 
-    public static Object getParameterValue(IElement element, Property property, EParameterFieldType fieldType,
-            boolean isInitializing) {
+    public static Object getParameterValue(IElement element, Property property, EParameterFieldType fieldType, String parameterName) {
         Object paramValue = property.getStoredValue();
         if (paramValue instanceof List) {
             return null;
@@ -408,12 +507,29 @@ public class ComponentsUtils {
                 }
             }
         } else if (GenericTypeUtils.isStringType(property)) {
-            // If value is empty (from default value or input) AND input field of type is String AND is not context mode
-            // and is not in wizard, add double quotes.
+            boolean needInitializeProperty = false;
+            IElementParameter oldParam = null;
+            if (element.getElementParameters() != null) {
+                oldParam = element.getElementParameter(parameterName);
+            }
+            if (oldParam == null || oldParam.getValue() == null || !StringUtils.equals((String) oldParam.getValue(), (String) property.getStoredValue())) {
+                // if parameter is not setup yet (= initialization)
+                // then we set the value and check if we need to add quotes.
+                //
+                // if parameter value / property value are not the same
+                // then the component updated the property in it's own code, so we need to add quotes/initialize.
+                needInitializeProperty = true;
+            }
+
             String value = (String) paramValue;
-            if ((isInitializing || StringUtils.isEmpty(value))
-                    && !(element instanceof FakeElement || ContextParameterUtils.isContainContextParam(value))) {
-                paramValue = TalendQuoteUtils.addPairQuotesIfNotExist(StringUtils.trimToEmpty(value));
+            // If property is not initialized by client and value is not context mode and is not in wizard then add
+            // double quotes.
+            if (needInitializeProperty && !(element instanceof FakeElement || ContextParameterUtils.isContainContextParam(value))) {
+                if (value == null) {
+                    value = StringUtils.EMPTY;
+                }
+                paramValue = TalendQuoteUtils.addPairQuotesIfNotExist(unescapeForJava(value));
+                property.setValue(paramValue);
             }
         } else if (GenericTypeUtils.isBooleanType(property)) {
             if (paramValue == null) {
@@ -422,6 +538,12 @@ public class ComponentsUtils {
             }
         }
         return paramValue;
+    }
+
+    public static String unescapeForJava(String input) {
+        CharSequenceTranslator UNESCAPE_JAVA = new AggregateTranslator(new OctalUnescaper(), new UnicodeUnescaper(),
+                new LookupTranslator(new String[][] { { "\\\\", "\\" }, { "\\\"", "\"" }, { "\\'", "'" } })); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$
+        return UNESCAPE_JAVA.translate(input);
     }
 
     private static String getPropertiesPath(String parentPropertiesPath, String currentPropertiesName) {
@@ -437,7 +559,7 @@ public class ComponentsUtils {
 
     /**
      * DOC ycbai Comment method "getFieldType".
-     * 
+     *
      * @param widget
      * @param widgetProperty
      * @param param
@@ -588,13 +710,21 @@ public class ComponentsUtils {
     }
 
     public static ComponentProperties getComponentPropertiesFromSerialized(String serialized, Connection connection) {
+        return getComponentPropertiesFromSerialized(serialized, connection, true);
+    }
+
+    public static ComponentProperties getComponentPropertiesFromSerialized(String serialized, Connection connection,
+            boolean withEvaluator) {
         if (serialized != null) {
-            SerializerDeserializer.Deserialized<ComponentProperties> fromSerialized = Properties.Helper.fromSerializedPersistent(serialized,
-                    ComponentProperties.class, new PostDeserializeSetup() {
+            SerializerDeserializer.Deserialized<ComponentProperties> fromSerialized = Properties.Helper
+                    .fromSerializedPersistent(serialized, ComponentProperties.class, new PostDeserializeSetup() {
 
                         @Override
                         public void setup(Object properties) {
-                            ((Properties)properties).setValueEvaluator(new MetadataContextPropertyValueEvaluator(connection));
+                            if (withEvaluator) {
+                                ((Properties) properties)
+                                        .setValueEvaluator(new MetadataContextPropertyValueEvaluator(connection));
+                            }
                         }
                     });
             if (fromSerialized != null) {
@@ -617,7 +747,7 @@ public class ComponentsUtils {
 
     /**
      * Get formal possible values of the <code>param</code>. Every possible value will be {@link NamedThing} type.
-     * 
+     *
      * @param param
      * @return
      */

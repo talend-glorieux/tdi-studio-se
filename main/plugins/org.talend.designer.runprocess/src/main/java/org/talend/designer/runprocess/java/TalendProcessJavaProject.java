@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -292,10 +292,11 @@ public class TalendProcessJavaProject implements ITalendProcessJavaProject {
         if (childModulePomFile.getLocation().toFile().exists()) { // existed
             MavenPomCommandLauncher mavenLauncher = null;
             // by default is compile
-            if (goals == null || goals.trim().length() == 0 || goals.equals(TalendMavenConstants.GOAL_COMPILE)) {
-                mavenLauncher = new MavenPomCommandLauncher(childModulePomFile, TalendMavenConstants.GOAL_REFRESH);
-                mavenLauncher.setArgumentsMap(argumentsMap);
-                mavenLauncher.execute(monitor);
+            if (goals == null || goals.trim().length() == 0 || goals.equals(TalendMavenConstants.GOAL_COMPILE) 
+                    || goals.equals(TalendMavenConstants.GOAL_TEST_COMPILE)) {
+//                mavenLauncher = new MavenPomCommandLauncher(childModulePomFile, TalendMavenConstants.GOAL_REFRESH);
+//                mavenLauncher.setArgumentsMap(argumentsMap);
+//                mavenLauncher.execute(monitor);
                 buildWholeCodeProject();
             } else {
                 mavenLauncher = new MavenPomCommandLauncher(childModulePomFile, goals);
@@ -358,6 +359,16 @@ public class TalendProcessJavaProject implements ITalendProcessJavaProject {
     @Override
     public void cleanMavenFiles(IProgressMonitor monitor) throws Exception {
         this.synchronizer.cleanMavenFiles(monitor);
+    }
+
+    @Override
+    public void regenerateMainProjectPom(IProgressMonitor monitor) throws Exception {
+        this.synchronizer.regenerateMainProjectPom(monitor, null);
+    }
+
+    @Override
+    public void setSynchronizerArgumentMap(Map<String, Object> argumentsMap) {
+        synchronizer.setArgumentsMap(argumentsMap);
     }
 
 }

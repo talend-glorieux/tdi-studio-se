@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -62,7 +62,7 @@ public abstract class AbstractStatsLogsComponent implements IComponent {
 
     // no use for virtual component
     @Override
-    public List<? extends INodeReturn> createReturns() {
+    public List<? extends INodeReturn> createReturns(INode node) {
         return null;
     }
 
@@ -109,7 +109,16 @@ public abstract class AbstractStatsLogsComponent implements IComponent {
 
     // no use for virtual component ?
     @Override
+    public List<ModuleNeeded> getModulesNeeded(INode node) {
+        return null;
+    }
+
+    /* (non-Javadoc)
+     * @see org.talend.core.model.components.IComponent#getModulesNeeded()
+     */
+    @Override
     public List<ModuleNeeded> getModulesNeeded() {
+        // TODO Auto-generated method stub
         return null;
     }
 
@@ -121,6 +130,11 @@ public abstract class AbstractStatsLogsComponent implements IComponent {
     @Override
     public String getName() {
         return this.getClass().getName();
+    }
+    
+    @Override
+    public String getOriginalName(){
+        return getName();
     }
 
     // no use for virtual component

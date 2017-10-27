@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -366,7 +366,7 @@ public class ConnectionManager {
      */
     public static boolean canConnectToSource(INode oldSource, INode newSource, INode target, EConnectionType lineStyle,
             String connectorName, String connectionName, boolean isNewComponent) {
-        if (newSource.getConnectorFromName(connectorName) == null) {
+        if (newSource.getConnectorFromName(connectorName) == null || !newSource.getConnectorFromName(connectorName).isShow()) {
             // if the new source don't contain the kind of link, then we can't connect the link.
             return false;
         }
@@ -434,17 +434,19 @@ public class ConnectionManager {
             String connectorName, String connectionName) {
 
         newlineStyle = lineStyle;
+        boolean isMainConn = lineStyle==EConnectionType.FLOW_MAIN ;
         if (source.equals(newTarget)) {
             return false;
         }
-        if ((source.getDesignSubjobStartNode().getOutgoingConnections(EConnectionType.ON_SUBJOB_OK).size() != 0 || source
-                .getDesignSubjobStartNode().getOutgoingConnections(EConnectionType.ON_SUBJOB_ERROR).size() != 0)
-                && !newTarget.checkIfCanBeStart() && !((Node) newTarget).isJoblet()) {
+        final INode designSubjobStartNode = source.getDesignSubjobStartNode();
+        if ((designSubjobStartNode.getOutgoingConnections(EConnectionType.ON_SUBJOB_OK).size() != 0 || 
+                designSubjobStartNode.getOutgoingConnections(EConnectionType.ON_SUBJOB_ERROR).size() != 0)
+                && !newTarget.checkIfCanBeStart() && isMainConn && !((Node) newTarget).isJoblet()) {
             return false;
         }
-        if ((source.getDesignSubjobStartNode().getIncomingConnections(EConnectionType.ON_SUBJOB_OK).size() != 0 || source
-                .getDesignSubjobStartNode().getIncomingConnections(EConnectionType.ON_SUBJOB_ERROR).size() != 0)
-                && !newTarget.checkIfCanBeStart() && !((Node) newTarget).isJoblet()) {
+        if ((designSubjobStartNode.getIncomingConnections(EConnectionType.ON_SUBJOB_OK).size() != 0 || 
+                designSubjobStartNode.getIncomingConnections(EConnectionType.ON_SUBJOB_ERROR).size() != 0)
+                && !newTarget.checkIfCanBeStart() && isMainConn && !((Node) newTarget).isJoblet()) {
             return false;
         }
         if (newTarget.getJobletNode() != null) {
@@ -570,6 +572,9 @@ public class ConnectionManager {
         }
         if (!isJoblet) {
             INodeConnector connectorFromType = newTarget.getConnectorFromType(newlineStyle);
+            if(connectorFromType ==null ||!connectorFromType.isShow()){
+            	return false;
+            }
             int maxInput = connectorFromType.getMaxLinkInput();
             if (maxInput != -1 && (connectorFromType.getCurLinkNbInput() >= maxInput)) {
                 return false;
@@ -697,6 +702,9 @@ public class ConnectionManager {
         }
         if (!isJoblet) {
             INodeConnector connectorFromType = newTarget.getConnectorFromType(newlineStyle);
+            if(connectorFromType ==null ||!connectorFromType.isShow()){
+            	return false;
+            }
             int maxInput = connectorFromType.getMaxLinkInput();
             if (maxInput != -1 && (connectorFromType.getCurLinkNbInput() >= maxInput)) {
                 return false;

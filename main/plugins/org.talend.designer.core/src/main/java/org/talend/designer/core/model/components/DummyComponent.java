@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -169,7 +169,7 @@ public class DummyComponent extends AbstractComponent {
      * @see org.talend.core.model.components.IComponent#createReturns()
      */
     @Override
-    public List<? extends INodeReturn> createReturns() {
+    public List<? extends INodeReturn> createReturns(INode node) {
         return new ArrayList<NodeReturn>();
     }
 
@@ -238,11 +238,11 @@ public class DummyComponent extends AbstractComponent {
     /*
      * (non-Javadoc)
      * 
-     * @see org.talend.core.model.components.IComponent#getModulesNeeded()
+     * @see org.talend.core.model.components.IComponent#getModulesNeeded(INode node)
      */
     @Override
-    public List<ModuleNeeded> getModulesNeeded() {
-        return new ArrayList<ModuleNeeded>();
+    public List<ModuleNeeded> getModulesNeeded(INode node) {
+        return getModulesNeeded();
     }
 
     /*
@@ -562,6 +562,14 @@ public class DummyComponent extends AbstractComponent {
 
     public void setOriginalFamilyName(String originalFamilyName) {
         this.originalFamilyName = originalFamilyName;
+    }
+
+    /* (non-Javadoc)
+     * @see org.talend.core.model.components.IComponent#getModulesNeeded()
+     */
+    @Override
+    public List<ModuleNeeded> getModulesNeeded() {
+        return new ArrayList<ModuleNeeded>();
     }
 
 }

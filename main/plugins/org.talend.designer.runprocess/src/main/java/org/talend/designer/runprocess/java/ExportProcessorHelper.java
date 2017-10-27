@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -107,7 +107,7 @@ public class ExportProcessorHelper {
         return tempFolder;
     }
 
-    public String exportJob(Processor processor, int statisticsPort, int tracePort, String watchParam,
+    public String exportJob(Processor processor, int statisticsPort, int tracePort, String watchParam, String log4jLevel,
             final IProgressMonitor progressMonitor) throws ProcessorException {
         ProcessItem processItem = (ProcessItem) processor.getProperty().getItem();
         processName = processor.getProperty().getLabel();
@@ -145,7 +145,7 @@ public class ExportProcessorHelper {
         }
 
         export(progressMonitor, processItem, ERepositoryObjectType.getItemType(processItem), processor.getContext().getName(),
-                archiveFile.toString(), null, false, statisticsPort, tracePort, prop);
+                archiveFile.toString(), log4jLevel, false, statisticsPort, tracePort, prop);
 
         return archiveFile.toString();
     }

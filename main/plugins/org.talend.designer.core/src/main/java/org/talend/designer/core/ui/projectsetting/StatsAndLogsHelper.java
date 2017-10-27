@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -408,7 +408,7 @@ public class StatsAndLogsHelper extends Utils {
         param.setNumRow(52);
         param.setRepositoryValue("DB_VERSION"); //$NON-NLS-1$
         param.setRequired(true);
-        param.setShowIf("(ON_DATABASE_FLAG == 'true') and (DB_TYPE == 'POSTGRESQL' or DB_TYPE == 'OCLE' or DB_TYPE == 'OCLE_OCI' or DB_TYPE == 'ACCESS' or DB_TYPE == 'MYSQL') and (ON_STATCATCHER_FLAG == 'true' or ON_LOGCATCHER_FLAG == 'true' or ON_METERCATCHER_FLAG == 'true')"); //$NON-NLS-1$
+        param.setShowIf("(ON_DATABASE_FLAG == 'true') and (DB_TYPE == 'POSTGRESQL' or DB_TYPE == 'OCLE' or DB_TYPE == 'OCLE_OCI' or DB_TYPE == 'ACCESS' or DB_TYPE == 'MSSQL' or DB_TYPE == 'MYSQL') and (ON_STATCATCHER_FLAG == 'true' or ON_LOGCATCHER_FLAG == 'true' or ON_METERCATCHER_FLAG == 'true')"); //$NON-NLS-1$
         paramList.add(param);
 
         // jdbc url

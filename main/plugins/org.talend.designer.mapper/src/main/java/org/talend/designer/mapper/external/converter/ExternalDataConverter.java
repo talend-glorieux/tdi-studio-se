@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -36,6 +36,7 @@ import org.talend.designer.mapper.model.MapperModel;
 import org.talend.designer.mapper.model.table.AbstractDataMapTable;
 import org.talend.designer.mapper.model.table.InputTable;
 import org.talend.designer.mapper.model.table.OutputTable;
+import org.talend.designer.mapper.model.table.TMAP_MATCHING_MODE;
 import org.talend.designer.mapper.model.table.VarsTable;
 import org.talend.designer.mapper.model.tableentry.AbstractInOutTableEntry;
 import org.talend.designer.mapper.model.tableentry.FilterTableEntry;
@@ -197,6 +198,12 @@ public class ExternalDataConverter {
             for (IOConnection connection : inputConnections) {
                 InputTable inputTable = new InputTable(this.mapperManager, connection, connection.getName());
                 inputTable.initFromExternalData(null);
+                if (EConnectionType.FLOW_MAIN != connection.getConnectionType()) {
+                    inputTable.setMatchingMode(TMAP_MATCHING_MODE.ALL_ROWS);
+                }
+                if (connection.getTable() == null) {
+                    inputTable.setReadOnly(true);
+                }
                 inputDataMapTables.add(inputTable);
             }
         } else {
@@ -218,6 +225,9 @@ public class ExternalDataConverter {
                         inputTable.setActivateCondensedTool(false);
                         inputTable.setPersistent(false);// bug TDI-8027
                     }
+                    if (connection.getTable() == null) {
+                        inputTable.setReadOnly(true);
+                    }
                 }
             }
             for (IOConnection connection : remainingConnections) {
@@ -228,6 +238,11 @@ public class ExternalDataConverter {
                 if (EConnectionType.FLOW_MAIN == connection.getConnectionType()) {
                     inputTable.setActivateCondensedTool(false);
                     inputTable.setPersistent(false);// bug TDI-8027
+                } else {
+                    inputTable.setMatchingMode(TMAP_MATCHING_MODE.ALL_ROWS);
+                }
+                if (connection.getTable() == null) {
+                    inputTable.setReadOnly(true);
                 }
             }
         }
@@ -397,12 +412,18 @@ public class ExternalDataConverter {
         externalMapperTable.setPersistent(table.isPersistent());
         externalMapperTable.setActivateExpressionFilter(table.isActivateExpressionFilter());
         externalMapperTable.setActivateCondensedTool(table.isActivateCondensedTool());
+        externalMapperTable.setActivateColumnNameFilter(table.isActivateColumnNameFilter());
         externalMapperTable.setId(table.getId());
         String expressionFilter = null;
         if (table.getExpressionFilter() != null && table.getExpressionFilter().getExpression() != null) {
             expressionFilter = table.getExpressionFilter().getExpression();
         }
         externalMapperTable.setExpressionFilter(expressionFilter);
+        String columnNameFilter = null;
+        if (table.getColumnNameFilter() != null) {
+            columnNameFilter = table.getColumnNameFilter();
+        }
+        externalMapperTable.setColumnNameFilter(columnNameFilter);
         String matchingMode = null;
         if (table.getMatchingMode() != null) {
             matchingMode = table.getMatchingMode().toString();
@@ -453,9 +474,11 @@ public class ExternalDataConverter {
         externalMapperTable.setIsJoinTableOf(table.getIsJoinTableOf());
         externalMapperTable.setActivateExpressionFilter(table.isActivateExpressionFilter());
         externalMapperTable.setActivateCondensedTool(table.isActivateCondensedTool());
+        externalMapperTable.setActivateColumnNameFilter(table.isActivateColumnNameFilter());
         externalMapperTable.setExpressionFilter(table.getExpressionFilter() != null
                 && isFilterEqualsToDefault(table.getExpressionFilter().getExpression()) ? null : table.getExpressionFilter()
                 .getExpression());
+        externalMapperTable.setColumnNameFilter(table.getColumnNameFilter());
         externalMapperTable.setId(table.getId());
         if (mapperManager.isAdvancedMap()) {
             externalMapperTable.setConstraintTableEntries(null);

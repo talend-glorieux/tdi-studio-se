@@ -2,7 +2,7 @@ This jar is POI 3.8 with a fix regarding management of dates with T format (like
 
 Modified class: org/apache/poi/ss/usermodel/DateUtil.java
 
-(line 240)
+(line 415)
 for (int i = 0; i < fs.length(); i++) {
 	char c = fs.charAt(i);
     if (i < fs.length() - 1) {
@@ -33,7 +33,9 @@ for (int i = 0; i < fs.length(); i++) {
 Modified by jjzhou 2012-11-27 for https://jira.talendforge.org/browse/TDI-23783 :
 change poi-ooxml-3.8-20120326.jar file name to poi-ooxml-3.8-20121127_modified_talend.jar
 class: org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.java
-(line 270)
+(line 26)
++import org.apache.poi.ss.usermodel.DateUtil;
+(line 365)
 -   thisStr = formatter.formatRawCellContents(Double.parseDouble(n), this.formatIndex, this.formatString);
 +   if(!DateUtil.isADateFormat(formatIndex,formatString)) {
         java.text.DecimalFormat df = new java.text.DecimalFormat("#.####################################");
@@ -41,3 +43,6 @@ class: org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.java
     }else{
         thisStr = formatter.formatRawCellContents(Double.parseDouble(n), this.formatIndex, this.formatString);
     }
+    
+class: org.apache.poi.xssf.extractor.TestXSSFEventBasedExcelExtractor.class
+-    assertEquals(expectedOutput, fixture.getText().replace(",", "."));

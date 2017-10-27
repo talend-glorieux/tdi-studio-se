@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -337,27 +337,31 @@ public class MapperUI {
         // see bug 7471, record the precolumns value
         for (IConnection conn : inConnections) {
             conn.getMetadataTable();
-            List<IMetadataColumn> inputColumns = conn.getMetadataTable().getListColumns();
-            for (IMetadataColumn inputColumn : inputColumns) {
-                Set<String> columnSet = preColumnSet.get(conn);
-                if (columnSet == null) {
-                    columnSet = new HashSet<String>();
+            if (conn.getMetadataTable() != null) {
+                List<IMetadataColumn> inputColumns = conn.getMetadataTable().getListColumns();
+                for (IMetadataColumn inputColumn : inputColumns) {
+                    Set<String> columnSet = preColumnSet.get(conn);
+                    if (columnSet == null) {
+                        columnSet = new HashSet<String>();
+                        preColumnSet.put(conn, columnSet);
+                    }
+                    columnSet.add(inputColumn.getLabel());
                     preColumnSet.put(conn, columnSet);
                 }
-                columnSet.add(inputColumn.getLabel());
-                preColumnSet.put(conn, columnSet);
             }
         }
         for (IConnection conn : outConnections) {
-            List<IMetadataColumn> outputColumns = conn.getMetadataTable().getListColumns();
-            for (IMetadataColumn outputColumn : outputColumns) {
-                Set<String> columnSet = preColumnSet.get(conn);
-                if (columnSet == null) {
-                    columnSet = new HashSet<String>();
+            if (conn.getMetadataTable() != null) {
+                List<IMetadataColumn> outputColumns = conn.getMetadataTable().getListColumns();
+                for (IMetadataColumn outputColumn : outputColumns) {
+                    Set<String> columnSet = preColumnSet.get(conn);
+                    if (columnSet == null) {
+                        columnSet = new HashSet<String>();
+                        preColumnSet.put(conn, columnSet);
+                    }
+                    columnSet.add(outputColumn.getLabel());
                     preColumnSet.put(conn, columnSet);
                 }
-                columnSet.add(outputColumn.getLabel());
-                preColumnSet.put(conn, columnSet);
             }
         }
         final UIManager uiManager = mapperManager.getUiManager();

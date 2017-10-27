@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -32,6 +32,8 @@ import org.talend.core.model.update.UpdatesConstants;
 import org.talend.core.repository.model.ProxyRepositoryFactory;
 import org.talend.core.service.IMRProcessService;
 import org.talend.core.service.IStormProcessService;
+import org.talend.core.ui.ISparkJobletProviderService;
+import org.talend.core.ui.ISparkStreamingJobletProviderService;
 import org.talend.designer.core.model.utils.emf.talendfile.NodeType;
 import org.talend.designer.core.ui.editor.nodes.Node;
 import org.talend.repository.model.IProxyRepositoryFactory;
@@ -96,21 +98,54 @@ public class UpdateContentProvider implements ITreeContentProvider {
                             IProcess2 process = (IProcess2) job2;
                             org.talend.core.model.properties.Item processItem = process.getProperty().getItem();
                             job.setModelItem(processItem);
+                            boolean isMRProcess = false;
                             if (GlobalServiceRegister.getDefault().isServiceRegistered(IMRProcessService.class)) {
                                 IMRProcessService mrProcessService = (IMRProcessService) GlobalServiceRegister.getDefault()
                                         .getService(IMRProcessService.class);
-                                boolean isMR = mrProcessService.isMapReduceItem(processItem);
-                                job.setMR(isMR);
-                            } else if (GlobalServiceRegister.getDefault().isServiceRegistered(IStormProcessService.class)) {
+                                isMRProcess = mrProcessService.isMapReduceItem(processItem);
+                            } 
+                            boolean isStreamingProcess = false;
+                            if (GlobalServiceRegister.getDefault().isServiceRegistered(IStormProcessService.class)) {
                                 IStormProcessService streamingService = (IStormProcessService) GlobalServiceRegister.getDefault()
                                         .getService(IStormProcessService.class);
-                                job.setStreaming(streamingService.isStormItem(processItem));
-                            } else if (processItem instanceof ProcessItem) {
+                                isStreamingProcess = streamingService.isStormItem(processItem);
+                            } 
+                            if(isMRProcess){
+                                job.setMR(isMRProcess);
+                            }else if(isStreamingProcess){
+                                job.setStreaming(isStreamingProcess);
+                            }else if (processItem instanceof ProcessItem) {
                                 job.setJoblet(false);
                                 job.setMR(false);
                                 job.setStreaming(false);
+                                job.setSparkJoblet(false);
+                                job.setSparkStreamingJoblet(false);
                             } else if (processItem instanceof JobletProcessItem) {
-                                job.setJoblet(true);
+                                boolean isSpark = false;
+                                boolean isSparkStreaming = false;
+                                if (GlobalServiceRegister.getDefault().isServiceRegistered(ISparkJobletProviderService.class)) {
+                                    ISparkJobletProviderService sparkJobletService = (ISparkJobletProviderService) GlobalServiceRegister
+                                            .getDefault().getService(ISparkJobletProviderService.class);
+                                    if (sparkJobletService != null && sparkJobletService.isSparkJobletItem(processItem)) {
+                                        isSpark = true;
+                                    }
+                                }
+                                if (GlobalServiceRegister.getDefault().isServiceRegistered(ISparkStreamingJobletProviderService.class)) {
+                                    ISparkStreamingJobletProviderService sparkStreamingJobletService = (ISparkStreamingJobletProviderService) GlobalServiceRegister
+                                            .getDefault().getService(ISparkStreamingJobletProviderService.class);
+                                    if (sparkStreamingJobletService != null && sparkStreamingJobletService.isSparkStreamingJobletItem(processItem)) {
+                                        isSparkStreaming = true;
+                                    }
+                                }
+                                if(isSpark){
+                                    job.setSparkJoblet(true);
+                                    job.setJoblet(false);
+                                }else if(isSparkStreaming){
+                                    job.setSparkStreamingJoblet(true);
+                                    job.setJoblet(false);
+                                }else{
+                                    job.setJoblet(true);
+                                }
                             }
                         }
 
@@ -133,6 +168,8 @@ public class UpdateContentProvider implements ITreeContentProvider {
                         job.setJoblet(result.isJoblet());
                         job.setMR(result.isMR());
                         job.setStreaming(result.isStreaming());
+                        job.setSparkJoblet(result.isSparkJoblet());
+                        job.setSparkStreamingJoblet(result.isSparkStreamingJoblet());
                     }
                     jobs.add(job);
                 }

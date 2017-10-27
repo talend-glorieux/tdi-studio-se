@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -24,11 +24,14 @@ import org.eclipse.jface.preference.IPreferenceStore;
 import org.eclipse.jface.util.IPropertyChangeListener;
 import org.talend.core.model.components.IComponentsFactory;
 import org.talend.core.model.process.IGenericProvider;
+import org.talend.core.model.process.IProcess2;
+import org.talend.core.model.repository.ERepositoryObjectType;
 import org.talend.core.ui.process.IGEFProcess;
 import org.talend.core.ui.services.IDesignerCoreUIService;
 import org.talend.designer.core.model.process.AbstractProcessProvider;
 import org.talend.designer.core.model.process.GenericProcessProvider;
 import org.talend.designer.core.ui.editor.TalendEditorPaletteFactory;
+import org.talend.designer.core.ui.editor.cmd.MavenDeploymentValueChangeCommand;
 import org.talend.designer.core.ui.editor.palette.TalendPaletteDrawer;
 
 /**
@@ -137,5 +140,15 @@ public class DesignerCoreUIService implements IDesignerCoreUIService {
         }
         return false;
 
+    }
+
+    @Override
+    public Command createMavenDeploymentValueChangeCommand(Object object, String type, String value) {
+        return new MavenDeploymentValueChangeCommand(object, type, value);
+    }
+
+    @Override
+    public void loadComponentsFromProviders(ERepositoryObjectType type) {
+        AbstractProcessProvider.loadComponentsFromProviders(type);
     }
 }

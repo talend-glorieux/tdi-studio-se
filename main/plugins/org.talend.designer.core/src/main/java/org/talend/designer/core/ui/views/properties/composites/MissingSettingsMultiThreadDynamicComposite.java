@@ -1,6 +1,6 @@
 // ============================================================================
 //
-// Copyright (C) 2006-2016 Talend Inc. - www.talend.com
+// Copyright (C) 2006-2017 Talend Inc. - www.talend.com
 //
 // This source code is available under agreement available at
 // %InstallDIR%\features\org.talend.rcp.branding.%PRODUCTNAME%\%PRODUCTNAME%license.txt
@@ -19,6 +19,7 @@ import org.eclipse.core.runtime.IStatus;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Color;
 import org.eclipse.swt.widgets.Composite;
 import org.talend.commons.ui.swt.composites.MessagesComposite;
 import org.talend.commons.ui.swt.composites.MessagesWithActionComposite;
@@ -47,6 +48,12 @@ public class MissingSettingsMultiThreadDynamicComposite extends TopMessagesMulti
     public MissingSettingsMultiThreadDynamicComposite(Composite parentComposite, int styles, EComponentCategory section,
             Element element, boolean isCompactView) {
         super(parentComposite, styles, section, element, isCompactView);
+        ModulesNeededProvider.addChangedLibrariesListener(this);
+    }
+
+    public MissingSettingsMultiThreadDynamicComposite(Composite parentComposite, int styles, EComponentCategory section,
+            Element element, boolean isCompactView, Color backgroundColor) {
+        super(parentComposite, styles, section, element, isCompactView, backgroundColor);
         ModulesNeededProvider.addChangedLibrariesListener(this);
     }
 
@@ -82,6 +89,7 @@ public class MissingSettingsMultiThreadDynamicComposite extends TopMessagesMulti
             List<ModuleNeeded> updatedModules = LibrariesManagerUtils.getNotInstalledModules(((Node) ele));
 
             missModulesNeeded.addAll(updatedModules);
+            ((Node) ele).checkAndRefreshNode();
         }
         setVisibleTopMessage(!missModulesNeeded.isEmpty());
     }

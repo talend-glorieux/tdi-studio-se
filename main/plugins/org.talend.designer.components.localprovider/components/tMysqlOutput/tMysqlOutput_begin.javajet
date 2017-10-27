@@ -179,30 +179,6 @@ if(useExistingConnection) {
 	}
 %>
 	conn_<%=cid%> = (java.sql.Connection)globalMap.get("<%=conn%>");
-<%
-	INode connectionNode = null;
-	for (INode processNode : node.getProcess().getGeneratingNodes()) {
-		String nodeUniqueName = processNode.getUniqueName();
-		if(connection.equals(nodeUniqueName) || (connection+"_in").equals(nodeUniqueName)) {
-			connectionNode = processNode;
-			break;
-		}
-	}
-	boolean specify_alias = "true".equals(ElementParameterParser.getValue(connectionNode, "__SPECIFY_DATASOURCE_ALIAS__"));
-	if(specify_alias){
-		String alias = ElementParameterParser.getValue(connectionNode, "__DATASOURCE_ALIAS__");
-		String autoCommit = "true".equals(ElementParameterParser.getValue(connectionNode, "__AUTO_COMMIT__"))?"true":"false";
-%>
-		if (null == conn_<%=cid%>) {
-			java.util.Map<String, routines.system.TalendDataSource> dataSources_<%=cid%> = (java.util.Map<String, routines.system.TalendDataSource>) globalMap.get(KEY_DB_DATASOURCES);
-			conn_<%=cid%> = dataSources_<%=cid%>.get(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>).getConnection();
-			if (conn_<%=cid%> != null) {
-				conn_<%=cid%>.setAutoCommit(<%=autoCommit%>);
-			}
-		}
-	<%
-	}
-	%>
 	<%dbLog.conn().useExistConn("conn_"+cid+".getMetaData().getURL()", "conn_"+cid+".getMetaData().getUserName()");%>
 <%
 } else {
@@ -214,7 +190,11 @@ if(useExistingConnection) {
 %>
 		java.util.Map<String, routines.system.TalendDataSource> dataSources_<%=cid%> = (java.util.Map<String, routines.system.TalendDataSource>) globalMap.get(KEY_DB_DATASOURCES);
 		if (null != dataSources_<%=cid%>) {
-			conn_<%=cid %> = dataSources_<%=cid%>.get(<%=(null != alias && !("".equals(alias)))?alias:"\"\""%>).getConnection();
+			String dsAlias_<%=cid%> = <%=(null != alias && !("".equals(alias)))?alias:"\"\""%>;
+    		if (dataSources_<%=cid%>.get(dsAlias_<%=cid%>) == null) {
+       			throw new RuntimeException("No DataSource with alias: " + dsAlias_<%=cid%> + " available!");
+          	}
+    		conn_<%=cid%> = dataSources_<%=cid%>.get(dsAlias_<%=cid%>).getConnection();
 		} else {
 <%
 	}
